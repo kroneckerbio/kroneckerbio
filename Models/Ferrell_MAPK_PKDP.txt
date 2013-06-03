@@ -1,0 +1,50 @@
+## MAPK-PKDP ##
+# The processive kinase and distributed phosphotase version of the MAP
+# kinase model
+
+% Compartments MAPK-PKDP
+# There is no volume in this model, using 1 for volume
+v	3	1
+
+% Seeds
+S 2
+P 1
+
+% Inputs v
+E   1
+
+% States v
+S	S
+E:S	0
+M	0
+E:M	0
+D	0
+P	P
+P:D	0
+P:M	0
+
+% Outputs
+S	S
+M	M
+D	D
+
+% Parameters
+k1on	0.02
+k1off	1
+k1cat	0.01
+k2cat	15
+k3on	0.045
+k3off	1
+k3cat	0.092
+k4on	0.01
+k4off	1
+k4cat	0.5
+
+% Reactions
+E   S   E:S 0   k1on    k1off   E_+_S_<->_ES
+E:S 0   E:M 0   k1cat   0       ES_->_EM
+E:M 0   E   D   k2cat   0       EM_->_E_+_D
+P   D   P:D 0   k3on    k3off   P_+_D_<->_PD
+P:D 0   P   M	k3cat   0       PD_->_P_+_M
+P   M   P:M 0   k4on    k4off   M_+_P_<->_PM
+P:M 0   P   S   k4cat   0       PM_->_P_+_S

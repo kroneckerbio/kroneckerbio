@@ -1,0 +1,166 @@
+# Example model for testing import code
+
+# Note that blank lines and lines beginning with "#" are ignored
+
+# A Kronecker model is divided into six sections:
+# Units, Compartments, Species, Outputs, Parameters, and Reactions
+
+# Units is not yet implemented in Kronecker so don't worry about. Talk to
+# David about how to volunteer to write the code for this section if you
+# need it.
+
+# For the rest of the sections, it does not matter what order they are in. 
+# In fact, you are allowed to have multiple sections by the same name. Each
+# section is started by a line starting with a "%". The next word tells
+# what kind of section you are starting (Compartments, etc). The section
+# identifier is not case sensitive (compartments or cOmParTmEnts works 
+# fine too). For some section headers, more words can follow the identifier
+# that provide important parameters for that section.
+
+# As a general rule, fields are seperated by arbitrary amounts of
+# whitespace. Commas group multiple words into a single field.
+
+# The next line declares that I am going to define the compartments for my
+# system. The whitespace between "%" and "Compartments" is optional. The
+# next word following Compartments provides the name of the model. It is 
+# like saying that the compartments are members of this model.
+% Compartments Testing
+
+# Lines of the compartment section follow this format:
+#Name  Dim  Volume
+v1     3    1e-6
+
+# As it stands right now, you can have anything in the Name of a
+# compartment except a ".". You should avoid starting the name with a 
+# "%", a "#", or other operator for reasons that should be obvious. The
+# Dimension of a comparment is whether the compartment is a point, a line,
+# an area, or a space. The volume is the size of the compartment. There are
+# two ways for the compartment's volume to be defined: (1) it can have a
+# constant volume, and (2) it can be altered by the changes in the amounts
+# of various species. The constant volume method is shown above.
+
+# This compartment's volume is defined any species that contains an "x" in
+# its name. Note that this species does not have to exist yet. In fact,
+# "x" can be any regular expression. The volume of the compartment will be
+# equal to the sum of all species whose full names contain that substring
+# times the number on the right hand side of the equal sign.
+v2      2    x=1e-9
+
+# If you leave off the equal sign, the default value is 1; so these two
+# lines are equivalent. (Remember, two things with the same name overwrite
+# each other.)
+v3      2    x1
+v3      2    x1=1
+
+# Multiple regular expression can defined at once. Seperate them by commas
+# so that they will be combined. Note the optional whitespace around the
+# commas.
+v4      1    1, x=1e-4,x3=2e-4
+
+# The Species header (starting with a "%") declares that we are no longer 
+# defining compartments, but species now. The important word is "Species"
+# here, not case sensitive. The word following Species defines the default
+# comparment. Every species must be placed in a compartment. If the
+# compartment is not defined for a species, it will be placed in the 
+# default compartment. This makes it really easy to add species to 
+# multiple compartments, since you can make a list of species, copy it, and
+# simply change the default compartment on the header.
+% Species v1
+
+# The format is:
+#Name  Value  IsInput InputParameters
+v1.x1  1e4   false
+
+# The full name of species is compartment.species. Here, the species is 
+# being place in comparment v1. Compartment v1 does not need to be defined
+# yet, but it will have to be defined somewhere before you finalize the 
+# model. Because v1 is the default compartment, I could have easily written
+# this, and it would be the same:
+x1  1e4   false
+
+# The value is the initial amount of the species, not the concentration.
+# Concentration will be supported along with units. The default IsInput 
+# is false, so I could leave it off
+x1 1e4
+
+# The default amount is 0, so a species can be defined with just a name.
+x2 0
+x2
+
+# IsInput can be true/1 or false/0. Putting true here defines that this 
+# species value is not controled by ODEs, but is known for all time.
+x3   1e4   true
+x3   1e4   1
+
+# The input control parameters (mathematically known as q) provide a means
+# of controling the value of an input species. Below shows an example of
+# this. q(1) and q(2) refer to 2 and 1e4 here, but those numbers could be 
+# changed after the model has already been built.
+x4 q(1)*q(2) true 2,1e4
+
+# An input can also be a function of time t.
+x5 t^2+q(1)*q(2) true 2,1e4
+
+# Concentration for species in other compartments can also be defined here
+v2.x6 
+v3.x7 1
+
+# Output headers do not take any additional parameters
+% Outputs
+
+# Format:
+#Name Value
+y1    x=1
+
+# These are defined exactly like the compartment except that there is no
+# dimension to outputs. Value is a set of regular expressions combined with
+# equal signs and numbers, seperated by commas. The default number is 1, so
+# the following is identical to the previous line.
+y1 x
+
+# Remember that the regular expressions match the full name of the species,
+# so including compartment names can match a subset of the species in a 
+# compartment. Do forget that "." means any character in a regular 
+# expression; use "\." to match the period after a compartment.
+y2 v1\.=1
+
+# Multiple expressions can contribute to the same output. If a species is
+# matched multiple times, the last expression prevails.
+y3 v2\.x4,x5
+
+# Values do not have to be integers
+y4 x3=1.2
+
+# The Parameters section is the simplest section. There are no additional
+# parameters in the header.
+% Parameters
+#Name Value
+k1    1
+k2 1.3e-4
+
+# The Reactions section takes a set of compartments that these reactions
+# take place in. If there is no compartment after "Reactions", it is
+# assumed that the reactions occur in any compartment that has the
+# necessary reactants. These compartments only apply to reactants and 
+# products of the reaction that do not have the compartment specified.
+% Reactions v1
+#Reac1 Reac2 Prod1 Prod2 ParaFwd ParaRev Name
+x1     x2    x3    x4    k1      k2      r1,r2
+
+# Up to two names can be given for a reaction here, if two are given, the 
+# first applies to the forward and the second applies to the reverse.
+# Unlike other components of a Kronecker model, reactions do not have to 
+# have unique names, or even names at all. They exist only for ease of use
+# and modifying the model after it has been constructed.
+
+# Unimolecular reactions can be defined by putting a 0 in the non-existant
+# reactions or products
+x1     0      x2   0     k2       k1
+
+# It is non necessary to provide both a reverse and forward parameter. 
+# Irreversible reactions are defined like this.
+x3    x5     0     0     0         k1    r34
+
+# Species of a specific compartment can be defined. The various compartments
+# will be tried on the other species.
+x3 v3.x7 x2 x2 k1 k1 r5,r6
