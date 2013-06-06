@@ -89,16 +89,19 @@ function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPrior
 
 % Clean up inputs
 assert(nargin >= 3, 'KroneckerBio:TopologyProbability:TooFewInputs', 'TopologyProbability requires at least 3 input arguments')
-if nargin < 8
+if nargin < 9
     F = [];
-    if nargin < 7
-        opts = [];
-        if nargin < 6
-            objPriorControls = [];
-            if nargin < 5
-                objPriorSeeds = [];
-                if nargin < 4
-                    objPrior = [];
+    if nargin < 8
+        log_pyTm = [];
+        if nargin < 7
+            opts = [];
+            if nargin < 6
+                objPriorControls = [];
+                if nargin < 5
+                    objPriorSeeds = [];
+                    if nargin < 4
+                        objPriorParams = [];
+                    end
                 end
             end
         end
