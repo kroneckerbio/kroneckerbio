@@ -1,4 +1,4 @@
-function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPriorSeeds, objPriorControls, opts, F)
+function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPriorSeeds, objPriorControls, opts, log_pyTm, F)
 % TopologyProbability Compute the relative probability that each member of
 %   a set of topologies is true according to a set of
 %   information-theory-based objective functions
@@ -32,8 +32,7 @@ function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPrior
 %       The priors of the input control parameters. Must be a vector if
 %       UseModelInputs is false; otherwise, must be a scalar. Optional and
 %       can be empty if UseControls specifies no controls.
-%   opts: [ options struct scalar ]
-%       Optional
+%   opts: [ options struct scalar | {[]}]
 %       .PriorTopology [ nonnegative vector nTop ]
 %           The discrete prior on the topologies
 %       .TopologyMethod [ {'linear'} | 'harmonic' ]
@@ -76,8 +75,10 @@ function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPrior
 %           parameters in the topology evaluation
 %       All other options available for FitObjective to fit the model to
 %       the data before processing
+%   log_pyTm: [ vector nTop | {[]} ]
+%       The log likelihood of each topology. This should be supplied only
+%       if these values were calculated beforehand.
 %   F: [ cell vector nTop of matrix nT by nT | {[]}]
-%       Optional
 %       The Fisher information matrices at the linearization point. This
 %       should be supplied only if these matrices were calculated
 %       beforehand.
@@ -287,10 +288,20 @@ end
 %% Choose topology method
 if strcmpi(opts.TopologyMethod, 'Linear')
     %% Information
+    % Compute the log likelihood if nor provided
+    if isempty(log_pyTm)
+        log_pyTm = zeros(nTop,1);
+        for iTop = 1:nTop
+            if verbose; fprintf(['Computing likelihood of ' m(iTop).Name '...\n']); end
+            log_pyTm(iTop) = ObjectiveLogLikelihood(m(iTop), con, [obj; objPrior(:,:,iTop)], optsTop(iTop));
+        end
+    end
+    
     % Compute the information if not provided
     if isempty(F)
         F = cell(nTop,1);
         for iTop = 1:nTop
+            if verbose; fprintf(['Computing information of ' m(iTop).Name '...\n']); end
             F{iTop} = ObjectiveInformation(m(iTop), con, [obj; objPrior(:,:,iTop)], optsTop(iTop));
         end
     end
@@ -311,12 +322,8 @@ if strcmpi(opts.TopologyMethod, 'Linear')
     % represented by float64.
     log_pym = zeros(nTop,1); % In log space
     for iTop = 1:nTop
-        if verbose; fprintf(['Computing probability of ' m(iTop).Name '...\n']); end
-        % Likelihood
-        pyTm = ObjectiveLogLikelihood(m(iTop), con, [obj; objPrior(:,:,iTop)], optsTop(iTop));
-        
         % Equation for linearization about maximum a posteriori
-        log_pym(iTop) = pyTm + nT(iTop)/2 * log(2*pi) + -1/2 * sum(log(lambda{iTop}));
+        log_pym(iTop) = log_pyTm(iTop) + nT(iTop)/2 * log(2*pi) + -1/2 * sum(log(lambda{iTop}));
     end
     
     %% Compute p_m|y for the set
