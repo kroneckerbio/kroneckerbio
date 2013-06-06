@@ -139,7 +139,7 @@ parfor iCon = 1:nCon
         Di(nTk+1:nTk+nTs) = Di(nTk+1:nTk+nTs) + contD(nTk+1:nTk+inTs) + discD(nTk+1:nTk+inTs);
     else
         % s parameters are different
-        Tsind = nTk + sum(sum(opts.UseSeeds(:,1:nCon-1)));
+        Tsind = nTk + sum(sum(opts.UseSeeds(:,1:iCon-1)));
         Di(Tsind+1:Tsind+inTs) = contD(nTk+1:nTk+inTs) + discD(nTk+1:nTk+inTs);
     end
     
@@ -147,7 +147,7 @@ parfor iCon = 1:nCon
         Di(nTk+nTs+1:end) = Di(nTk+nTs+1:end) + contD(nTk+inTs+1:end) + discD(nTk+inTs+1:end);
     else
         % q parameters are different
-        Tqind = nTk + nTs + sum(cellfun(@sum, opts.UseControls(1:nCon-1)));
+        Tqind = nTk + nTs + sum(cellfun(@sum, opts.UseControls(1:iCon-1)));
         Di(Tqind+1:Tqind+inTq) = contD(nTk+inTs+1:end) + discD(nTk+inTs+1:end);
     end
     
