@@ -143,15 +143,16 @@ opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, nCon, false, opts.U
 
 %% Loop through conditions
 F = zeros(nT,nT);
-Tsind = nTk; % Stores the position in F where the first x0 parameter goes for each iCon
-Tqind = nTk+nTs; % Stores the position in F where the first q parameter goes for each iCon
 
 % Initialize All array if requested
 if nargout >= 2
+    provide_all = true;
     All = cell(nObj,nCon);
+else
+    provide_all = false;
 end
 
-for iCon = 1:nCon
+parfor iCon = 1:nCon
 
     intOpts = opts;
     
@@ -201,42 +202,62 @@ for iCon = 1:nCon
     sol.UseControls = UseControls_i;
     
     % Sum all FIMs as computed by each objective function
+    Fi = zeros(inT,inT);
+    Allout = cell(nObj,1);
     if opts.Normalized
         % Loop through each objective function in the current row
         for iObj = 1:nObj
-            Fi = obj(iObj,iCon).Fn(sol);
-            
-            % Add to correct place in F
-            linInd = [1:nTk, Tsind+1:Tsind+inTs, Tqind+1:Tqind+inTq]; % linear indexes of parameters
-            F(linInd,linInd) = F(linInd,linInd) + Fi;
+            Fij = obj(iObj,iCon).Fn(sol);
+            Fi = Fi + Fij;
             
             % Store FIM if requested
-            if nargout >= 2
-                All{iObj,iCon} = Fi;
+            if provide_all
+                Allout{iObj} = Fij;
             end
         end
     else%~opts.Normalized
         % Loop through each objective function in the current row
         for iObj = 1:nObj
-            Fi = obj(iObj,iCon).F(sol);
-            
-            % Add to correct place in F
-            linInd = [1:nTk, Tsind+1:Tsind+inTs, Tqind+1:Tqind+inTq]; % linear indexes of parameters
-            F(linInd,linInd) = F(linInd,linInd) + Fi;
+            Fij = obj(iObj,iCon).F(sol);
+            Fi = Fi + Fij;
             
             % Store FIM if requested
-            if nargout >= 2
-                All{iObj,iCon} = Fi;
+            if provide_all
+                Allout{iObj} = Fij;
             end
         end
     end
     
-    % Update condition s position
-    if ~opts.UseModelSeeds
-        Tsind = Tsind + inTs;
+    if provide_all
+        All(:,iCon) = Allout;
     end
-    % Update condition q position
-    if ~opts.UseModelInputs
-        Tqind = Tqind + inTq;
+    
+    % Determine where this experiment's parameters go among all experiments
+    linInd = zeros(inT,1);
+    
+    % Rate parameters are always the same
+    linInd(1:nTk) = 1:nTk;
+    
+    % Seed parameters might be different
+    if opts.UseModelSeeds
+        linInd(nTk+1:nTk+inTs) = nTk+1:nTk+nTs;
+    else
+        Tsind = nnz(opts.UseSeeds(:,1:iCon-1));
+        linInd(nTk+1:nTk+inTs) = nTk+Tsind+1:nTk+Tsind+inTs;
     end
+    
+    % Control parameters might be different
+    if opts.UseModelInputs
+        linInd(nTk1+inTs+1:nTk+inTs+inTq) = nTk+nTs+1:nTk+nTs+nTq;
+    else
+        Tqind = nnz(cat(1,opts.UseControls{1:iCon-1}));
+        linInd(nTk+inTs+1:nTk+inTs+inTq) = nTk+nTs+Tqind+1:nTk+nTs+Tqind+inTq;
+    end
+    
+    % Reshape Fi
+    Fout = zeros(nT,nT);
+    Fout(linInd,linInd) = Fi;
+    
+    % Add this information to the total
+    F = F + Fout;
 end
