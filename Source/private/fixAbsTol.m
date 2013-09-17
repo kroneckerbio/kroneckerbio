@@ -71,11 +71,19 @@ switch order
                 if ~integrateObj(i)
                     % System
                     assert(isfield(temp, 'System'), 'KroneckerBio:AbsTol:MissingStructField', 'AbsTol is a struct but experiment %i requires a "System" field, which does not exist on the struct', i)
-                    absTol{i} = temp(i).System;
+                    if isscalar(temp)
+                        absTol{i} = temp.System;
+                    else
+                        absTol{i} = temp(i).System;
+                    end
                 else
                     % ObjectiveContinuous
                     assert(isfield(temp, 'Objective'), 'KroneckerBio:AbsTol:MissingStructField', 'AbsTol is a struct but experiment %i requires a "Objective" field, which does not exist on the struct', i)
-                    absTol{i} = temp(i).Objective;
+                    if isscalar(temp)
+                        absTol{i} = temp.Objective;
+                    else
+                        absTol{i} = temp(i).Objective;
+                    end
                 end
             end
         end
@@ -126,11 +134,19 @@ switch order
                     if ~integrateObj(i)
                         % Sensitivity
                         assert(isfield(temp, 'Sensitivity'), 'KroneckerBio:AbsTol:MissingStructField', 'AbsTol is a struct but experiment %i requires a "Sensitivity" field, which does not exist on the struct', i)
-                        absTol{i} = temp(i).Sensitivity;
+                        if isscalar(temp)
+                            absTol{i} = temp.Sensitivity;
+                        else
+                            absTol{i} = temp(i).Sensitivity;
+                        end
                     else
                         % GradientContinuous
                         assert(isfield(temp, 'Gradient'), 'KroneckerBio:AbsTol:MissingStructField', 'AbsTol is a struct but experiment %i requires a "Gradient" field, which does not exist on the struct', i)
-                        absTol{i} = temp(i).Gradient;
+                        if isscalar(temp)
+                            absTol{i} = temp.Gradient;
+                        else
+                            absTol{i} = temp(i).Gradient;
+                        end
                     end
                 else %useAdjoint
                     % Adjoint
