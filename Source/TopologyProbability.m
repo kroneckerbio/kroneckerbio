@@ -205,12 +205,10 @@ end
 nT = nTk + nTs + nTq;
 
 %% Priors
-filler = Gzero([1, nCon-1, nTop]);
-
 if nTk > 0
-    assert(numel(objPriorParams) == nTop, ...
+    assert(size(objPriorParams,3) == nTop, ...
         'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorParams" must be a vector of length numel(m)')
-    objPriorParams = [reshape(objPriorParams, [1,1,nTop]), filler];
+    objPriorParams = [objPriorParams, Gzero([size(objPriorParams,1), nCon-size(objPriorParams,2), nTop])];
 else
     objPriorParams = Gzero([0,nCon,nTop]);
 end
@@ -218,7 +216,7 @@ end
 if nTs > 0
     assert(numel(objPriorSeeds) == nTop, ...
         'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorSeeds" must be a vector of length numel(m)')
-    objPriorSeeds = [reshape(objPriorSeeds, [1,1,nTop]), filler];
+    objPriorSeeds = [objPriorSeeds, Gzero([size(objPriorSeeds,1), nCon-size(objPriorSeeds,2), nTop])];
 else
     objPriorSeeds = Gzero([0,nCon,nTop]);
 end
@@ -226,7 +224,7 @@ end
 if nTq > 0
     assert(numel(objPriorControls) == nTop, ...
         'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorControls" must be a vector of length numel(m)')
-    objPriorControls = [reshape(objPriorControls, [1,1,nTop]), filler];
+    objPriorControls = [objPriorControls, Gzero([size(objPriorControls,1), nCon-size(objPriorControls,2), nTop])];
 else
     objPriorControls = Gzero([0,nCon,nTop]);
 end
