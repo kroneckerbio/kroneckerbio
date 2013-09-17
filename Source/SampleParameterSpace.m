@@ -166,8 +166,8 @@ defaultOpts.ObjWeights     = ones(size(obj));
 defaultOpts.Normalized     = true;
 defaultOpts.UseAdjoint     = false;
 
-defaultOpts.LowerBound     = zeros(m.nk+m.nx, 1);
-defaultOpts.UpperBound     = inf(m.nk+m.nx, 1);
+defaultOpts.LowerBound     = 0;
+defaultOpts.UpperBound     = inf;
 
 defaultOpts.MaxSampleStep   = 1;     % Uncertainty vectors with 95% CI stetching more than this fold change are truncated
 defaultOpts.AdaptMaxSampleStep = true; % Change the max sample step based on the acceptance ratio

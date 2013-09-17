@@ -152,8 +152,8 @@ defaultOpts.ObjWeights     = ones(size(obj));
 defaultOpts.Normalized     = true;
 defaultOpts.UseAdjoint     = true;
 
-defaultOpts.LowerBound     = zeros(m.nk+m.ns, 1);
-defaultOpts.UpperBound     = inf(m.nk+m.ns, 1);
+defaultOpts.LowerBound     = 0;
+defaultOpts.UpperBound     = inf;
 defaultOpts.Aeq            = [];
 defaultOpts.beq            = [];
 defaultOpts.TolOptim       = 1e-5;
