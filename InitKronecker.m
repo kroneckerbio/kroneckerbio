@@ -19,6 +19,10 @@ if ~isoctave
     if year <= 2006
         addpath([kroneckerPath '/Compatibility/2006'])
     end
+    
+    if year <= 2010
+        addpath([kroneckerPath '/Compatibility/2010'])
+    end
 else%isoctave
 end
 
