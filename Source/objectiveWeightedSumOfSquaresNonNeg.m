@@ -133,12 +133,12 @@ obj = pastestruct(Gzero, obj);
         
         % Chi2 is non-floored version
         % Compute weighted square error for each data point
-        e = ybar(~floored) - measurements(~floored);
-        squareerror = 2 * log(sigma(~floored)) + (e./sigma(~floored)).^2;
+        e = ybar(~floored,1) - measurements(~floored,1);
+        squareerror = 2 * log(sigma(~floored,1)) + (e./sigma(~floored,1)).^2;
         
         % Area is floored version
         % Integrate Gaussian from -inf to 0 for each data point
-        area = -2 .* log(erfc(ybar(floored) ./ (sqrt(2) * sigma(floored))));
+        area = -2 .* log(erfc(ybar(floored,1) ./ (sqrt(2) * sigma(floored,1))));
         
         % Goal function
         val = sum(squareerror) + sum(area);
@@ -186,18 +186,18 @@ obj = pastestruct(Gzero, obj);
             end
             
             % Non-floored data
-            enotfloored = ybart(~flooredt) - measurementst(~flooredt);
+            enotfloored = ybart(~flooredt,1) - measurementst(~flooredt,1);
             C1notfloored = C1t(~flooredt,:);
-            sigmanotfloored = sigmat(~flooredt);
-            dsigmadynotfloored = dsigmadyt(~flooredt);
+            sigmanotfloored = sigmat(~flooredt,1);
+            dsigmadynotfloored = dsigmadyt(~flooredt,1);
             dsigmadxfloored = bsxfun(@times, dsigmadynotfloored, C1notfloored);
             dchi2dx = vec(2 * sum(bsxfun(@times, sigmanotfloored.^-1, dsigmadxfloored),1) + 2 * sum(bsxfun(@times, enotfloored .* sigmanotfloored.^-2, C1notfloored),1) + -2 * sum(bsxfun(@times, enotfloored.^2 .* sigmanotfloored.^-3, dsigmadxfloored),1));
             
             % Floored data
-            yfloored = ybart(flooredt);
+            yfloored = ybart(flooredt,1);
             C1floored = C1t(flooredt,:);
-            sigmafloored = sigmat(flooredt);
-            dsigmadyfloored = dsigmadyt(flooredt);
+            sigmafloored = sigmat(flooredt,1);
+            dsigmadyfloored = dsigmadyt(flooredt,1);
             dsigmadxfloored = bsxfun(@times, dsigmadyfloored, C1floored);
             
             % The portion that is not a function of x
