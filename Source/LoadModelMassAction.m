@@ -216,14 +216,14 @@ for iFile = 1:nFiles
                 
                 % Process parameters
                 parameters = zeros(0,1);
-                if numel(tokens) > 2+nVal
+                if numel(tokens) > 1+nVal
                     % There are parameters
                     for i = 2+nVal:numel(tokens)
                         assert(~strcmp(tokens{i}, ','), 'KroneckerBio:LoadModelMassAction:UnexpectedToken', 'Line %i in %s has an unexpected comma: %s', lineNumber, files{iFile}, line)
                         % Stop if this is the last token or the next token is
                         % not a comma
                         if i == numel(tokens) || strcmp(tokens{i}, ',')
-                            parameters = tokens(3+nVal:i);
+                            parameters = tokens(2+nVal:i);
                             break
                         else
                             % Remove the comma and continue extraction
