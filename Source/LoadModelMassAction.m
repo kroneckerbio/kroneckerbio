@@ -192,28 +192,6 @@ for iFile = 1:nFiles
                     end
                 end
                 
-                % Process values
-                % Parse input by getting each input string ready for
-                % parsing
-                for i = 1:numel(func)
-                    expression = func{i};
-                    
-                    if ~isempty(regexp(expression, '^[+]?([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?$', 'match', 'once'))
-                        % Expression is a constant
-                        func = str2double(expression);
-                        break
-                    else
-                        % Expression is something more complicated
-                        if expression(1) == '@'
-                            % It is already a function handle
-                            func{i} = expression;
-                        else
-                            % It needs to be made into a function handle
-                            func{i} = ['@(t,q)' expression];
-                        end
-                    end
-                end
-                
                 % Process parameters
                 parameters = zeros(0,1);
                 if numel(tokens) > 1+nVal

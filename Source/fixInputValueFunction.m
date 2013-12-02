@@ -13,7 +13,11 @@ end
 if iscell(func); func = func{1}; end
 
 if isnumeric(func) && isscalar(func) && func >= 0
+    % Function is a numeric scalar
     func = eval(sprintf('@(t,q)repmat(%g, 1,numel(t))', func));
+elseif ~isempty(regexp(func, '^[+]?([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?$', 'match', 'once'))
+    % Expression is a string representation of a scalar
+    func = eval(['@(t,q)repmat(' func ', 1,numel(t))']);
 elseif isa(func, 'function_handle')
     func = func;
 elseif ischar(func)
@@ -22,7 +26,7 @@ elseif ischar(func)
         func = eval(func);
     else
         % Needs the handle
-        func = ['@(t,q)' func];
+        func = ['@(t,q)' func '+row(t).*0'];
         func = eval(func);
     end
 else
