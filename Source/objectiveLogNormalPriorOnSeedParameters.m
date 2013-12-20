@@ -146,7 +146,7 @@ obj = pastestruct(Gzero, obj);
         VTbars = Vsbar(sol.UseSeeds,sol.UseSeeds);
 
         % This objective only provides information on the first nTs parameters
-        T = [sol.k(sol.UseSeeds); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
+        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
         nT = numel(T);
         val = zeros(nT,nT);
         
@@ -164,7 +164,7 @@ obj = pastestruct(Gzero, obj);
         VlogTbars = spdiags(Tbars.^(-1),0,nTs,nTs) * VTbars * spdiags(Tbars.^(-1),0,nTs,nTs);
 
         % This objective only provides information on the first nTs parameters
-        T = [sol.k(sol.UseSeeds); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
+        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
         nT = numel(T);
         val = zeros(nT,nT);
         
