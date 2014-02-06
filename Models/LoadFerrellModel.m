@@ -46,7 +46,7 @@ con = Experiment(m(1), tF);
 outputlist = vec(repmat(outputs', [numel(lintimes),1]));
 timelist = repmat(lintimes, [numel(outputs),1]);
 
-obj = objectiveWeightedSumOfSquaresNonNeg(m(1), outputlist, timelist, sd, [], 'Fitting Data');
+obj = objectiveWeightedSumOfSquaresNonNeg(outputlist, timelist, sd, [], 'Fitting Data');
 
 % Create fake data
 sim = SimulateSelect(m(1), con, lintimes, opts);

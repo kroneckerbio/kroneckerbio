@@ -162,12 +162,12 @@ sol.q = q;
             val = m.d2fdk2(t,x,u);
             
             d2fdq2 = m.d2fdu2(t,x,u) * dudq(t); % fu_u * u_q -> fu_q
-            d2fdq2 = d2fdq2(:,opts.UseControls{1}); % fu_q -> fu_q(T)
+            d2fdq2 = d2fdq2(:,opts.UseControls); % fu_q -> fu_q(T)
             d2fdq2 = spermute132(d2fdq2, [nx,nu,nTq], [nx*nTq,nu]); % (fu_q -> fq_u) * u_q -> fq_q
-            d2fdq2 = d2fdq2(:,opts.UseControls{1}); % fq_q -> fq_q(T)
+            d2fdq2 = d2fdq2(:,opts.UseControls); % fq_q -> fq_q(T)
             
             d2fdkdq = m.d2fdudk(t,x,u) * dudq(t); % fk_u * u_q -> fk_q
-            d2fdkdq = d2fdkdq(:,opts.UseControls{1}); % fk_q -> fk_q(T)
+            d2fdkdq = d2fdkdq(:,opts.UseControls); % fk_q -> fk_q(T)
             d2fdkdq = spermute132(d2fdkdq, [nx,nk,nTq], [nx*nTq,nk]); % fk_q -> fq_k
             d2fdkdq = d2fdkdq(:,opts.UseParams); % fq_k -> fq_k(T)
             

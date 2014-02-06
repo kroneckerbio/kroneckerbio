@@ -755,6 +755,8 @@ if verbose; fprintf('done.\n'); end
 %% Replace rate constants with their values
 if verbose; fprintf('Evaluating handles...'); end
 
+m = InitializeModel();
+
 m.Type = 'Model.AnalyticReactions';
 m.Name = name;
 
@@ -777,6 +779,7 @@ m.ny = ny;
 
 m.dv = dv;
 m.k  = k;
+m.s  = s;
 m.dx0ds = dx0ds;
 m.x0c = x0c;
 
@@ -857,13 +860,13 @@ if verbose; fprintf('done.\n'); end
 %%%%% Update function %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function varargout = update(newk, newx0, newq)
+    function varargout = update(newk, news, newq)
         % Apply changes
         k = newk;
-        x0 = newx0;
+        s = news;
         q = newq;
         
-        m.x0 = x0;
+        m.s  = s;
         m.k  = k;
         m.q  = q;
         

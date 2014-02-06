@@ -140,27 +140,29 @@ opts.AbsTol = fixAbsTol(opts.AbsTol, 3, false(nCon,1), nx, nCon, false, opts.Use
 
 %% Run integration for each experiment
 sim = emptystruct(nCon, 'Type', 'Name', 't', 'y', 'x', 'dydT', 'dxdT', 'd2ydT2', 'd2xdT2', 'sol');
-intOpts = opts;
 
 for iCon = 1:nCon
     % Modify opts structure
+    intOpts = opts;
     intOpts.AbsTol = opts.AbsTol{iCon};
     
     % If opts.UseModelSeeds is false, the number of variables can change
     if opts.UseModelSeeds
-        inTs = nTs;
+        UseSeeds_i = opts.UseSeeds;
     else
-        intOpts.UseSeeds = opts.UseSeeds(:,iCon);
-        inTs = sum(intOpts.UseSeeds);
+        UseSeeds_i = opts.UseSeeds(:,iCon);
     end
+    intOpts.UseSeeds = UseSeeds_i;
+    inTs = nnz(UseSeeds_i);
     
     % If opts.UseModelInputs is false, the number of variables can change
     if opts.UseModelInputs
-        inTq = nTq;
+        UseControls_i = opts.UseControls{1};
     else
-        intOpts.UseControls = opts.UseControls(iCon);
-        inTq = sum(intOpts.UseControls{1});
+        UseControls_i = opts.UseControls{iCon};
     end
+    intOpts.UseControls = UseControls_i;
+    inTq = nnz(UseControls_i);
     
     inT = nTk + inTs + inTq;
     
