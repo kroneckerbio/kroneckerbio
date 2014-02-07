@@ -101,28 +101,38 @@ end
 nT = nTk + nTs + nTq;
 
 %% Priors
-filler = Gzero([1, nCon-1, nTop]);
-
 if nTk > 0
     assert(numel(objPriorParams) == nTop, ...
         'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorParams" must be a vector of length numel(m)')
-    objPriorParams = [reshape(objPriorParams, [1,1,nTop]), filler];
+    objPriorParams = [reshape(objPriorParams, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
 else
     objPriorParams = Gzero([0,nCon,nTop]);
 end
 
 if nTs > 0
-    assert(numel(objPriorSeeds) == nTop, ...
-        'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorSeeds" must be a vector of length numel(m)')
-    objPriorSeeds = [reshape(objPriorSeeds, [1,1,nTop]), filler];
+    if opts.UseModelSeeds
+        assert(numel(objPriorSeeds) == 1, ...
+            'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a scalar if UseModelSeeds is true')
+        objPriorSeeds = [repmat(objPriorSeeds, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
+    else
+        assert(numel(objPriorSeeds) == nCon, ...
+            'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a vector of length numel(con) if UseModelSeeds is false')
+        objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
+    end
 else
     objPriorSeeds = Gzero([0,nCon,nTop]);
 end
 
 if nTq > 0
-    assert(numel(objPriorControls) == nTop, ...
-        'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorControls" must be a vector of length numel(m)')
-    objPriorControls = [reshape(objPriorControls, [1,1,nTop]), filler];
+    if opts.UseModelControls
+        assert(numel(objPriorSeeds) == 1, ...
+            'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a scalar if UseModelControls is true')
+        objPriorSeeds = [repmat(objPriorSeeds, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
+    else
+        assert(numel(objPriorSeeds) == nCon, ...
+            'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a vector of length numel(con) if UseModelControls is false')
+        objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
+    end
 else
     objPriorControls = Gzero([0,nCon,nTop]);
 end
