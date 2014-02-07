@@ -30,20 +30,20 @@ opts.RestartNoise = 0.001;
 %% Load model
 m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', [], 1:32, [], opts);
 
-ic = m.ic;
-ic(1) = 1000; %EGF
-ic(2) = 4560; %NGF
-m = m.update(m.p, ic);
+s = m.s;
+s(1) = 1000; %EGF
+s(2) = 4560; %NGF
+m = Update(m, m.k, s);
 
-clear ic
+clear s
 
 %% Create nominal experiment
 tF = 120;
 u = [];
-con = constructExperiment(m, tF, u, [], [], [], 'nominal');
+con = Experiment(m, tF, m.s, false, false, u, [], [], [], 'nominal');
 
 %% Generate data
-outputs = (1:m.nY).';
+outputs = (1:m.ny).';
 ntimes = 100;
 lintimes = linspace(tF/ntimes, tF, ntimes).'; % 100 evenly spaced time points
 sd = @(t,yInd,yVal)(max(0.1*yVal,1)); % Standard deviation of measurement error is 10% floored at 1
