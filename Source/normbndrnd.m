@@ -57,7 +57,7 @@ if lb >= 0 || ub <= 0
         else
             %lambda = 0.5*(lb+sqrt(lb^2+4));
             %c = exp(0.5*lambda^2 - lambda*lb);
-            expmean = 1/lb;
+            %expmean = 1/lb;
             for i = 1:n
                 r(i) = expreject();
             end
@@ -126,8 +126,9 @@ r = r*sigma + mu;
 
     function ri = expreject()
         while true
-            ri = exprnd(expmean);
-%            if ri < (ub - lb) && rand <= (bellcurve(ri+lb) / (c * exp(-lambda*ri)))
+            ri = -log(rand) / lb;
+            %ri = exprnd(expmean); % dependent on Matlab statistics toolbox
+            %if ri < (ub - lb) && rand <= (bellcurve(ri+lb) / (c * exp(-lambda*ri)))
             if ri <= (ub - lb) && rand <= bellcurve(ri)
                 break
             end
