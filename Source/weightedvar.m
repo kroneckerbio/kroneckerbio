@@ -5,8 +5,8 @@ function xvar = weightedvar(x, w, dim)
 %
 %   The variance of the sample x is computed according the weight w on each
 %   point. The size of x and w must be the same. If dimension dim is
-%   missing or empty, the variance is computed along the first
-%   non-singleton dimension.
+%   missing, the variance is computed along the first non-singleton
+%   dimension.
 %
 %   This function computes the weighted variance differently from MATLAB's
 %   var(), which, in the opinion of David R Hagen, computes it incorrectly.
