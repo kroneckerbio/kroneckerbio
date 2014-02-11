@@ -396,7 +396,7 @@ elseif strcmpi(opts.TopologyMethod, 'Harmonic')
             % Compute autocorrelation in data
             first = zeros(nT(iTop),1);
             for iT = 1:nT(iTop)
-                acf = autocorr(Ts{iTop}(iT,:), size(Ts{iTop},2)-1);
+                acf = autocorrelation(Ts{iTop}(iT,:));
                 
                 % Find first non-autocorrelation point
                 %first(iT) = find(acf > 0.05, 1, 'last') + 1; % Tends to pick up noise near the end
@@ -922,11 +922,10 @@ while true %dowhile
         % Find autocorrelation in this parameter
         % Use tolerance to control how deep to compute the autocorrelation
         if opts.Normalized
-            acf = autocorr(log(samples(iT,:)), size(samples,2)-1);
+            acf = autocorrelation(log(samples(iT,:)));
         else
-            acf = autocorr(samples(iT,:), size(samples,2)-1);
+            acf = autocorrelation(samples(iT,:));
         end
-        %acf = autocorr(samples(iT,:), ceil(size(samples,2) * minimum_autocorrelation_sample_size));
         
         % Find first non-autocorrelation point
         found = find(acf < autocorrelation_tolerance, 1, 'first');

@@ -286,7 +286,7 @@ for iPosCon = 1:nConPos
                 % Autocorrelation for each parameter
                 first = zeros(nT(trueTop),1);
                 for iT = 1:nT(trueTop)
-                    acf = autocorr(sam{trueTop}(iT,:), size(sam{trueTop},2)-1);
+                    acf = autocorrelation(sam{trueTop}(iT,:));
                     
                     % Find first non-autocorrelation point
                     found = find(acf < opts.TargetTol, 1, 'first');
