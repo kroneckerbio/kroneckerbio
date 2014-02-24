@@ -459,12 +459,12 @@ elseif strcmpi(opts.TopologyMethod, 'Path')
                 V_approx(optsTop(iTop).UseParams,optsTop(iTop).UseParams) = infoinv(F_approx);
                 V_approx = spdiags(m(iTop).k, 0, m(iTop).nk, m(iTop).nk) * V_approx * spdiags(m(iTop).k, 0, m(iTop).nk, m(iTop).nk);
                 
-                objApprox(1,1,iTop) = objectiveLogNormalPriorOnKineticParameters(m(iTop), m(iTop).k, V_approx, optsTop(iTop).UseParams);
+                objApprox(1,1,iTop) = objectiveLogNormalPriorOnKineticParameters(m(iTop).k, V_approx);
             else
                 V_approx = zeros(m(iTop).nk,m(iTop).nk);
                 V_approx(optsTop(iTop).UseParams,optsTop(iTop).UseParams) = infoinv(F_approx);
                 
-                objApprox(1,1,iTop) = objectiveNormalPriorOnKineticParameters(m(iTop), m(iTop).k, V_approx, optsTop(iTop).UseParams);
+                objApprox(1,1,iTop) = objectiveNormalPriorOnKineticParameters(m(iTop).k, V_approx);
             end
         end
     else
@@ -835,7 +835,6 @@ function obj = objectiveRescaled(objOld, scale)
     obj.Name = [objOld.Name ' rescaled'];
     obj.Continuous = objOld.Continuous;
     obj.Complex = objOld.Complex;
-    obj.Linked = objOld.Linked;
     obj.DiscreteTimes = objOld.DiscreteTimes;
     obj.g = @(t,x,u)(objOld.g(t,x,u) * scale);
     obj.dgdx = @(t,x,u)(objOld.dgdx(t,x,u) * scale);
@@ -854,8 +853,7 @@ function obj = objectiveRescaled(objOld, scale)
     obj.p = @(sol)(objOld.p(sol) ^ scale);
     obj.logp = @(sol)(objOld.logp(sol) * scale);
     obj.F = @(sol)(objOld.F(sol) * scale);
-    obj.Fn = @(sol,T)(objOld.Fn(sol,T) * scale);
-    obj.n = objOld.n;
+    obj.Fn = @(sol)(objOld.Fn(sol) * scale);
     obj.AddData = @(sol)(objectiveRescaled(objOld.AddData(sol), scale));
     obj.Update = @update;
     
