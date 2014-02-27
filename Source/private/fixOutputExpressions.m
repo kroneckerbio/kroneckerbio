@@ -10,5 +10,5 @@ elseif iscellstr(expressions)
     expressions = [vec(expressions), num2cell(ones(numel(expressions),1))];
 else
     assert(size(expressions,2) == 2 && isnumeric([expressions{:,2}]), ...
-        'KroneckerBio:Output:InvalidContributors', 'Output has an invalid listof contributors')
+        'KroneckerBio:Output:InvalidContributors', 'Output has an invalid list of contributors')
 end
