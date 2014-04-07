@@ -4,11 +4,11 @@ function m = AddReaction(m, name, compartment, reactant1, reactant2, product1, p
 %   m = AddReaction(m, name, compartment, reactant1, reactant2, product1,
 %                   product2, kForward, kReverse)
 %
-%   A reaction is conversion of one or two reactant species into one or two
-%   product species associated with a defined rate parameter. The reverse
-%   reaction may or may not be specified at the same time. Each reactant
-%   and product must be specified in a particular compartment by using the
-%   species full name (e.g. cytoplasm.glucose). 
+%   A reaction is a conversion of one or two reactant species into one or
+%   two product species associated with a defined rate constant. The
+%   reverse reaction may or may not be specified at the same time. Each
+%   reactant and product must be a single species in a single compartment
+%   (e.g. cytoplasm.glucose).
 %
 %   Since most reactions happen in a single compartment, Kronecker does not
 %   make you type out the compartment for every species; you can specify a
@@ -18,9 +18,9 @@ function m = AddReaction(m, name, compartment, reactant1, reactant2, product1, p
 %   they have the reatants). If no compartment is specified, it will be
 %   assumed that the reaction happens in every compartment in the model.
 %
-%   The species and parameters must be added with the AddSpecies and
-%   AddParameter functions. They can be added in any order as long as they
-%   are present before the next call to FinalizeModel.
+%   The species and parameters must be added with the AddState, AddInput,
+%   and AddParameter functions. They can be added in any order as long as
+%   they are present before the next call to FinalizeModel.
 %
 %   In FinalizeModel, reactions that do not have the reactants required are
 %   silently ignored. To say that glucose binds to glucokinase is true even
@@ -52,9 +52,14 @@ function m = AddReaction(m, name, compartment, reactant1, reactant2, product1, p
 %       Like reactant1.
 %   product2: [ string ]
 %       Like reactant1.
-%   kForward: [ string {''} ]
-%       This is a rate parameter name in the model.
-%   kReverse: [ string {''} ]
+%   kForward: [ string | cell vector {{'', 1}} ]
+%       This is the kinetic parameter of this reaction along with a scaling
+%       factor by which the kinetic parameter will be multiplied. It can be
+%       provided as a cell vector of length 2, in which case the first
+%       element is a string name of the parameter and the second element is
+%       the scaling factor. If only a string is provided, it is the name of
+%       the kinetic parameter and the scaling factor is assumed to be 1.
+%   kReverse: [ string | cell vector {{'', 1}} ]
 %       Like kForward.
 %
 %   Outputs
