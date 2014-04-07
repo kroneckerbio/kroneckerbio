@@ -78,5 +78,8 @@ m = AddReaction(m, 'r34', '', '', 'u2', 'u3', 'x4', 'k1');
 m = AddReaction(m, 'r35', '', '', 'u2', 'u3', 'u4', 'k1');
 m = AddReaction(m, 'r36', '', '', 'u2', 'u3', '', 'k1');
 
+% Add identical reaction
+m = AddReaction(m, 'r22', '', 'x1', 'u2', 'x4', 'u3', 'k1');
+
 %% Finalize Model
 m = FinalizeModel(m);

@@ -238,6 +238,29 @@ m.Reactions = [m.Reactions; new_reactions];
 % Update count
 nr = numel(m.Reactions);
 m.nr = nr;
+rNames = vec({m.Reactions.Name});
+
+%% Warn on repeated reactions
+% It is necessary to sort the reactants and products first so that
+% reactions which are merely permutations of the names can be detected
+sorted_reactions = cell(nr,1);
+for ir = 1:nr
+    sorted_reactions{ir} = {sort(m.Reactions(ir).Reactants), sort(m.Reactions(ir).Products), m.Reactions(ir).Parameter, m.Reactions(ir).Name};
+end
+
+for ir = 1:nr
+    for jr = 1:ir-1
+        if numel(sorted_reactions{ir}{1}) == numel(sorted_reactions{jr}{1}) && ...
+                numel(sorted_reactions{ir}{2}) == numel(sorted_reactions{jr}{2}) && ...
+                all(strcmp(sorted_reactions{ir}{1}, sorted_reactions{jr}{1})) && ...
+                all(strcmp(sorted_reactions{ir}{2}, sorted_reactions{jr}{2})) && ...
+                strcmp(sorted_reactions{ir}{3}{1}, sorted_reactions{jr}{3}{1}) && ...
+                sorted_reactions{ir}{3}{2} == sorted_reactions{jr}{3}{2} && ...
+                strcmp(sorted_reactions{ir}{4}, sorted_reactions{jr}{4})
+            warning('KroneckerBio:FinalizeModel:IdenticalReactions', 'Reaction %s (#%i) is identical to reaction %s (#%i)', rNames{ir}, ir, rNames{jr}, jr)
+        end
+    end
+end
 
 %% Process compartments
 % Dimensions
