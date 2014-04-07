@@ -37,14 +37,3 @@ m = AddReaction(m, 'r12', '', 'x1', '', 'u3', '', 'k1');
 
 %% Finalize Model
 m = FinalizeModel(m);
-
-%% Overwrite components
-m = AddCompartment(m, 'v2', 2, 4);
-m = AddState(m, 'x1', 'v1', 14);
-m = AddInput(m, 'u2', 'v1', @(t,q)2);
-m = AddOutput(m, 'y2', 'x');
-m = AddParameter(m, 'k1', 2);
-m = AddReaction(m, 'r9', '', 'x1', '', 'x1', 'x2', 'k1');
-
-%% Finalize Model
-m = FinalizeModel(m);

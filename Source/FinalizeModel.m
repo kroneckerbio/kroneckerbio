@@ -34,24 +34,16 @@ assert(isscalar(m), 'KroneckerBio:FinalizeModel:MoreThanOneModel', 'The model st
 nvNew = m.add.nv;
 
 % Check if item by this name already exists
-handled = false(nvNew,1);
 for iv = 1:nvNew
-    % Check existing compartments
-    matchPosition = find(strcmp(m.add.Compartments(iv).Name, {m.Compartments.Name}));
-    if ~isempty(matchPosition)
-        handled(iv) = true;
-        m.Compartments(matchPosition) = m.add.Compartments(iv);
-    end
+    name = m.add.Compartments(iv).Name;
     
-    % Check newly added compartments
-    matchPosition = find(strcmp(m.add.Compartments(iv).Name, {m.add.Compartments(1:iv-1).Name}));
-    if ~isempty(matchPosition)
-        handled(matchPosition) = true;
+    if any(strcmp(name, [{m.Compartments.Name}, {m.add.Compartments(1:iv-1).Name}]))
+        error('KroneckerBio:FinalizeModel:RepeatCompartment', 'There is already a compartment with the name %s (new compartment #%i)', name, iv)
     end
 end
 
-% Append new item
-m.Compartments = [m.Compartments; m.add.Compartments(~handled)];
+% Append new items
+m.Compartments = [m.Compartments; m.add.Compartments(1:nvNew)];
 
 % Update count
 nv = numel(m.Compartments);
@@ -62,24 +54,16 @@ vNames = vec({m.Compartments.Name});
 nsNew = m.add.ns;
 
 % Check if item by this name already exists
-handled = false(nsNew,1);
 for is = 1:nsNew
-    % Check existing parameters
-    matchPosition = find(strcmp(m.add.Seeds(is).Name, {m.Seeds.Name}));
-    if ~isempty(matchPosition)
-        handled(is) = true;
-        m.Seeds(matchPosition) = m.add.Seeds(is);
-    end
+    name = m.add.Seeds(is).Name;
     
-    % Check newly added parameters
-    matchPosition = find(strcmp(m.add.Seeds(is).Name, {m.add.Seeds(1:is-1).Name}));
-    if ~isempty(matchPosition)
-        handled(matchPosition) = true;
+    if any(strcmp(name, [{m.Seeds.Name}, {m.add.Seeds(1:is-1).Name}]))
+        error('KroneckerBio:FinalizeModel:RepeatSeed', 'There is already a seed with the name %s (new seed #%i)', name, is)
     end
 end
 
 % Append new items
-m.Seeds = [m.Seeds; m.add.Seeds(~handled)];
+m.Seeds = [m.Seeds; m.add.Seeds(1:nsNew)];
 
 % Update count
 ns = numel(m.Seeds);
@@ -89,85 +73,71 @@ sNames = {m.Seeds.Name};
 %% Place inputs
 nuNew = m.add.nu;
 
-% Check if item by this name already exists
-handled = false(nuNew,1);
+% Assemble full names of states
+existing_full_names = strcat(vec({m.Inputs.Compartment}), '.', vec({m.Inputs.Name}));
+new_full_names = strcat(vec({m.add.Inputs.Compartment}), '.', vec({m.add.Inputs.Name}));
+
+% Check if a state by this name already exists
 for iu = 1:nuNew
-    % Check existing states
-    matchPosition = find(strcmp(m.add.Inputs(iu).Name, {m.Inputs.Name}) & strcmp(m.add.Inputs(iu).Compartment, {m.Inputs.Compartment}));
-    if ~isempty(matchPosition)
-        handled(iu) = true;
-        m.Inputs(matchPosition) = m.add.Inputs(iu);
-    end
+    compartment = m.add.Inputs(iu).Compartment;
+    name = m.add.Inputs(iu).Name;
+    full_name = [compartment '.' name];
     
-    % Check newly added states
-    matchPosition = find(strcmp(m.add.Inputs(iu).Name, {m.add.Inputs(1:iu-1).Name}) & strcmp(m.add.Inputs(iu).Compartment, {m.add.Inputs(1:iu-1).Compartment}));
-    if ~isempty(matchPosition)
-        handled(matchPosition) = true;
+    if any(strcmp(full_name, [existing_full_names, new_full_names(1:iu-1)]))
+        error('KroneckerBio:FinalizeModel:RepeatInput', 'There is already an input with the name %s in compartment %s (new input #%i)', name, compartment, iu)
     end
 end
 
-% Append new item
-m.Inputs = [m.Inputs; m.add.Inputs(~handled)];
+% Append new items
+m.Inputs = [m.Inputs; m.add.Inputs(1:nuNew)];
 
 % Update count
 nu = numel(m.Inputs);
 m.nu = nu;
-uNames = vec({m.Inputs.Name});
-uNamesFull = strcat(vec({m.Inputs.Compartment}), '.', uNames);
+uNamesFull = [existing_full_names; new_full_names];
 m.vuInd = lookup(vec({m.Inputs.Compartment}), vNames);
 
 %% Place states
 nxNew = m.add.nx;
 
-% Check if item by this name already exists
-handled = false(nxNew,1);
+% Assemble full names of states
+existing_full_names = strcat(vec({m.States.Compartment}), '.', vec({m.States.Name}));
+new_full_names = strcat(vec({m.add.States.Compartment}), '.', vec({m.add.States.Name}));
+
+% Check if a state by this name already exists
 for ix = 1:nxNew
-    % Check existing states
-    matchPosition = find(strcmp(m.add.States(ix).Name, {m.States.Name}) & strcmp(m.add.States(ix).Compartment, {m.States.Compartment}));
-    if ~isempty(matchPosition)
-        handled(ix) = true;
-        m.States(matchPosition) = m.add.States(ix);
-    end
+    compartment = m.add.States(ix).Compartment;
+    name = m.add.States(ix).Name;
+    full_name = [compartment '.' name];
     
-    % Check newly added states
-    matchPosition = find(strcmp(m.add.States(ix).Name, {m.add.States(1:ix-1).Name}) & strcmp(m.add.States(ix).Compartment, {m.add.States(1:ix-1).Compartment}));
-    if ~isempty(matchPosition)
-        handled(matchPosition) = true;
+    if any(strcmp(full_name, [existing_full_names; new_full_names(1:ix-1)]))
+        error('KroneckerBio:FinalizeModel:RepeatState', 'There is already a state with the name %s in compartment %s (new state #%i)', name, compartment, ix)
     end
 end
 
 % Append new item
-m.States = [m.States; m.add.States(~handled)];
+m.States = [m.States; m.add.States(1:nxNew)];
 
 % Update count
 nx = numel(m.States);
+xNamesFull = [existing_full_names; new_full_names];
 m.nx = nx;
-xNames = vec({m.States.Name});
-xNamesFull = strcat(vec({m.States.Compartment}), '.', xNames);
 m.vxInd = lookup(vec({m.States.Compartment}), vNames);
 
 %% Place outputs
 nyNew = m.add.ny;
 
 % Check if item by this name already exists
-handled = false(nyNew,1);
 for iy = 1:nyNew
-    % Check existing outputs
-    matchPosition = find(strcmp(m.add.Outputs(iy).Name, {m.Outputs.Name}));
-    if ~isempty(matchPosition)
-        handled(iy) = true;
-        m.Outputs(matchPosition) = m.add.Outputs(iy);
-    end
+    name = m.add.Outputs(iy).Name;
     
-    % Check newly added outputs
-    matchPosition = find(strcmp(m.add.Outputs(iy).Name, {m.add.Outputs(1:iy-1).Name}));
-    if ~isempty(matchPosition)
-        handled(matchPosition) = true;
+    if any(strcmp(name, [{m.Outputs.Name}, {m.add.Outputs(1:iy-1).Name}]))
+        error('KroneckerBio:FinalizeModel:RepeatOutput', 'There is already an output with the name %s (new output #%i)', name, iy)
     end
 end
 
 % Append new items
-m.Outputs = [m.Outputs; m.add.Outputs(~handled)];
+m.Outputs = [m.Outputs; m.add.Outputs(1:nyNew)];
 
 % Update count
 ny = numel(m.Outputs);
@@ -177,24 +147,16 @@ m.ny = ny;
 nkNew = m.add.nk;
 
 % Check if item by this name already exists
-handled = false(nkNew,1);
 for ik = 1:nkNew
-    % Check existing parameters
-    matchPosition = find(strcmp(m.add.Parameters(ik).Name, {m.Parameters.Name}));
-    if ~isempty(matchPosition)
-        handled(ik) = true;
-        m.Parameters(matchPosition) = m.add.Parameters(ik);
-    end
+    name = m.add.Parameters(ik).Name;
     
-    % Check newly added parameters
-    matchPosition = find(strcmp(m.add.Parameters(ik).Name, {m.add.Parameters(1:ik-1).Name}));
-    if ~isempty(matchPosition)
-        handled(matchPosition) = true;
+    if any(strcmp(name, [{m.Parameters.Name}, {m.add.Parameters(1:ik-1).Name}]))
+        error('KroneckerBio:FinalizeModel:RepeatParameter', 'There is already a parameter with the name %s (new parameter #%i)', name, ik)
     end
 end
 
 % Append new items
-m.Parameters = [m.Parameters; m.add.Parameters(~handled)];
+m.Parameters = [m.Parameters; m.add.Parameters(1:nkNew)];
 
 % Update count
 nk = numel(m.Parameters);
@@ -202,7 +164,6 @@ m.nk = nk;
 kNames = vec({m.Parameters.Name});
 
 %% Place reactions
-xuNames = [uNames; xNames];
 xuNamesFull = [uNamesFull; xNamesFull];
 
 nrNew = m.add.nr; % Number of reaction specifications

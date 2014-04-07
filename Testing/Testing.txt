@@ -58,11 +58,10 @@ v1.x1  1e4
 # yet, but it will have to be defined somewhere before you finalize the 
 # model. Because v1 is the default compartment, I could have easily written
 # this, and it would be the same:
-x1  1e4
+# x1  1e4
 
 # The value is the initial amount of the species, not the concentration.
 # The default amount is 0, so a species can be defined with just a name.
-x2 0
 x2
 
 # The initial amount can also be a seed parameter allowing to be fit as
@@ -101,7 +100,7 @@ y1    x=1
 # Value is a set of regular expressions combined with equal signs and 
 # numbers, seperated by commas. The default number is 1, so the following 
 # is identical to the previous line.
-y1 x
+# y1 x
 
 # Remember that the regular expressions match the full name of the species,
 # so including compartment names can match a subset of the species in a 
