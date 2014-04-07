@@ -14,29 +14,24 @@ function m = AddReaction(m, name, compartment, reactant1, reactant2, product1, p
 %   make you type out the compartment for every species; you can specify a
 %   default compartment, which will be appended to each of the species that
 %   do not have a compartment specified. Multiple compartments can be
-%   specified and the reaction will occur in all of those compartments (if
-%   they have the reatants). If no compartment is specified, it will be
-%   assumed that the reaction happens in every compartment in the model.
+%   specified and FinalizeModel will look in those compartments for the
+%   species name. If no compartment is specified, it will look in every
+%   compartment for that species name. If a species with that name is found
+%   in several compartments that are searched, an error will be thrown.
 %
 %   The species and parameters must be added with the AddState, AddInput,
 %   and AddParameter functions. They can be added in any order as long as
 %   they are present before the next call to FinalizeModel.
 %
-%   In FinalizeModel, reactions that do not have the reactants required are
-%   silently ignored. To say that glucose binds to glucokinase is true even
-%   if there is no glucose in the compartment. Reactions that have the
-%   reactants required but not the products are an error because the
-%   reaction is said to occur but there is nowhere to put the results.
-%
 %   Inputs
 %   m: [ model struct scalar ]
 %       The model to which the reaction will be added
-%   name: [ string | cell array 2 of strings {''} ]
+%   name: [ string | cell vector 2 of strings ]
 %       A name for the reaction, or two different names for the forward and
 %       reverse reactions. Reaction names do not need to be unique, so if
 %       only one name is provided, it will be idnetical for the forward and
 %       reverse reactions.
-%   compartment: [ string | cell array of strings {''} ]
+%   compartment: [ string | cell vector of strings ]
 %       For all species that does not have a compartment specified, this
 %       compartment will be used as their compartments. If a cell array of
 %       strings is provided, a reaction will be added for each compartment

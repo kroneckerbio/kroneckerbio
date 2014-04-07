@@ -201,132 +201,78 @@ nk = numel(m.Parameters);
 m.nk = nk;
 kNames = vec({m.Parameters.Name});
 
-%% Expand reactions
+%% Place reactions
 xuNames = [uNames; xNames];
 xuNamesFull = [uNamesFull; xNamesFull];
 
 nrNew = m.add.nr; % Number of reaction specifications
+new_reactions = emptyReactions(nrNew);
 
 % Loop over added reaction specifications
-rNew = cell(nrNew,1); % Containers for all the spawned reactions
-rCount = zeros(nrNew,1); % Number of reactions that have spawned
 for ir = 1:nrNew
-    % Determine possible compartments as a cell array of strings
+    % Possible compartments as a cell vector of strings
     if isempty(m.add.Reactions(ir).Compartment)
-        possibleComp = {m.Compartments.Name};
-    elseif ischar(m.add.Reactions(ir).Compartment)
-        possibleComp = {m.add.Reactions(ir).Compartment};
-    elseif iscell(m.add.Reactions(ir).Compartment)
-        possibleComp = m.add.Reactions(ir).Compartment;
+        possible_comp = vNames;
+    else
+        possible_comp = m.add.Reactions(ir).Compartment;
     end
     
-    % Container for all the reactions that come from this specification
-    nvPossible = numel(possibleComp);
-    rNew{ir} = emptyReactions(nvPossible);
-    
-    % Match reactants and products
     nReac = numel(m.add.Reactions(ir).Reactants);
     nProd = numel(m.add.Reactions(ir).Products);
-    possibleReactants = cell(nReac,1);
-    possibleProducts  = cell(nProd,1);
-    reactantsComplete = false(nReac,1);
-    productsComplete  = false(nProd,1);
     
+    % Find full name for each reactant
+    full_reactant_names = cell(nReac,1);
     for iReac = 1:nReac
-        if any(m.add.Reactions(ir).Reactants{iReac} == '.')
-            reactantsComplete(iReac) = true;
-            possibleReactants{iReac} = strcmp(m.add.Reactions(ir).Reactants{iReac}, xuNamesFull);
+        incomplete_name = m.add.Reactions(ir).Reactants{iReac};
+        if any(incomplete_name == '.')
+            assert(nnz(strcmp(incomplete_name, xuNamesFull)) == 1, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iReac)
+
+            full_reactant_names{iReac} = incomplete_name;
         else
-            reactantsComplete(iReac) = false;
-            possibleReactants{iReac} = strcmp(m.add.Reactions(ir).Reactants{iReac}, xuNames);
+            potential_full_names = strcat(possible_comp, '.', incomplete_name);
+            species_index = lookup(xuNamesFull, potential_full_names);
+            
+            if nnz(species_index) < 1
+                error('KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iReac)
+            elseif nnz(species_index) > 1
+                error('KroneckerBio:FinalizeModel:AmbiguousReactant', 'Reaction %s (#%i) has reactant %s (#%i), which is a species in several compartments so it is ambiguous as to which one should be applied', m.add.Reactions(ir).Name, ir, incomplete_name, iReac)
+            end
+            
+            full_reactant_names{iReac} = xuNamesFull{logical(species_index)};
         end
     end
-    
+
+    % Find full name for each product
+    full_product_names = cell(nProd,1);
     for iProd = 1:nProd
-        if any(m.add.Reactions(ir).Products{iProd} == '.')
-            productsComplete(iProd) = true;
-            possibleProducts{iProd} = strcmp(m.add.Reactions(ir).Products{iProd}, xuNamesFull);
+        incomplete_name = m.add.Reactions(ir).Products{iProd};
+        if any(incomplete_name == '.')
+            assert(nnz(strcmp(incomplete_name, xuNamesFull)) == 1, 'KroneckerBio:FinalizeModel:ProductNotFound', 'Reaction %s (#%i) has product %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iProd)
+
+            full_product_names{iProd} = incomplete_name;
         else
-            productsComplete(iProd) = false;
-            possibleProducts{iProd} = strcmp(m.add.Reactions(ir).Products{iProd}, xuNames);
+            potential_full_names = strcat(possible_comp, '.', incomplete_name);
+            species_index = lookup(xuNamesFull, potential_full_names);
+            
+            if nnz(species_index) < 1
+                error('KroneckerBio:FinalizeModel:ProductNotFound', 'Reaction %s (#%i) has product %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iProd)
+            elseif nnz(species_index) > 1
+                error('KroneckerBio:FinalizeModel:AmbiguousProduct', 'Reaction %s (#%i) has product %s (#%i), which is a species in several compartments so it is ambiguous as to which one should be applied', m.add.Reactions(ir).Name, ir, incomplete_name, iProd)
+            end
+            
+            full_product_names{iProd} = xuNamesFull{logical(species_index)};
         end
     end
     
-    % Loop over possible compartments
-    aReactionWasFound = false; % Used to throw a warning if this remains false
-    for iv = 1:nvPossible
-        % Match compartments
-        possibleCompartment = strcmp(possibleComp{iv}, [vec({m.Inputs.Compartment}); vec({m.States.Compartment})]);
-        
-        % Find reactants and products for this compartment
-        reactantsExist = false(nReac,1);
-        productsExist  = false(nProd,1);
-        reactantsFound = false(nReac,1);
-        productsFound  = false(nProd,1);
-        for iReac = 1:nReac
-            reactantsExist(iReac) = ~isempty(m.add.Reactions(ir).Reactants{iReac});
-            reactantsFound(iReac) = ~reactantsExist(iReac) || (any(possibleReactants{iReac}) && reactantsComplete(iReac)) ...
-                                    || any(possibleReactants{iReac} & possibleCompartment);
-        end
-        for iProd = 1:nProd
-            productsExist(iProd) = ~isempty(m.add.Reactions(ir).Products{iProd});
-            productsFound(iProd) = ~productsExist(iProd) || (any(possibleProducts{iProd}) && productsComplete(iProd)) ...
-                                    || any(possibleProducts{iProd} & possibleCompartment);
-        end
-
-        % Check for errors
-        if (any(reactantsExist) && all(reactantsFound) && any(~productsFound))
-            error('KroneckerBio:FinalizeModel:MissingProduct', 'Reaction %s (#%i) has the necessary reactants in compartment %s but not the necessary products', m.add.Reactions(ir).Names{1}, ir, possibleComp{iv})
-        end
-        
-        % Check if this reaction takes place
-        if ~(all(reactantsFound) && all(productsFound))
-            continue
-        end
-        
-        % Reaction exists in this compartment
-        rCount(ir) = rCount(ir) + 1;
-        
-        % Add reaction to list
-        rNew{ir}(rCount(ir)).Name         = m.add.Reactions(ir).Name;
-        rNew{ir}(rCount(ir)).Reactants = cell(1,nReac);
-        rNew{ir}(rCount(ir)).Products  = cell(1,nProd);
-        for iReac = 1:nReac
-            rNew{ir}(rCount(ir)).Reactants{iReac} = fixReactionSpecies(m.add.Reactions(ir).Reactants{iReac}, possibleComp{iv});
-        end
-        for iProd = 1:nProd
-            rNew{ir}(rCount(ir)).Products{iProd} = fixReactionSpecies(m.add.Reactions(ir).Products{iProd}, possibleComp{iv});
-        end
-        rNew{ir}(rCount(ir)).Parameter    = m.add.Reactions(ir).Parameter;
-        
-        aReactionWasFound = true;
-        
-        % Exit if all compartments are specified
-        if all((reactantsComplete | ~reactantsExist)) && all(productsComplete | ~productsExist)
-            break
-        end
-    end
-    
-    % Warn if no compartment had the species for this reaction specification
-    if ~aReactionWasFound
-        warning('KroneckerBio:FinalizeModel:UnusedReaction', 'Reaction %s (#%i) was not found to take place in any compartment', m.add.Reactions(ir).Names{1}, ir)
-    end
+    % Add new reaction to model
+    new_reactions(ir).Name = m.add.Reactions(ir).Name;
+    new_reactions(ir).Reactants = full_reactant_names;
+    new_reactions(ir).Products = full_product_names;
+    new_reactions(ir).Parameter = m.add.Reactions(ir).Parameter;
 end
 
-%% Place reactions
-% Total number of new elementary reactions
-nrTotal = sum(rCount);
-
-% Add room for new reactions
-m.Reactions = [m.Reactions; emptyReactions(nrTotal)];
-
-% Insert items
-rEndIndex = m.nr;
-for ir = 1:nrNew
-    rStartIndex = rEndIndex + 1;
-    rEndIndex   = rEndIndex + rCount(ir);
-    m.Reactions(rStartIndex:rEndIndex) = rNew{ir}(1:rCount(ir));
-end
+% Append new items
+m.Reactions = [m.Reactions; new_reactions];
 
 % Update count
 nr = numel(m.Reactions);

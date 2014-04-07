@@ -85,10 +85,10 @@ v3.x7 1
 # this. q(1) and q(2) refer to 2 and 1e4 here, but those numbers could be 
 # changed after the model has already been built.
 # Name Function   Parameters
-x4     q(1)*q(2)  2,1e4
+u4     q(1)*q(2)  2,1e4
 
 # An input can also be a function of time t.
-x5 t^2+q(1)*q(2) 2,1e4
+u5 t^2+q(1)*q(2) 2,1e4
 
 
 # Output headers do not take any additional parameters
@@ -111,7 +111,7 @@ y2 v1\.=1
 
 # Multiple expressions can contribute to the same output. If a species is
 # matched multiple times, the last expression prevails.
-y3 v2\.x4 x5
+y3 v2\.x4 u5
 
 # Values do not have to be integers
 y4 x3=1.2
@@ -132,9 +132,9 @@ s2    20
 
 # The Reactions section takes a set of compartments that these reactions
 # take place in. If there is no compartment after "Reactions", it is
-# assumed that the reactions occur in any compartment that has the
-# necessary reactants. These compartments only apply to reactants and 
-# products of the reaction that do not have the compartment specified.
+# assumed that there is only one species with that name. These compartments
+# only apply to reactants and  products of the reaction that do not have 
+# the compartment specified.
 % Reactions v1
 #Reac1 Reac2 Prod1 Prod2 ParaFwd ParaRev Names
 x1     x2    x3    x4    k1      k2      r1 r2
@@ -151,7 +151,7 @@ x1     0      x2   0     k2       k1
 
 # It is non necessary to provide both a reverse and forward parameter. 
 # Irreversible reactions are defined like this.
-x3    x5     0     0     0         k1    r34
+x3    u5     0     0     0         k1    r35
 
 # Species of a specific compartment can be defined. The various compartments
 # will be tried on the other species.
