@@ -227,8 +227,8 @@ for ir = 1:nrNew
     
     % Add new reaction to model
     new_reactions(ir).Name = m.add.Reactions(ir).Name;
-    new_reactions(ir).Reactants = full_reactant_names;
-    new_reactions(ir).Products = full_product_names;
+    new_reactions(ir).Reactants = row(full_reactant_names);
+    new_reactions(ir).Products = row(full_product_names);
     new_reactions(ir).Parameter = m.add.Reactions(ir).Parameter;
 end
 
