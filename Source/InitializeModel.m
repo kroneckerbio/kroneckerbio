@@ -130,7 +130,7 @@ function m = InitializeModel(name)
 %           input
 %       .vxInd [ natural vector nx ]
 %           The indexes to the compartments containing each state species
-%       .vuInd [ natural vector nx ]
+%       .vuInd [ natural vector nu ]
 %           The indexes to the compartments containing each input species
 %       .rOrder [ 0 1 2 vector nr ]
 %           The order of each reaction
