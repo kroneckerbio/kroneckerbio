@@ -1,8 +1,13 @@
 function m = RemoveReaction(m, name)
+% RemoveReaction Remove a reaction by name
 
-m.Reactions(strcmp(name, {m.Reactions.Name})) = [];
-for ir = 1:m.add.nr
-    m.add.Reactions(ir).Parameters(strcmp(name, m.add.Reactions(ir).Names)) = [];
-end
+% Find added instances of this name
+ind_main = strcmp(name, {m.Reactions.Name});
+ind_add = strcmp(name, {m.add.Reactions.Name});
+
+% Remove all mention of this seed
+m.Reactions(ind_main,:) = [];
+m.add.Reactions(ind_add,:) = [];
+m.add.nr = m.add.nr - nnz(ind_add);
 
 m.Ready = false;
