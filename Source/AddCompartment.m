@@ -17,9 +17,16 @@ function m = AddCompartment(m, name, dimension, size)
 %       centromere would be zero. This is only used to determine which
 %       compartment's volume plays a part in the rate of a bimolecular
 %       reaction between compartments.
-%   size: [ positive scalar ]
+%   size: [ positive scalar | cell array ]
 %       The size of the compartment. Example: the volume of the cytoplasm,
-%       the surface area of the membrane, or the length of the DNA.
+%       the surface area of the membrane, or the length of the DNA. The
+%       compartment size can either be a constant or a cell array. The
+%       cell array must have two columns. Each row is a string and a
+%       positive scalar. The string is a regular expression matching the
+%       full name of species in the model. The scalar is the amount that
+%       each species matched contributes to the size of this compartment.
+%       if the string is empty, then this row is a constant contribution to
+%       the compartment size.
 %
 %   Outputs
 %   m: [ model struct scalar ]

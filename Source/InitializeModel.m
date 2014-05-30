@@ -111,8 +111,6 @@ function m = InitializeModel(name)
 %           The number of outputs
 %       .dv [ whole vector nv ]
 %           The dimensions of each compartment
-%       .v [ positive vector nv ]
-%           The size of each compartment
 %       .k [ positive vector nk ]
 %           The values of each kinetic parameter
 %       .s [ nonegative vector ns ]
@@ -159,6 +157,14 @@ function m = InitializeModel(name)
 %           Map of how each input contributes to the mass action ODEs
 %       .a [ nonnegative vector nx]
 %           Contribution of constituitive synthesis to the mass action ODEs
+%       .B1 [ nonnegative matrix nv by nx ]
+%           Contribution of each state species to the volume of each
+%           compartment
+%       .B2 [ nonnegative matrix nv by nu ]
+%           Contribution of each input species to the volume of each
+%           compartment
+%       .b [ nonnegative vector nv ]
+%           Constituitive volume of each compartment
 %       .C1 [ nonnegative matrix ny by nx ]
 %           Contribution of each state species to each output
 %       .C2 [ nonnegative matrix ny by nu ]
@@ -223,9 +229,6 @@ function m = InitializeModel(name)
 %       .S [ integer matrix nx by nr ]
 %           The stoichiometry matrix. Maps how each elementary reaction
 %           changes the number of each state species.
-%       .r [ handle @(t,x,u) returns real vector nr ]
-%           The rate of each elementary reaction according to the curent
-%           state of the system.
 %       .D1 [ real matrix nr by nx]
 %           Map of how each state contributes to the reaction rates
 %       .D2 [ real matrix nr by nx*nx ]
@@ -270,6 +273,9 @@ function m = InitializeModel(name)
 %           Reshape of dD5dk for faster computation of drdk
 %       .dD6dk_rk_u [ real matrix nr*nk by nu ] (rk_u)
 %           Reshape of dD6dk for faster computation of drdk
+%       .r [ handle @(t,x,u) returns real vector nr ]
+%           The rate of each elementary reaction according to the curent
+%           state of the system.
 %       .drdx [ handle @(t,x,u) returns real matrix nr by nx ]
 %           The partial derivative of r wrt x
 %       .drdu [ handle @(t,x,u) returns real matrix nr by nu ]
@@ -285,6 +291,20 @@ function m = InitializeModel(name)
 %       .d2rdkdx [ handle @(t,x,u) returns real matrix nr*nx by nk ] (rx_k)
 %           The partial derivative of drdx wrt k. This is a reshape of
 %           d2rdxdk.
+%       .v [ handle @(t,x,u) returns positive vector nv ]
+%           The size of each compartment
+%       .dvdx [ handle @(t,x,u) returns positive matrix nv by nx ]
+%           Partial derivative of v wrt x
+%       .dvdu [ handle @(t,x,u) returns positive matrix nv by nu ]
+%           Partial derivative of v wrt u
+%       .d2vdx2 [ handle @(t,x,u) returns positive matrix nv*nx by nx ]
+%           Partial derivative of dvdx wrt x
+%       .d2vdu2 [ handle @(t,x,u) returns positive matrix nv*nu by nu ]
+%           Partial derivative of dvdu wrt u
+%       .d2vdudx [ handle @(t,x,u) returns positive matrix nv*nx by nu ]
+%           Partial derivative of dvdx wrt u
+%       .d2vdxdu [ handle @(t,x,u) returns positive matrix nv*nu by nx ]
+%           Partial derivative of dvdu wrt x
 %       .Ready [ boolean scalar ]
 %           Indicates whether all the mathematical properties of the model
 %           (x0, f, S, ...) are up-to-date with its structural properties
@@ -334,7 +354,6 @@ m.nx = 0;
 m.nr = 0;
 m.ny = 0;
 
-m.v    = zeros(0,1);
 m.k    = zeros(0,1);
 m.s    = zeros(0,1);
 m.q    = zeros(0,1);
@@ -358,6 +377,10 @@ m.A4 = zeros(0,0);
 m.A5 = zeros(0,0);
 m.A6 = zeros(0,0);
 m.a  = zeros(0,0);
+
+m.B1 = zeros(0,0);
+m.B2 = zeros(0,0);
+m.b  = zeros(0,1);
 
 m.C1 = zeros(0,0);
 m.C2 = zeros(0,0);
@@ -427,6 +450,14 @@ m.d2rdx2  = @(t,x,u)(zeros(0,0));
 m.d2rdk2  = @(t,x,u)(zeros(0,0));
 m.d2rdxdk = @(t,x,u)(zeros(0,0));
 m.d2rdkdx = @(t,x,u)(zeros(0,0));
+
+m.v       = @(t,x,u)(zeros(0,1));
+m.dvdx    = @(t,x,u)(zeros(0,0));
+m.dvdu    = @(t,x,u)(zeros(0,0));
+m.d2vdx2  = @(t,x,u)(zeros(0,0));
+m.d2vdu2  = @(t,x,u)(zeros(0,0));
+m.d2vdudx = @(t,x,u)(zeros(0,0));
+m.d2vdxdu = @(t,x,u)(zeros(0,0));
 
 m.Ready  = true;
 m.add    = struct;

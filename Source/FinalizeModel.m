@@ -23,7 +23,7 @@ function m = FinalizeModel(m)
 %   Outputs
 %   m: [ model struct scalar ]
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2014 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
@@ -267,7 +267,125 @@ end
 m.dv = vec([m.Compartments.Dimension]);
 
 % Size
-m.v = vec([m.Compartments.Size]);
+% Entries in each sparse matrix for compartment conversion
+nB1Entries = 0;
+nB2Entries = 0;
+nbEntries = 0;
+
+B1Entries = zeros(0,2);
+B1Values  = zeros(0,1);
+B2Entries = zeros(0,2);
+B2Values  = zeros(0,1);
+bEntries  = zeros(0,2);
+bValues   = zeros(0,1);
+
+for iv = 1:nv
+    if isnumeric(m.Compartments(iv).Size)
+        % Handle compartment size given as a number
+        nbEntries = nbEntries + 1;
+        
+        % Add more room in vector if necessary
+        currentLength = size(bEntries,1);
+        if nbEntries > currentLength
+            addlength = max(currentLength, 1);
+            bEntries = [bEntries; zeros(addlength,2)];
+            bValues = [bValues; zeros(addlength,1)];
+        end
+        
+        % Add entries
+        bEntries(nbEntries,1) = iv;
+        bEntries(nbEntries,2) = 1;
+        bValues(nbEntries) = m.Compartments(iv).Size;
+    elseif iscell(m.Compartments(iv).Size)
+        % Handle compartment size given as a list of regular expressions
+        nExpr = size(m.Compartments(iv).Size,1);
+        for iExpr = 1:nExpr
+            % Find states that match the expression
+            match = find(~cellfun(@isempty, regexp(xNamesFull, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            nAdd = numel(match);
+            nB1Entries = nB1Entries + nAdd;
+            
+            % Add more room in vector if necessary
+            currentLength = size(B1Entries,1);
+            if nB1Entries > currentLength
+                addlength = max(currentLength, nAdd);
+                B1Entries = [B1Entries; zeros(addlength,2)];
+                B1Values  = [B1Values;  zeros(addlength,1)];
+            end
+            
+            % Add entries
+            B1Entries(nB1Entries-nAdd+1:nB1Entries,1) = iv;
+            B1Entries(nB1Entries-nAdd+1:nB1Entries,2) = match;
+            B1Values(nB1Entries-nAdd+1:nB1Entries) = m.Compartments(iv).Size{iExpr,2};
+            
+            % Find inputs that match the expression
+            match = find(~cellfun(@isempty, regexp(uNamesFull, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            nAdd = numel(match);
+            nB2Entries = nB2Entries + nAdd;
+            
+            % Add more room in vector if necessary
+            currentLength = size(B2Entries,1);
+            if nB2Entries > currentLength
+                addlength = max(currentLength, nAdd);
+                B2Entries = [B2Entries; zeros(addlength,2)];
+                B2Values  = [B2Values; zeros(addlength,1)];
+            end
+            
+            % Add entries
+            B2Entries(nB2Entries-nAdd+1:nB2Entries,1) = iv;
+            B2Entries(nB2Entries-nAdd+1:nB2Entries,2) = match;
+            B2Values(nB2Entries-nAdd+1:nB2Entries) = m.Compartments(iv).Size{iExpr,2};
+            
+            % Find empty expressions, which are constants
+            if isempty(m.Compartments(iv).Size{iExpr,1})
+                nbEntries = nbEntries + 1;
+                
+                % Add more room in vector if necessary
+                currentLength = size(bEntries,1);
+                if nbEntries > currentLength
+                    addlength = max(currentLength, 1);
+                    bEntries = [bEntries; zeros(addlength,2)];
+                    bValues = [bValues; zeros(addlength,1)];
+                end
+                
+                % Add entries
+                bEntries(nbEntries,1) = iv;
+                bEntries(nbEntries,2) = 1;
+                bValues(nbEntries) = m.Compartments(iv).Size{iExpr,2};
+            end
+        end
+    else
+        error('KroneckerBio:Compartment:Size', 'Invalid compartment size type encountered')
+    end
+end
+
+% Remove duplicate entries
+[B1Entries, ind] = unique(B1Entries(1:nB1Entries,:), 'rows');
+B1Values = B1Values(ind);
+
+[B2Entries, ind] = unique(B2Entries(1:nB2Entries,:), 'rows');
+B2Values = B2Values(ind);
+
+[bEntries, ind] = unique(bEntries(1:nbEntries,:), 'rows');
+bValues = bValues(ind);
+
+% Construct matrices
+B1 = sparse(B1Entries(:,1), B1Entries(:,2), B1Values, nv, nx);
+B2 = sparse(B2Entries(:,1), B2Entries(:,2), B2Values, nv, nu);
+b  = sparse(bEntries(:,1),  bEntries(:,2),  bValues,  nv, 1);
+
+% Add to model
+m.B1 = B1;
+m.B2 = B2;
+m.b = b;
+
+m.v       = @v;
+m.dvdx    = @dvdx;
+m.dvdu    = @dvdu;
+m.d2vdx2  = @d2vdx2;
+m.d2vdu2  = @d2vdu2;
+m.d2vdudx = @d2vdudx;
+m.d2vdxdu = @d2vdxdu;
 
 %% Process seeds
 m.s = vec([m.Seeds.Value]);
@@ -453,7 +571,7 @@ dD6dkValues  = zeros(0,1);
 dddkEntries  = zeros(0,2);
 dddkValues   = zeros(0,1);
 
-for ir =1:nr
+for ir = 1:nr
     % Determine reaction type and species indexes
     nReac = numel(m.Reactions(ir).Reactants);
     nProd = numel(m.Reactions(ir).Products);
@@ -908,6 +1026,7 @@ D3UsedColumns = unique(D3UsedColumns);
 D4UsedColumns = unique(D4UsedColumns);
 D5UsedColumns = unique(D5UsedColumns);
 
+% *1 and *2 refer to the order in (1 kron 2)
 [D2UsedSpecies2, D2UsedSpecies1] = ind2sub([nx,nx], D2UsedColumns);
 [D3UsedSpecies2, D3UsedSpecies1] = ind2sub([nx,nu], D3UsedColumns);
 [D4UsedSpecies2, D4UsedSpecies1] = ind2sub([nu,nx], D4UsedColumns);
@@ -932,6 +1051,40 @@ m.add.Reactions    = growReactions([], 0);
 
 %% Final build of model
 m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2);
+
+% End of function
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Function handles not dependent on parameters %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function val = v(t, x, u)
+        val = B1 * x + B2 * u + b;
+    end
+
+    function val = dvdx(t, x, u)
+        val = B1;
+    end
+
+    function val = dvdu(t, x, u)
+        val = B2;
+    end
+
+    function val = d2vdx2(t, x, u)
+        val = zeros(nv*nx, nx);
+    end
+
+    function val = d2vdu2(t, x, u)
+        val = zeros(nv*nu, nu);
+    end
+
+    function val = d2vdudx(t, x, u)
+        val = zeros(nv*nx, nu);
+    end
+
+    function val = d2vdxdu(t, x, u)
+        val = zeros(nv*nu, nx);
+    end
 
 end
 
@@ -964,19 +1117,19 @@ m.d  = reshape(m.dddk  * sparsek, nr,1);
 % Handles
 m.f = fHidden(m.A1, m.A2, m.A3, m.A4, m.A5, m.A6, m.a, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 
-m.dfdx = dfdxHidden(m.A1, m.A2, m.A3, m.A4, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, m.vxInd, m.vuInd);
-m.dfdu = dfduHidden(m.A3, m.A4, m.A5, m.A6, m.v, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.dfdx = dfdxHidden(m.A1, m.A2, m.A3, m.A4, m.A5, m.v, m.dvdx, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.dfdu = dfduHidden(m.A2, m.A3, m.A4, m.A5, m.A6, m.v, m.dvdu, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 m.dfdk = dfdkHidden(m.dA1dk_fk_x, m.dA2dk_fk_xx, m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.dA5dk_fk_uu, m.dA6dk_fk_u, m.dadk, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 
-m.d2fdx2  = d2fdx2Hidden(m.A2, m.v, D2UsedColumns, D2UsedSpecies2, m.vxInd);
-m.d2fdu2  = d2fdu2Hidden(m.A5, m.v, D5UsedColumns, D5UsedSpecies2, m.vuInd);
+m.d2fdx2  = d2fdx2Hidden(m.A2, m.A3, m.A4, m.A5, m.v, m.dvdx, m.d2vdx2, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.d2fdu2  = d2fdu2Hidden(m.A2, m.A3, m.A4, m.A5, m.v, m.dvdu, m.d2vdu2, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 m.d2fdk2  = d2fdk2Hidden(m.nx, m.nk);
-m.d2fdudx = d2fdudxHidden(m.A3, m.A4, m.v, D3UsedColumns, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies2, m.vxInd, m.vuInd);
-m.d2fdxdu = d2fdxduHidden(m.A3, m.A4, m.v, D3UsedColumns, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies2, m.vxInd, m.vuInd);
-m.d2fdkdx = d2fdkdxHidden(m.dA1dk_fk_x, m.dA2dk_fk_xx, m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, m.vxInd, m.vuInd);
-m.d2fdxdk = d2fdxdkHidden(m.dA1dk_fk_x, m.dA2dk_fk_xx, m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, m.vxInd, m.vuInd);
-m.d2fdkdu = d2fdkduHidden(m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.dA5dk_fk_uu, m.dA6dk_fk_u, m.v, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
-m.d2fdudk = d2fdudkHidden(m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.dA5dk_fk_uu, m.dA6dk_fk_u, m.v, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.d2fdudx = d2fdudxHidden(m.A2, m.A3, m.A4, m.A5, m.v, m.dvdx, m.dvdu, m.d2vdudx, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.d2fdxdu = d2fdxduHidden(m.A2, m.A3, m.A4, m.A5, m.v, m.dvdx, m.dvdu, m.d2vdxdu, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.d2fdkdx = d2fdkdxHidden(m.dA1dk_fk_x, m.dA2dk_fk_xx, m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.dA5dk_fk_uu, m.v, m.dvdx, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.d2fdxdk = d2fdxdkHidden(m.dA1dk_fk_x, m.dA2dk_fk_xx, m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.dA5dk_fk_uu, m.v, m.dvdx, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.d2fdkdu = d2fdkduHidden(m.dA2dk_fk_xx, m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.dA5dk_fk_uu, m.dA6dk_fk_u, m.v, m.dvdu, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.d2fdudk = d2fdudkHidden(m.dA2dk_fk_xx, m.dA3dk_fk_ux, m.dA4dk_fk_xu, m.dA5dk_fk_uu, m.dA6dk_fk_u, m.v, m.dvdu, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 
 m.r = rHidden(m.D1, m.D2, m.D3, m.D4, m.D5, m.D6, m.d, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 
@@ -1023,7 +1176,7 @@ m.Update = @Update;
     end
 end
 
-function handle = fHidden(A1, A2, A3, A4, A5, A6, a, v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
+function handle = fHidden(A1, A2, A3, A4, A5, A6, a, v_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
@@ -1034,20 +1187,21 @@ handle = @f;
     function val = f(t, x, u)
 %   f = A1*x + A2*(x kron x/vx) + A3*(u kron x/vx) + A4*(x kron u/vu) + A5*(u kron u/vu) + A6*u + a
         % Compartment column
-        xvx = x ./ v(vxInd);
-        uvu = u ./ v(vuInd);
+        v = v_fun(t,x,u);
+        xvxinv = x ./ v(vxInd);
+        uvuinv = u ./ v(vuInd);
         
         % Sparse kronecker multiplication
-        xkronx = sparse(D2UsedColumns, ones(numel(D2UsedColumns),1), x(D2UsedSpecies1) .* xvx(D2UsedSpecies2), nx*nx,1);
-        ukronx = sparse(D3UsedColumns, ones(numel(D3UsedColumns),1), u(D3UsedSpecies1) .* xvx(D3UsedSpecies2), nx*nu,1);
-        xkronu = sparse(D4UsedColumns, ones(numel(D4UsedColumns),1), x(D4UsedSpecies1) .* uvu(D4UsedSpecies2), nu*nx,1);
-        ukronu = sparse(D5UsedColumns, ones(numel(D5UsedColumns),1), u(D5UsedSpecies1) .* uvu(D5UsedSpecies2), nu*nu,1);
+        xkronx = sparse(D2UsedColumns, ones(numel(D2UsedColumns),1), x(D2UsedSpecies1) .* xvxinv(D2UsedSpecies2), nx*nx,1);
+        ukronx = sparse(D3UsedColumns, ones(numel(D3UsedColumns),1), u(D3UsedSpecies1) .* xvxinv(D3UsedSpecies2), nx*nu,1);
+        xkronu = sparse(D4UsedColumns, ones(numel(D4UsedColumns),1), x(D4UsedSpecies1) .* uvuinv(D4UsedSpecies2), nu*nx,1);
+        ukronu = sparse(D5UsedColumns, ones(numel(D5UsedColumns),1), u(D5UsedSpecies1) .* uvuinv(D5UsedSpecies2), nu*nu,1);
         
         val = A1 * x + A2 * xkronx + A3 * ukronx + A4 * xkronu + A5 * ukronu + A6 * u + a; % f_
     end
 end
 
-function handle = dfdxHidden(A1, A2, A3, A4, v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, vxInd, vuInd)
+function handle = dfdxHidden(A1, A2, A3, A4, A5, v_fun, dvdx_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
@@ -1058,21 +1212,43 @@ handle = @dfdx;
     function val = dfdx(t, x, u)
 %   dfdx = A1 + A2*(Ix kron x/vx) + A2*(x kron diag(1/vx)) + A3*(u kron diag(1/vx))
         % Compartment column
-        vx = 1 ./ v(vxInd);
-        xvx = x .* vx;
-        uvu = u ./ v(vuInd);
+        v = v_fun(t,x,u);
+        dvdx = dvdx_fun(t,x,u);
+        dvinvdx = bsxfun(@times, (v .^ -2), (dvdx .* -1));
+        vxinv = 1 ./ v(vxInd);
+        xvxinv = x .* vxinv;
+        uvuinv = u ./ v(vuInd);
+        dvxinvdx = dvinvdx(vxInd,:);
+        dvuinvdx = dvinvdx(vuInd,:);
         
-        % Sparse kronecker multiplication
-        Ixkronxvx = sparse(D2UsedColumns, D2UsedSpecies1, xvx(D2UsedSpecies2), nx*nx,nx);
-        xkron1vx  = sparse(D2UsedColumns, D2UsedSpecies2, x(D2UsedSpecies1) .* vx(D2UsedSpecies2), nx*nx,nx);
-        ukron1vx  = sparse(D3UsedColumns, D3UsedSpecies2, u(D3UsedSpecies1) .* vx(D3UsedSpecies2), nx*nu,nx);
-        Ixkronuvu = sparse(D4UsedColumns, D4UsedSpecies1, uvu(D4UsedSpecies2), nx*nu,nx);
+        % A2
+        Ixkronxvxinv   = sparse(D2UsedColumns, D2UsedSpecies1, xvxinv(D2UsedSpecies2), nx*nx,nx);
+        xkronIxvxinv   = sparse(D2UsedColumns, D2UsedSpecies2, x(D2UsedSpecies1) .* vxinv(D2UsedSpecies2), nx*nx,nx);
+        xkronxdvxinvdx = sparse(nx*nx,nx);
+        xkronxdvxinvdx(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), dvxinvdx(D2UsedSpecies2,:));
         
-        val = A1 + A2 * (Ixkronxvx + xkron1vx) + A3 * ukron1vx + A4 * Ixkronuvu; % f_x
+        % A3
+        ukronIxvxinv   = sparse(D3UsedColumns, D3UsedSpecies2, u(D3UsedSpecies1) .* vxinv(D3UsedSpecies2), nx*nu,nx);
+        ukronxdvxinvdx = sparse(nu*nx,nx);
+        ukronxdvxinvdx(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), dvxinvdx(D3UsedSpecies2,:));
+        
+        % A4
+        Ixkronuvuinv   = sparse(D4UsedColumns, D4UsedSpecies1, uvuinv(D4UsedSpecies2), nx*nu,nx);
+        xkronudvuinvdx = sparse(nx*nu,nx);
+        xkronudvuinvdx(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), dvuinvdx(D4UsedSpecies2,:));
+        
+        % A5
+        ukronudvuinvdx = sparse(nu*nu,nx);
+        ukronudvuinvdx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), dvuinvdx(D5UsedSpecies2,:));
+        
+        %val = A2 * (Ixkronxvxinv + xkronIxvxinv + xkronxdvxinvdx);
+        %val = A4 * (Ixkronuvuinv + xkronudvuinvdx);
+        %val = A5 * ukronudvuinvdx;
+        val = A1 + A2 * (Ixkronxvxinv + xkronIxvxinv + xkronxdvxinvdx) + A3 * (ukronIxvxinv + ukronxdvxinvdx) + A4 * (Ixkronuvuinv + xkronudvuinvdx) + A5 * ukronudvuinvdx; % f_x
     end
 end
 
-function handle = dfduHidden(A3, A4, A5, A6, v, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
+function handle = dfduHidden(A2, A3, A4, A5, A6, v_fun, dvdu_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
@@ -1083,21 +1259,40 @@ handle = @dfdu;
     function val = dfdu(t, x, u)
 %   dfdu = A3*(Iu kron x/vx) + A4*(x kron diag(1/vu)) + A5*(Iu kron u/vu) + A5*(u kron diag(1/vu)) + A6
         % Compartment column
-        xvx = x ./ v(vxInd);
-        vu = 1 ./ v(vuInd);
-        uvu = u .* vu;
+        v = v_fun(t,x,u);
+        dvdu = dvdu_fun(t,x,u);
+        dvinvdu = bsxfun(@times, (v .^ -2), (dvdu .* -1));
+        xvxinv = x ./ v(vxInd);
+        vuinv = 1 ./ v(vuInd);
+        uvuinv = u .* vuinv;
+        dvxinvdu = dvinvdu(vxInd,:);
+        dvuinvdu = dvinvdu(vuInd,:);
         
-        % Sparse kronecker multiplication
-        Iukronxvx = sparse(D3UsedColumns, D3UsedSpecies1, xvx(D3UsedSpecies2), nx*nu,nu);
-        xkron1vu  = sparse(D4UsedColumns, D4UsedSpecies2, x(D4UsedSpecies1) .* vu(D4UsedSpecies2), nu*nx,nu);
-        Iukronuvu = sparse(D5UsedColumns, D5UsedSpecies1, uvu(D5UsedSpecies2), nu*nu,nu);
-        ukron1vu  = sparse(D5UsedColumns, D5UsedSpecies2, u(D5UsedSpecies1) .* vu(D5UsedSpecies2), nu*nu,nu);
+        % A2
+        xkronxdvxinvdu = sparse(nx*nx,nu);
+        xkronxdvxinvdu(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), dvxinvdu(D2UsedSpecies2,:));
+
+        % A3
+        Iukronxvxinv   = sparse(D3UsedColumns, D3UsedSpecies1, xvxinv(D3UsedSpecies2), nx*nu,nu);
+        ukronxdvxinvdu = sparse(nu*nx,nu);
+        ukronxdvxinvdu(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), dvxinvdu(D3UsedSpecies2,:));
         
-        val = A3 * Iukronxvx + A4 * xkron1vu + A5 * (Iukronuvu + ukron1vu) + A6; % f_u
+        % A4
+        xkronIuvuinv   = sparse(D4UsedColumns, D4UsedSpecies2, x(D4UsedSpecies1) .* vuinv(D4UsedSpecies2), nu*nx,nu);
+        xkronudvuinvdu = sparse(nx*nu,nu);
+        xkronudvuinvdu(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), dvuinvdu(D4UsedSpecies2,:));
+
+        % A5
+        Iukronuvuinv   = sparse(D5UsedColumns, D5UsedSpecies1, uvuinv(D5UsedSpecies2), nu*nu,nu);
+        ukronIuvuinv   = sparse(D5UsedColumns, D5UsedSpecies2, u(D5UsedSpecies1) .* vuinv(D5UsedSpecies2), nu*nu,nu);
+        ukronudvuinvdu = sparse(nu*nu,nu);
+        ukronudvuinvdu(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), dvuinvdu(D5UsedSpecies2,:));
+        
+        val = A2 * xkronxdvxinvdu + A3 * (Iukronxvxinv + ukronxdvxinvdu) + A4 * (xkronIuvuinv + xkronudvuinvdu) + A5 * (Iukronuvuinv + ukronIuvuinv + ukronudvuinvdu) + A6; % f_u
     end
 end
 
-function handle = dfdkHidden(dA1dk_fk_x, dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, dA6dk_fk_u, dadk, v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
+function handle = dfdkHidden(dA1dk_fk_x, dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, dA6dk_fk_u, dadk, v_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
@@ -1109,27 +1304,76 @@ handle = @dfdk;
     function val = dfdk(t, x, u)
 %   dfdk = dA1dk*x + dA2dk*(x kron x/vx) + dA3dk*(u kron x/vx) + dA4dk*(x kron u/vu) + dA5dk*(u kron u/vu) + dA6dk*u + dadk
         % Compartment column
-        xvx = x ./ v(vxInd);
-        uvu = u ./ v(vuInd);
+        v = v_fun(t,x,u);
+        xvxinv = x ./ v(vxInd);
+        uvuinv = u ./ v(vuInd);
         
         % Sparse kronecker multiplication
-        xkronx = sparse(D2UsedColumns, ones(numel(D2UsedColumns),1), x(D2UsedSpecies1) .* xvx(D2UsedSpecies2), nx*nx,1);
-        ukronx = sparse(D3UsedColumns, ones(numel(D3UsedColumns),1), u(D3UsedSpecies1) .* xvx(D3UsedSpecies2), nx*nu,1);
-        xkronu = sparse(D4UsedColumns, ones(numel(D4UsedColumns),1), x(D4UsedSpecies1) .* uvu(D4UsedSpecies2), nu*nx,1);
-        ukronu = sparse(D5UsedColumns, ones(numel(D5UsedColumns),1), u(D5UsedSpecies1) .* uvu(D5UsedSpecies2), nu*nu,1);
+        xkronxinv = sparse(D2UsedColumns, ones(numel(D2UsedColumns),1), x(D2UsedSpecies1) .* xvxinv(D2UsedSpecies2), nx*nx,1);
+        ukronxinv = sparse(D3UsedColumns, ones(numel(D3UsedColumns),1), u(D3UsedSpecies1) .* xvxinv(D3UsedSpecies2), nx*nu,1);
+        xkronuinv = sparse(D4UsedColumns, ones(numel(D4UsedColumns),1), x(D4UsedSpecies1) .* uvuinv(D4UsedSpecies2), nu*nx,1);
+        ukronuinv = sparse(D5UsedColumns, ones(numel(D5UsedColumns),1), u(D5UsedSpecies1) .* uvuinv(D5UsedSpecies2), nu*nu,1);
         
-        val = dA1dk_fk_x * sparse(x) + dA2dk_fk_xx * xkronx + dA3dk_fk_ux * ukronx + dA4dk_fk_xu * xkronu + dA5dk_fk_uu * ukronu + dA6dk_fk_u * sparse(u); % fk_
+        val = dA1dk_fk_x * sparse(x) + dA2dk_fk_xx * xkronxinv + dA3dk_fk_ux * ukronxinv + dA4dk_fk_xu * xkronuinv + dA5dk_fk_uu * ukronuinv + dA6dk_fk_u * sparse(u); % fk_
         val = reshape(val, nx,nk) + dadk; % f_k
     end
 end
 
-function handle = d2fdx2Hidden(A2, v, D2UsedColumns, D2UsedSpecies2, vxInd)
+% Notes on second-order derivatives:
+%   When a derivative has the form Dd * (Ia kron Ib / vbinv)
+%   with dimensions nb*na by nb*na:
+%   IakronIbvbinv = sparse(DdUsedColumns, DdUsedColumns, vbinv(DdUsedSpecies2), nb*na,na*nb);
+%
+%   When a derivative has the form Dd * (Ia kron Ib / vbinv)
+%   with dimensions nb*na by na*nb:
+%   DdUsedColumnsReverse = linearindexpermute(DdUsedColumns, [nb,na], [2,1]);
+%   IakronIbvbinv = sparse(DdUsedColumns, DdUsedColumnsReverse, vbinv(DdUsedSpecies2), nb*na,nb*na);
+%
+%   When a derivative has the form Dd * (Ia kron b / dvbinvdc)
+%   with dimensions nb*na by nc*na:
+%   rows = repmat(DdUsedColumns, [nc,1]);
+%   cols = vec(bsxfun(@plus, 1:nc, (DdUsedSpecies1-1)*nc));
+%   Iakronbdvbinvdc = sparse(rows, cols, bsxfun(@times, b(DdUsedSpecies2), dvbinvdc(DdUsedSpecies2,:)), nb*na,na*nb);
+%
+%   When a derivative has the form Dd * (Ia kron b / dvbinvdc)
+%   with dimensions nb*na by na*nc:
+%   rows = repmat(DdUsedColumns, [nc,1]);
+%   cols = lineaerindexpermute(vec(bsxfun(@plus, 1:nc, (DdUsedSpecies1-1)*nc)), [nc,na], [2,1]);
+%   Iakronbdvbinvdc = sparse(rows, cols, bsxfun(@times, b(DdUsedSpecies2), dvbinvdc(DdUsedSpecies2,:)), nb*na,na*nb);
+%
+%   When a derivative has the form Dd * (a kron Ib / dvbinvdc)
+%   with dimensions nb*na by nb*nc:
+%   rows = repmat(DdUsedColumns, [nc,1]);
+%   cols = vec(bsxfun(@plus, 1:nb:nb*nc, DdUsedSpecies2-1));
+%   akronIbdvbinvdc = sparse(rows, cols, bsxfun(@times, a(DdUsedSpecies1), dvbinvdc(DdUsedSpecies2,:)), nb*na,nb*nc);
+%
+%   When a derivative has the form Dd * (a kron Ib / dvbinvdc)
+%   with dimensions nb*na by nc*nb:
+%   rows = repmat(DdUsedColumns, [nc,1]);
+%   cols = linearindexpermute(vec(bsxfun(@plus, 1:nb:nb*nc, DdUsedSpecies2-1)), [nb,nc], [2,1]);
+%   akronIbdvbinvdc = sparse(rows, cols, bsxfun(@times, a(DdUsedSpecies1), dvbinvdc(DdUsedSpecies2,:)), nb*na,nb*nc);
+
+function handle = d2fdx2Hidden(A2, A3, A4, A5, v_fun, dvdx_fun, d2vdx2_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
+nu = numel(vuInd);
 
-% Reverse the internal subscripts in the UsedColumns linear index
-[x1ind,x2ind] = ind2sub([nx,nx], D2UsedColumns);
-D2UsedColumnsReverse = sub2ind([nx, nx], x2ind, x1ind);
+% A2
+D2UsedColumnsReverse = linearindexpermute(D2UsedColumns, [nx,nx], [2,1]);
+
+Ixkronxdvxinvdx_rows = repmat(D2UsedColumns,[nx,1]);
+Ixkronxdvxinvdx_cols = vec(bsxfun(@plus, 1:nx, (D2UsedSpecies1-1)*nx));
+ 
+xkronIxdvxinvdx_rows = Ixkronxdvxinvdx_rows;
+xkronIxdvxinvdx_cols = vec(bsxfun(@plus, 1:nx:nx*nx, D2UsedSpecies2-1));
+
+% A3
+ukronIxdvxinvdx_rows = repmat(D3UsedColumns,[nx,1]);
+ukronIxdvxinvdx_cols = vec(bsxfun(@plus, 1:nx:nx*nx, D3UsedSpecies2-1));
+
+% A4
+Ixkronudvuinvdx_rows = repmat(D4UsedColumns,[nx,1]);
+Ixkronudvuinvdx_cols = vec(bsxfun(@plus, 1:nx, (D4UsedSpecies1-1)*nx));
 
 % Return handle
 handle = @d2fdx2;
@@ -1137,24 +1381,83 @@ handle = @d2fdx2;
     function val = d2fdx2(t, x, u)
 %   d2fdx2 = 2*A2*(Ix kron diag(1/vx))
         % Compartment column
-        vxinv = 1 ./ v(vxInd);
+        v = v_fun(t,x,u); % v_
+        nv = numel(v);
+        dvdx = dvdx_fun(t,x,u); % v_x
+        d2vdx2 = d2vdx2_fun(t,x,u); % vx_x
+        dvinvdx = bsxfun(@times, (v .^ -2), (dvdx .* -1)); % v_x
+        d2vinvdx2 = sparse(reshape(bsxfun(@times, reshape(full(bsxfun(@times, v .^ -3, dvdx .* -2)), nv,1,nx), full(dvdx) .* -1), nv,nx*nx) + bsxfun(@times, (v .^ -2), reshape(d2vdx2, nv,nx*nx) .* -1)); % v_xx
+        vxinv = 1 ./ v(vxInd); % x_
+        dvxinvdx = dvinvdx(vxInd,:); % x_x
+        d2vxinvdx2 = d2vinvdx2(vxInd,:); % x_xx
+        dvuinvdx = dvinvdx(vuInd,:); % u_x
+        d2vuinvdx2 = d2vinvdx2(vuInd,:); % u_xx
         
-        % Second-order derivative of (x kron x/vx)
-        Ixkron1vx = sparse([D2UsedColumns; D2UsedColumns], [D2UsedColumns; D2UsedColumnsReverse], [vxinv(D2UsedSpecies2); vxinv(D2UsedSpecies2)], nx*nx,nx*nx);
+        % A2
+        %IxkronIxvxinv = sparse([D2UsedColumns; D2UsedColumns], [D2UsedColumns; D2UsedColumnsReverse], [vxinv(D2UsedSpecies2); vxinv(D2UsedSpecies2)], nx*nx,nx*nx);
+        IxkronIxvxinv_1 = sparse(D2UsedColumns, D2UsedColumnsReverse, vxinv(D2UsedSpecies2), nx*nx,nx*nx);
+        IxkronIxvxinv_2 = sparse(D2UsedColumns, D2UsedColumns, vxinv(D2UsedSpecies2), nx*nx,nx*nx);
         
-        val = A2 * Ixkron1vx; % f_xx
+        %Ixkronxdvxinvdx = kron(eye(nx), diag(x) * dvxinvdx);
+        Ixkronxdvxinvdx_1 = sparse(Ixkronxdvxinvdx_rows, Ixkronxdvxinvdx_cols, bsxfun(@times, x(D2UsedSpecies2), dvxinvdx(D2UsedSpecies2,:)), nx*nx,nx*nx);
+        Ixkronxdvxinvdx_2 = Ixkronxdvxinvdx_1(:,reshape(1:(nx*nx), nx,nx)');
+        
+        %xkronIxdvxinvdx = reshape(kron(x, reshape(bsxfun(@times, eye(nx), reshape(full(dvxinvdx),[nx,1,nx])), [nx,nx*nx])), [nx*nx,nx*nx]);
+        xkronIxdvxinvdx_1 = sparse(xkronIxdvxinvdx_rows, xkronIxdvxinvdx_cols, bsxfun(@times, x(D2UsedSpecies1), dvxinvdx(D2UsedSpecies2,:)), nx*nx,nx*nx);
+        xkronIxdvxinvdx_2 = xkronIxdvxinvdx_1(:,reshape(1:(nx*nx), nx,nx)');
+        
+        %xkronxd2vxinvdx2 = kron(x, diag(x) * d2vxinvdx2);
+        xkronxd2vxinvdx2 = sparse(nx*nx,nx*nx);
+        xkronxd2vxinvdx2(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), d2vxinvdx2(D2UsedSpecies2,:));
+
+        % A3
+        ukronIxdvxinvdx_1 = sparse(ukronIxdvxinvdx_rows, ukronIxdvxinvdx_cols, bsxfun(@times, u(D3UsedSpecies1), dvxinvdx(D3UsedSpecies2,:)), nx*nu,nx*nx);
+        ukronIxdvxinvdx_2 = ukronIxdvxinvdx_1(:,reshape(1:(nx*nx), nx,nx)');
+        
+        ukronxd2vxinvdx2 = sparse(nx*nu,nx*nx);
+        ukronxd2vxinvdx2(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), d2vxinvdx2(D3UsedSpecies2,:));
+
+        % A4
+        Ixkronudvuinvdx_1 = sparse(Ixkronudvuinvdx_rows, Ixkronudvuinvdx_cols, bsxfun(@times, u(D4UsedSpecies2), dvuinvdx(D4UsedSpecies2,:)), nu*nx,nx*nx);
+        Ixkronudvuinvdx_2 = Ixkronudvuinvdx_1(:,reshape(1:(nx*nx), nx,nx)');
+        
+        xkronud2vuinvdx2 = sparse(nu*nx,nx*nx);
+        xkronud2vuinvdx2(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), d2vuinvdx2(D4UsedSpecies2,:));
+        
+        % A5
+        ukronud2vuinvdx2 = sparse(nu*nu,nx*nx);
+        ukronud2vuinvdx2(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), d2vuinvdx2(D5UsedSpecies2,:));
+
+        val = A2 * (IxkronIxvxinv_1 + Ixkronxdvxinvdx_1 + IxkronIxvxinv_2 + xkronIxdvxinvdx_1 + Ixkronxdvxinvdx_2 + xkronIxdvxinvdx_2 + xkronxd2vxinvdx2)...
+              + A3 * (ukronIxdvxinvdx_1 + ukronIxdvxinvdx_2 + ukronxd2vxinvdx2)...
+              + A4 * (Ixkronudvuinvdx_1 + Ixkronudvuinvdx_2 + xkronud2vuinvdx2)...
+              + A5 * ukronud2vuinvdx2; % f_xx
         val = reshape(val, nx*nx, nx); % fx_x
     end
 end
 
-function handle = d2fdu2Hidden(A5, v, D5UsedColumns, D5UsedSpecies2, vuInd)
+function handle = d2fdu2Hidden(A2, A3, A4, A5, v_fun, dvdu_fun, d2vdu2_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
-nx = size(A5,1);
+nx = numel(vxInd);
 nu = numel(vuInd);
 
-% Reverse the internal subscripts in the UsedColumns linear index
+% A3
+Iukronxdvxinvdu_rows = repmat(D3UsedColumns,[nu,1]);
+Iukronxdvxinvdu_cols = vec(bsxfun(@plus, 1:nu, (D3UsedSpecies1-1)*nu));
+
+% A4
+xkronIudvuinvdu_rows = repmat(D4UsedColumns,[nu,1]);
+xkronIudvuinvdu_cols = vec(bsxfun(@plus, 1:nu:nu*nu, D4UsedSpecies2-1));
+
+% A5
 [u1ind,u2ind] = ind2sub([nu,nu], D5UsedColumns);
 D5UsedColumnsReverse = sub2ind([nu, nu], u2ind, u1ind);
+
+Iukronudvuinvdu_rows = repmat(D5UsedColumns,[nu,1]);
+Iukronudvuinvdu_cols = vec(bsxfun(@plus, 1:nu, (D5UsedSpecies1-1)*nu));
+ 
+ukronIudvuinvdu_rows = Iukronudvuinvdu_rows;
+ukronIudvuinvdu_cols = vec(bsxfun(@plus, 1:nu:nu*nu, D5UsedSpecies2-1));
 
 % Return handle
 handle = @d2fdu2;
@@ -1162,12 +1465,56 @@ handle = @d2fdu2;
     function val = d2fdu2(t, x, u)
 %   d2fdu2 = 2*A5*(Iu kron diag(1/vu))
         % Compartment column
-        vuinv = 1 ./ v(vuInd);
+        v = v_fun(t,x,u); % v_
+        nv = numel(v);
+        dvdu = dvdu_fun(t,x,u); % v_u
+        d2vdu2 = d2vdu2_fun(t,x,u); % vu_u
+        dvinvdu = bsxfun(@times, (v .^ -2), (dvdu .* -1)); % v_u
+        d2vinvdu2 = sparse(reshape(bsxfun(@times, reshape(full(bsxfun(@times, v .^ -3, dvdu .* -2)), nv,1,nu), full(dvdu) .* -1), nv,nu*nu) + bsxfun(@times, (v .^ -2), reshape(d2vdu2, nv,nu*nu) .* -1)); % v_uu
+        dvxinvdu = dvinvdu(vxInd,:); % x_u
+        d2vxinvdu2 = d2vinvdu2(vxInd,:); % x_uu
+        vuinv = 1 ./ v(vuInd); % u_
+        dvuinvdu = dvinvdu(vuInd,:); % u_u
+        d2vuinvdu2 = d2vinvdu2(vuInd,:); % u_uu
         
-        % Second-order derivative of (u kron u/vu)
-        Iukron1vu = sparse([D5UsedColumns; D5UsedColumns], [D5UsedColumns; D5UsedColumnsReverse], [vuinv(D5UsedSpecies2); vuinv(D5UsedSpecies2)], nu*nu,nu*nu);
+        % A2
+        xkronxd2vxinvdu2 = sparse(nx*nx,nu*nu);
+        xkronxd2vxinvdu2(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), d2vxinvdu2(D2UsedSpecies2,:));
+
+        % A3
+        Iukronxdvxinvdu_1 = sparse(Iukronxdvxinvdu_rows, Iukronxdvxinvdu_cols, bsxfun(@times, x(D3UsedSpecies2), dvxinvdu(D3UsedSpecies2,:)), nx*nu,nu*nu);
+        Iukronxdvxinvdu_2 = Iukronxdvxinvdu_1(:,reshape(1:(nu*nu), nu,nu)');
         
-        val = A5 * Iukron1vu; % f_uu
+        ukronxd2vxinvdu2 = sparse(nx*nu,nu*nu);
+        ukronxd2vxinvdu2(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), d2vxinvdu2(D3UsedSpecies2,:));
+        
+        % A4
+        xkronIudvuinvdu_1 = sparse(xkronIudvuinvdu_rows, xkronIudvuinvdu_cols, bsxfun(@times, x(D4UsedSpecies1), dvuinvdu(D4UsedSpecies2,:)), nu*nx,nu*nu);
+        xkronIudvuinvdu_2 = xkronIudvuinvdu_1(:,reshape(1:(nu*nu), nu,nu)');
+        
+        xkronud2vuinvdu2 = sparse(nu*nx,nu*nu);
+        xkronud2vuinvdu2(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), d2vuinvdu2(D4UsedSpecies2,:));
+
+        % A5
+        IukronIuvuinv_1 = sparse(D5UsedColumns, D5UsedColumnsReverse, vuinv(D5UsedSpecies2), nu*nu,nu*nu);
+        IukronIuvuinv_2 = sparse(D5UsedColumns, D5UsedColumns, vuinv(D5UsedSpecies2), nu*nu,nu*nu);
+        
+        %Iukronudvuinvdu = kron(eye(nu), diag(u) * dvuinvdu);
+        Iukronudvuinvdu_1 = sparse(Iukronudvuinvdu_rows, Iukronudvuinvdu_cols, bsxfun(@times, u(D5UsedSpecies2), dvuinvdu(D5UsedSpecies2,:)), nu*nu,nu*nu);
+        Iukronudvuinvdu_2 = Iukronudvuinvdu_1(:,reshape(1:(nu*nu), nu,nu)');
+        
+        %ukronIudvuinvdu = reshape(kron(u, reshape(bsxfun(@times, eye(nu), reshape(full(dvuinvdu),[nu,1,nu])), [nu,nu*nu])), [nu*nu,nu*nu]);
+        ukronIudvuinvdu_1 = sparse(ukronIudvuinvdu_rows, ukronIudvuinvdu_cols, bsxfun(@times, u(D5UsedSpecies1), dvuinvdu(D5UsedSpecies2,:)), nu*nu,nu*nu);
+        ukronIudvuinvdu_2 = ukronIudvuinvdu_1(:,reshape(1:(nu*nu), nu,nu)');
+        
+        %ukronud2vuinvdu2 = kron(u, diag(u) * d2vuinvdu2);
+        ukronud2vuinvdu2 = sparse(nu*nu,nu*nu);
+        ukronud2vuinvdu2(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), d2vuinvdu2(D5UsedSpecies2,:));
+
+        val = A2 * xkronxd2vxinvdu2...
+              + A3 * (Iukronxdvxinvdu_1 + Iukronxdvxinvdu_2 + ukronxd2vxinvdu2)...
+              + A4 * (xkronIudvuinvdu_1 + xkronIudvuinvdu_2 + xkronud2vuinvdu2)...
+              + A5 * (IukronIuvuinv_1 + Iukronudvuinvdu_1 + IukronIuvuinv_2 + ukronIudvuinvdu_1 + Iukronudvuinvdu_2 + ukronIudvuinvdu_2 + ukronud2vuinvdu2); % f_uu
         val = reshape(val, nx*nu, nu); % fu_u
     end
 end
@@ -1182,10 +1529,40 @@ handle = @d2fdk2;
     end
 end
 
-function handle = d2fdudxHidden(A3, A4, v, D3UsedColumns, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies2, vxInd, vuInd)
+function handle = d2fdudxHidden(A2, A3, A4, A5, v_fun, dvdx_fun, dvdu_fun, d2vdudx_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
+
+% A2
+Ixkronxdvxinvdu_rows = repmat(D2UsedColumns,[nu,1]);
+Ixkronxdvxinvdu_cols = linearindexpermute(vec(bsxfun(@plus, 1:nu, (D2UsedSpecies1-1)*nu)), [nu,nx], [2,1]);
+
+xkronIxdvxinvdu_rows = repmat(D2UsedColumns,[nu,1]);
+xkronIxdvxinvdu_cols = vec(bsxfun(@plus, 1:nx:nx*nu, D2UsedSpecies2-1));
+
+% A3
+Iukronxdvxinvdx_rows = repmat(D3UsedColumns,[nx,1]);
+Iukronxdvxinvdx_cols = vec(bsxfun(@plus, 1:nx, (D3UsedSpecies1-1)*nx));
+
+ukronIxdvxinvdu_rows = repmat(D3UsedColumns,[nu,1]);
+ukronIxdvxinvdu_cols = vec(bsxfun(@plus, 1:nx:nx*nu, D3UsedSpecies2-1));
+
+% A4
+D4UsedColumnsReverse = linearindexpermute(D4UsedColumns, [nu, nx], [2,1]);
+
+Ixkronudvuinvdu_rows = repmat(D4UsedColumns,[nu,1]);
+Ixkronudvuinvdu_cols = linearindexpermute(vec(bsxfun(@plus, 1:nu, (D4UsedSpecies1-1)*nu)), [nu,nx], [2,1]);
+
+xkronIudvuinvdx_rows = repmat(D4UsedColumns,[nx,1]);
+xkronIudvuinvdx_cols = linearindexpermute(vec(bsxfun(@plus, 1:nu:nu*nx, D4UsedSpecies2-1)), [nu,nx], [2,1]);
+
+% A5
+Iukronudvuinvdx_rows = repmat(D5UsedColumns,[nx,1]);
+Iukronudvuinvdx_cols = vec(bsxfun(@plus, 1:nx, (D5UsedSpecies1-1)*nx));
+
+ukronIudvuinvdx_rows = repmat(D5UsedColumns,[nx,1]);
+ukronIudvuinvdx_cols = linearindexpermute(vec(bsxfun(@plus, 1:nu:nu*nx, D5UsedSpecies2-1)), [nu,nx], [2,1]);
 
 % Return handle
 handle = @d2fdudx;
@@ -1193,42 +1570,168 @@ handle = @d2fdudx;
     function val = d2fdudx(t, x, u)
 %   d2fdudx = A3 *{x.x;u.u} (Iu * (Ix *{xxx} vx ^ -1)) + A4 *{x.x;u.u} (Ix * (Iu *{uxu} vu ^ -1))
         % Compartment column
-        vxinv = 1 ./ v(vxInd);
-        vuinv = 1 ./ v(vuInd);
+        v = v_fun(t,x,u); % v_
+        nv = numel(v);
+        dvdx = dvdx_fun(t,x,u); % v_x
+        dvdu = dvdu_fun(t,x,u); % v_u
+        d2vdudx = d2vdudx_fun(t,x,u); % vx_x
+
+        dvinvdx = bsxfun(@times, (v .^ -2), (dvdx .* -1)); % v_x
+        dvinvdu = bsxfun(@times, (v .^ -2), (dvdu .* -1)); % v_u
+        d2vinvdudx = sparse(reshape(bsxfun(@times, reshape(full(bsxfun(@times, v .^ -3, dvdu .* -2)), nv,1,nu), full(dvdx) .* -1), nv,nx*nu) + bsxfun(@times, (v .^ -2), reshape(d2vdudx, nv,nx*nu) .* -1)); % v_xu
+
+        vxinv = 1 ./ v(vxInd); % x_
+        dvxinvdx = dvinvdx(vxInd,:); % x_x
+        dvxinvdu = dvinvdu(vxInd,:); % x_u
+        d2vxinvdudx = d2vinvdudx(vxInd,:); % x_xu
         
-        % Second order derivative of (u kron x/vx) and (x kron u/vu)
-        Iukron1vx = sparse(D3UsedColumns, D3UsedColumns, vxinv(D3UsedSpecies2), nx*nu,nx*nu); % xu_xu
-        Ixkron1vu = sparse(D4UsedColumns, D4UsedColumns, vuinv(D4UsedSpecies2), nu*nx,nu*nx); % ux_ux
+        vuinv = 1 ./ v(vuInd); % u_
+        dvuinvdx = dvinvdx(vuInd,:); % u_x
+        dvuinvdu = dvinvdu(vuInd,:); % u_u
+        d2vuinvdudx = d2vinvdudx(vuInd,:); % u_uu
         
-        val = A3 * Iukron1vx + spermute132(A4 * Ixkron1vu, [nx,nu,nx],[nx,nx*nu]); % f_xu
+        % A2 derivatives
+        Ixkronxdvxinvdu = sparse(Ixkronxdvxinvdu_rows, Ixkronxdvxinvdu_cols, bsxfun(@times, x(D2UsedSpecies2), dvxinvdu(D2UsedSpecies2,:)), nx*nx,nx*nu);
+        xkronIxdvxinvdu = sparse(xkronIxdvxinvdu_rows, xkronIxdvxinvdu_cols, bsxfun(@times, x(D2UsedSpecies1), dvxinvdu(D2UsedSpecies2,:)), nx*nx,nx*nu);
+        
+        xkronxd2vxinvdudx = sparse(nx*nx,nx*nu);
+        xkronxd2vxinvdudx(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), d2vxinvdudx(D2UsedSpecies2,:));
+        
+        % A3 derivatives
+        IukronIxvxinv   = sparse(D3UsedColumns, D3UsedColumns, vxinv(D3UsedSpecies2), nx*nu,nx*nu);
+        ukronIxdvxinvdu = sparse(ukronIxdvxinvdu_rows, ukronIxdvxinvdu_cols, bsxfun(@times, u(D3UsedSpecies1), dvxinvdu(D3UsedSpecies2,:)), nx*nu,nx*nu);
+        Iukronxdvxinvdu = sparse(Iukronxdvxinvdx_rows, Iukronxdvxinvdx_cols, bsxfun(@times, x(D3UsedSpecies2), dvxinvdx(D3UsedSpecies2,:)), nx*nu,nx*nu);
+
+        ukronxd2vxinvdudx = sparse(nx*nu,nx*nu);
+        ukronxd2vxinvdudx(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), d2vxinvdudx(D3UsedSpecies2,:));
+
+        % A4 derivatives
+        IxkronIuvuinv_1   = sparse(D4UsedColumns, D4UsedColumnsReverse, vuinv(D4UsedSpecies2), nu*nx,nx*nu);
+        Ixkronudvuinvdu_1 = sparse(Ixkronudvuinvdu_rows, Ixkronudvuinvdu_cols, bsxfun(@times, u(D4UsedSpecies2), dvuinvdu(D4UsedSpecies2,:)), nu*nx,nx*nu);
+        xkronIudvuinvdx_1 = sparse(xkronIudvuinvdx_rows, xkronIudvuinvdx_cols, bsxfun(@times, x(D4UsedSpecies1), dvuinvdx(D4UsedSpecies2,:)), nu*nx,nx*nu);
+
+        xkronud2vuinvdudx = sparse(nu*nx,nx*nu);
+        xkronud2vuinvdudx(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), d2vuinvdudx(D4UsedSpecies2,:));
+        
+        % A5 derivatives
+        Iukronudvuinvdx = sparse(Iukronudvuinvdx_rows, Iukronudvuinvdx_cols, bsxfun(@times, u(D5UsedSpecies2), dvuinvdx(D5UsedSpecies2,:)), nu*nu,nx*nu);
+        ukronIudvuinvdx = sparse(ukronIudvuinvdx_rows, ukronIudvuinvdx_cols, bsxfun(@times, u(D5UsedSpecies1), dvuinvdx(D5UsedSpecies2,:)), nu*nu,nx*nu);
+        
+        ukronud2vuinvdudx = sparse(nu*nu,nx*nu);
+        ukronud2vuinvdudx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), d2vuinvdudx(D5UsedSpecies2,:));
+
+        %val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx);
+        %val = A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx);
+        %val = A5 * (Iukronudvuinvdx + ukronIudvuinvdx + ukronud2vuinvdudx);
+        val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx) ...
+              + A3 * (IukronIxvxinv + ukronIxdvxinvdu + Iukronxdvxinvdu + ukronxd2vxinvdudx) ...
+              + A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx) ...
+              + A5 * (Iukronudvuinvdx + ukronIudvuinvdx + ukronud2vuinvdudx);
         val = reshape(val, nx*nx,nu); % fx_u
     end
 end
 
-function handle = d2fdxduHidden(A3, A4, v, D3UsedColumns, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies2, vxInd, vuInd)
+function handle = d2fdxduHidden(A2, A3, A4, A5, v_fun, dvdx_fun, dvdu_fun, d2vdxdu_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
 
-% Return handle
-handle = @d2fdxdu;
+% A2
+Ixkronxdvxinvdu_rows = repmat(D2UsedColumns,[nu,1]);
+Ixkronxdvxinvdu_cols = vec(bsxfun(@plus, 1:nu, (D2UsedSpecies1-1)*nu));
 
-    function val = d2fdxdu(t, x, u)
-%   d2fdxdu = A3 *{x.x;u.u} (Iu * (Ix *{xxx} vx ^ -1 - x *{xxx} dvxdx ^ -2)) + A4 *{x.x;u.u} (Ix * (Iu *{uxu} vu ^ -1 - u *{uxu} dvudu ^ -2))
+xkronIxdvxinvdu_rows = repmat(D2UsedColumns,[nu,1]);
+xkronIxdvxinvdu_cols = linearindexpermute(vec(bsxfun(@plus, 1:nx:nx*nu, D2UsedSpecies2-1)), [nx,nu], [2,1]);
+
+% A3
+Iukronxdvxinvdx_rows = repmat(D3UsedColumns,[nx,1]);
+Iukronxdvxinvdx_cols = linearindexpermute(vec(bsxfun(@plus, 1:nx, (D3UsedSpecies1-1)*nx)), [nx,nu], [2,1]);
+
+ukronIxdvxinvdu_rows = repmat(D3UsedColumns,[nu,1]);
+ukronIxdvxinvdu_cols = linearindexpermute(vec(bsxfun(@plus, 1:nx:nx*nu, D3UsedSpecies2-1)), [nx,nu], [2,1]);
+
+% A4
+Ixkronudvuinvdu_rows = repmat(D4UsedColumns,[nu,1]);
+Ixkronudvuinvdu_cols = vec(bsxfun(@plus, 1:nu, (D4UsedSpecies1-1)*nu));
+
+xkronIudvuinvdx_rows = repmat(D4UsedColumns,[nx,1]);
+xkronIudvuinvdx_cols = vec(bsxfun(@plus, 1:nu:nu*nx, D4UsedSpecies2-1));
+
+% A5
+Iukronudvuinvdx_rows = repmat(D5UsedColumns,[nx,1]);
+Iukronudvuinvdx_cols = linearindexpermute(vec(bsxfun(@plus, 1:nx, (D5UsedSpecies1-1)*nx)), [nx,nu], [2,1]);
+
+ukronIudvuinvdx_rows = repmat(D5UsedColumns,[nx,1]);
+ukronIudvuinvdx_cols = vec(bsxfun(@plus, 1:nu:nu*nx, D5UsedSpecies2-1));
+
+% Return handle
+handle = @d2fdudx;
+
+    function val = d2fdudx(t, x, u)
+%   d2fdudx = A3 *{x.x;u.u} (Iu * (Ix *{xxx} vx ^ -1)) + A4 *{x.x;u.u} (Ix * (Iu *{uxu} vu ^ -1))
         % Compartment column
-        vxinv = 1 ./ v(vxInd);
-        vuinv = 1 ./ v(vuInd);
+        v = v_fun(t,x,u); % v_
+        nv = numel(v);
+        dvdx = dvdx_fun(t,x,u); % v_x
+        dvdu = dvdu_fun(t,x,u); % v_u
+        d2vdxdu = d2vdxdu_fun(t,x,u); % vx_x
+
+        dvinvdx = bsxfun(@times, (v .^ -2), (dvdx .* -1)); % v_x
+        dvinvdu = bsxfun(@times, (v .^ -2), (dvdu .* -1)); % v_u
+        d2vinvdxdu = sparse(reshape(bsxfun(@times, reshape(full(bsxfun(@times, v .^ -3, dvdx .* -2)), nv,1,nx), full(dvdu) .* -1), nv,nu*nx) + bsxfun(@times, (v .^ -2), reshape(d2vdxdu, nv,nu*nx) .* -1)); % v_ux
+
+        vxinv = 1 ./ v(vxInd); % x_
+        dvxinvdx = dvinvdx(vxInd,:); % x_x
+        dvxinvdu = dvinvdu(vxInd,:); % x_u
+        d2vxinvdxdu = d2vinvdxdu(vxInd,:); % x_xu
         
-        % Sparse and non-sparse kronecker multiplication
-        Iukron1vx = sparse(D3UsedColumns, D3UsedColumns, vxinv(D3UsedSpecies2), nx*nu,nx*nu); % xu_xu
-        Ixkron1vu = sparse(D4UsedColumns, D4UsedColumns, vuinv(D4UsedSpecies2), nu*nx,nu*nx); % ux_ux
+        vuinv = 1 ./ v(vuInd); % u_
+        dvuinvdx = dvinvdx(vuInd,:); % u_x
+        dvuinvdu = dvinvdu(vuInd,:); % u_u
+        d2vuinvdxdu = d2vinvdxdu(vuInd,:); % u_uu
         
-        val = spermute132(A3 * Iukron1vx, [nx,nx,nu],[nx,nu*nx]) + A4 * Ixkron1vu; % f_ux
+        % A2
+        Ixkronxdvxinvdu = sparse(Ixkronxdvxinvdu_rows, Ixkronxdvxinvdu_cols, bsxfun(@times, x(D2UsedSpecies2), dvxinvdu(D2UsedSpecies2,:)), nx*nx,nu*nx);
+        xkronIxdvxinvdu = sparse(xkronIxdvxinvdu_rows, xkronIxdvxinvdu_cols, bsxfun(@times, x(D2UsedSpecies1), dvxinvdu(D2UsedSpecies2,:)), nx*nx,nu*nx);
+        
+        xkronxd2vxinvdudx = sparse(nx*nx,nx*nu);
+        xkronxd2vxinvdudx(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), d2vxinvdxdu(D2UsedSpecies2,:));
+        
+        % A3
+        IukronIxvxinv   = sparse(D3UsedColumns, D3UsedColumns, vxinv(D3UsedSpecies2), nx*nu,nx*nu);
+        ukronIxdvxinvdu = sparse(ukronIxdvxinvdu_rows, ukronIxdvxinvdu_cols, bsxfun(@times, u(D3UsedSpecies1), dvxinvdu(D3UsedSpecies2,:)), nx*nu,nu*nx);
+        Iukronxdvxinvdu = sparse(Iukronxdvxinvdx_rows, Iukronxdvxinvdx_cols, bsxfun(@times, x(D3UsedSpecies2), dvxinvdx(D3UsedSpecies2,:)), nx*nu,nu*nx);
+
+        ukronxd2vxinvdudx = sparse(nx*nu,nx*nu);
+        ukronxd2vxinvdudx(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), d2vxinvdxdu(D3UsedSpecies2,:));
+
+        % A4
+        IxkronIuvuinv_1   = sparse(D4UsedColumns, D4UsedColumns, vuinv(D4UsedSpecies2), nu*nx,nx*nu);
+        Ixkronudvuinvdu_1 = sparse(Ixkronudvuinvdu_rows, Ixkronudvuinvdu_cols, bsxfun(@times, u(D4UsedSpecies2), dvuinvdu(D4UsedSpecies2,:)), nu*nx,nu*nx);
+        xkronIudvuinvdx_1 = sparse(xkronIudvuinvdx_rows, xkronIudvuinvdx_cols, bsxfun(@times, x(D4UsedSpecies1), dvuinvdx(D4UsedSpecies2,:)), nu*nx,nu*nx);
+
+        xkronud2vuinvdudx = sparse(nu*nx,nx*nu);
+        xkronud2vuinvdudx(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), d2vuinvdxdu(D4UsedSpecies2,:));
+        
+        % A5
+        Iukronudvuinvdx = sparse(Iukronudvuinvdx_rows, Iukronudvuinvdx_cols, bsxfun(@times, u(D5UsedSpecies2), dvuinvdx(D5UsedSpecies2,:)), nu*nu,nu*nx);
+        ukronIudvuinvdx = sparse(ukronIudvuinvdx_rows, ukronIudvuinvdx_cols, bsxfun(@times, u(D5UsedSpecies1), dvuinvdx(D5UsedSpecies2,:)), nu*nu,nu*nx);
+        
+        ukronud2vuinvdudx = sparse(nu*nu,nx*nu);
+        ukronud2vuinvdudx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), d2vuinvdxdu(D5UsedSpecies2,:));
+
+        %val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx);
+        %val = A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx);
+        %val = A5 * (Iukronudvuinvdx + ukronIudvuinvdx + ukronud2vuinvdudx);
+        val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx) ...
+              + A3 * (IukronIxvxinv + ukronIxdvxinvdu + Iukronxdvxinvdu + ukronxd2vxinvdudx) ...
+              + A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx) ...
+              + A5 * (Iukronudvuinvdx + ukronIudvuinvdx + ukronud2vuinvdudx);
         val = reshape(val, nx*nu,nx); % fu_x
     end
 end
 
-function handle = d2fdkdxHidden(dA1dk_fk_x, dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, vxInd, vuInd)
+function handle = d2fdkdxHidden(dA1dk_fk_x, dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, v_fun, dvdx_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
@@ -1240,47 +1743,94 @@ handle = @d2fdkdx;
     function val = d2fdkdx(t, x, u)
 %   d2fdxdk = dA1dk + dA2dk*(Ix kron x/vx) + dA2dk*(x kron diag(1/vx)) + dA3dk*(u kron diag(1/vx)) + dA4dk*(Ix kron u/vu)
         % Compartment column
+        v = v_fun(t,x,u);
+        dvdx = dvdx_fun(t,x,u);
+        dvinvdx = bsxfun(@times, (v .^ -2), (dvdx .* -1));
         vxinv = 1 ./ v(vxInd);
-        xvx = x .* vxinv;
-        uvu = u ./ v(vuInd);
+        xvxinv = x .* vxinv;
+        uvuinv = u ./ v(vuInd);
+        dvxinvdx = dvinvdx(vxInd,:);
+        dvuinvdx = dvinvdx(vuInd,:);
         
-        % Sparse kronecker multiplication
-        Ixkronxvx = sparse(D2UsedColumns, D2UsedSpecies1, xvx(D2UsedSpecies2), nx*nx,nx);
-        xkron1vx  = sparse(D2UsedColumns, D2UsedSpecies2, x(D2UsedSpecies1) .* vxinv(D2UsedSpecies2), nx*nx,nx);
-        ukron1vx  = sparse(D3UsedColumns, D3UsedSpecies2, u(D3UsedSpecies1) .* vxinv(D3UsedSpecies2), nx*nu,nx);
-        Ixkronuvu = sparse(D4UsedColumns, D4UsedSpecies1, uvu(D4UsedSpecies2), nu*nx,nx);
+        % A2
+        Ixkronxvxinv = sparse(D2UsedColumns, D2UsedSpecies1, xvxinv(D2UsedSpecies2), nx*nx,nx);
+        xkronIxvxinv  = sparse(D2UsedColumns, D2UsedSpecies2, x(D2UsedSpecies1) .* vxinv(D2UsedSpecies2), nx*nx,nx);
+        xkronxdvxinvdx = sparse(nx*nx,nx);
+        xkronxdvxinvdx(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), dvxinvdx(D2UsedSpecies2,:));
+
+        % A3
+        ukronIxvxinv  = sparse(D3UsedColumns, D3UsedSpecies2, u(D3UsedSpecies1) .* vxinv(D3UsedSpecies2), nx*nu,nx);
+        ukronxdvxinvdx = sparse(nu*nx,nx);
+        ukronxdvxinvdx(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), dvxinvdx(D3UsedSpecies2,:));
+
+        % A4
+        Ixkronuvuinv = sparse(D4UsedColumns, D4UsedSpecies1, uvuinv(D4UsedSpecies2), nu*nx,nx);
+        xkronudvuinvdx = sparse(nx*nu,nx);
+        xkronudvuinvdx(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), dvuinvdx(D4UsedSpecies2,:));
         
-        val = dA1dk_fk_x + dA2dk_fk_xx * (Ixkronxvx + xkron1vx) + dA3dk_fk_ux * ukron1vx + dA4dk_fk_xu * Ixkronuvu; % fx_k
-        val = spermute132(val, [nx,nk,nx], [nx*nx,nk]); % fk_x 
+        % A5
+        ukronudvuinvdx = sparse(nu*nu,nx);
+        ukronudvuinvdx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), dvuinvdx(D5UsedSpecies2,:));
+
+        val = dA1dk_fk_x ...
+              + dA2dk_fk_xx * (Ixkronxvxinv + xkronIxvxinv + xkronxdvxinvdx) ...
+              + dA3dk_fk_ux * (ukronIxvxinv + ukronxdvxinvdx) ...
+              + dA4dk_fk_xu * (Ixkronuvuinv + xkronudvuinvdx) ...
+              + dA5dk_fk_uu * ukronudvuinvdx; % fk_x
+        val = spermute132(val, [nx,nk,nx], [nx*nx,nk]); % fx_k
     end
 end
 
-function handle = d2fdxdkHidden(dA1dk_fk_x, dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, vxInd, vuInd)
+function handle = d2fdxdkHidden(dA1dk_fk_x, dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, v_fun, dvdx_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
+nk = size(dA1dk_fk_x, 1) / nx;
 
 % Return handle
-handle = @d2fdxdk;
+handle = @d2fdkdx;
 
-    function val = d2fdxdk(t, x, u)
+    function val = d2fdkdx(t, x, u)
 %   d2fdxdk = dA1dk + dA2dk*(Ix kron x/vx) + dA2dk*(x kron diag(1/vx)) + dA3dk*(u kron diag(1/vx)) + dA4dk*(Ix kron u/vu)
         % Compartment column
+        v = v_fun(t,x,u);
+        dvdx = dvdx_fun(t,x,u);
+        dvinvdx = bsxfun(@times, (v .^ -2), (dvdx .* -1));
         vxinv = 1 ./ v(vxInd);
-        xvx = x .* vxinv;
-        uvu = u ./ v(vuInd);
+        xvxinv = x .* vxinv;
+        uvuinv = u ./ v(vuInd);
+        dvxinvdx = dvinvdx(vxInd,:);
+        dvuinvdx = dvinvdx(vuInd,:);
         
-        % Sparse kronecker multiplication
-        Ixkronxvx = sparse(D2UsedColumns, D2UsedSpecies1, xvx(D2UsedSpecies2), nx*nx,nx);
-        xkron1vx  = sparse(D2UsedColumns, D2UsedSpecies2, x(D2UsedSpecies1) .* vxinv(D2UsedSpecies2), nx*nx,nx);
-        ukron1vx  = sparse(D3UsedColumns, D3UsedSpecies2, u(D3UsedSpecies1) .* vxinv(D3UsedSpecies2), nx*nu,nx);
-        Ixkronuvu = sparse(D4UsedColumns, D4UsedSpecies1, uvu(D4UsedSpecies2), nu*nx,nx);
+        % A2
+        Ixkronxvxinv = sparse(D2UsedColumns, D2UsedSpecies1, xvxinv(D2UsedSpecies2), nx*nx,nx);
+        xkronIxvxinv  = sparse(D2UsedColumns, D2UsedSpecies2, x(D2UsedSpecies1) .* vxinv(D2UsedSpecies2), nx*nx,nx);
+        xkronxdvxinvdx = sparse(nx*nx,nx);
+        xkronxdvxinvdx(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), dvxinvdx(D2UsedSpecies2,:));
+
+        % A3
+        ukronIxvxinv  = sparse(D3UsedColumns, D3UsedSpecies2, u(D3UsedSpecies1) .* vxinv(D3UsedSpecies2), nx*nu,nx);
+        ukronxdvxinvdx = sparse(nu*nx,nx);
+        ukronxdvxinvdx(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), dvxinvdx(D3UsedSpecies2,:));
+
+        % A4
+        Ixkronuvuinv = sparse(D4UsedColumns, D4UsedSpecies1, uvuinv(D4UsedSpecies2), nu*nx,nx);
+        xkronudvuinvdx = sparse(nx*nu,nx);
+        xkronudvuinvdx(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), dvuinvdx(D4UsedSpecies2,:));
         
-        val = dA1dk_fk_x + dA2dk_fk_xx * (Ixkronxvx + xkron1vx) + dA3dk_fk_ux * ukron1vx + dA4dk_fk_xu * Ixkronuvu; % fx_k
+        % A5
+        ukronudvuinvdx = sparse(nu*nu,nx);
+        ukronudvuinvdx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), dvuinvdx(D5UsedSpecies2,:));
+
+        val = dA1dk_fk_x ...
+              + dA2dk_fk_xx * (Ixkronxvxinv + xkronIxvxinv + xkronxdvxinvdx) ...
+              + dA3dk_fk_ux * (ukronIxvxinv + ukronxdvxinvdx) ...
+              + dA4dk_fk_xu * (Ixkronuvuinv + xkronudvuinvdx) ...
+              + dA5dk_fk_uu * ukronudvuinvdx; % fk_x
     end
 end
 
-function handle = d2fdkduHidden(dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, dA6dk_fk_u, v, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
+function handle = d2fdkduHidden(dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, dA6dk_fk_u, v_fun, dvdu_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
@@ -1292,25 +1842,49 @@ handle = @d2fdudk;
     function val = d2fdudk(t, x, u)
 %   d2fdudk = 
         % Compartment column
-        xvx = x ./ v(vxInd);
+        v = v_fun(t,x,u);
+        dvdu = dvdu_fun(t,x,u);
+        dvinvdu = bsxfun(@times, (v .^ -2), (dvdu .* -1));
+        xvxinv = x ./ v(vxInd);
         vuinv = 1 ./ v(vuInd);
-        uvu = u .* vuinv;
+        uvuinv = u .* vuinv;
+        dvxinvdu = dvinvdu(vxInd,:);
+        dvuinvdu = dvinvdu(vuInd,:);
         
-        % Sparse kronecker multiplication
-        Iukronxvx = sparse(D3UsedColumns, D3UsedSpecies1, xvx(D3UsedSpecies2), nx*nu,nu);
-        xkron1vu  = sparse(D4UsedColumns, D4UsedSpecies2, x(D4UsedSpecies1) .* vuinv(D4UsedSpecies2), nu*nx,nu);
-        Iukronuvu = sparse(D5UsedColumns, D5UsedSpecies1, uvu(D5UsedSpecies2), nu*nu,nu);
-        ukron1vu  = sparse(D5UsedColumns, D5UsedSpecies2, u(D5UsedSpecies1) .* vuinv(D5UsedSpecies2), nu*nu,nu);
+        % A2
+        xkronxdvxinvdu = sparse(nx*nx,nu);
+        xkronxdvxinvdu(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), dvxinvdu(D2UsedSpecies2,:));
         
-        val = dA3dk_fk_ux * Iukronxvx + dA4dk_fk_xu * xkron1vu + dA5dk_fk_uu * (Iukronuvu + ukron1vu) + dA6dk_fk_u; % fk_u
+        % A3
+        Iukronxvxinv = sparse(D3UsedColumns, D3UsedSpecies1, xvxinv(D3UsedSpecies2), nx*nu,nu);
+        ukronxdvxinvdu = sparse(nu*nx,nu);
+        ukronxdvxinvdu(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), dvxinvdu(D3UsedSpecies2,:));
+        
+        % A4
+        xkronIuvuinv  = sparse(D4UsedColumns, D4UsedSpecies2, x(D4UsedSpecies1) .* vuinv(D4UsedSpecies2), nu*nx,nu);
+        xkronudvuinvdu = sparse(nx*nu,nu);
+        xkronudvuinvdu(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), dvuinvdu(D4UsedSpecies2,:));
+        
+        % A5
+        Iukronuvuinv = sparse(D5UsedColumns, D5UsedSpecies1, uvuinv(D5UsedSpecies2), nu*nu,nu);
+        ukronIuvuinv  = sparse(D5UsedColumns, D5UsedSpecies2, u(D5UsedSpecies1) .* vuinv(D5UsedSpecies2), nu*nu,nu);
+        ukronudvuinvdu = sparse(nu*nu,nu);
+        ukronudvuinvdu(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), dvuinvdu(D5UsedSpecies2,:));
+        
+        val = dA2dk_fk_xx * xkronxdvxinvdu ...
+              + dA3dk_fk_ux * (Iukronxvxinv + ukronxdvxinvdu) ...
+              + dA4dk_fk_xu * (xkronIuvuinv + xkronudvuinvdu) ...
+              + dA5dk_fk_uu * (Iukronuvuinv + ukronIuvuinv + ukronudvuinvdu) ...
+              + dA6dk_fk_u; % fk_u
         val = spermute132(val, [nx,nk,nu], [nx*nu,nk]); % fu_k
     end
 end
 
-function handle = d2fdudkHidden(dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, dA6dk_fk_u, v, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
+function handle = d2fdudkHidden(dA2dk_fk_xx, dA3dk_fk_ux, dA4dk_fk_xu, dA5dk_fk_uu, dA6dk_fk_u, v_fun, dvdu_fun, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, vxInd, vuInd)
 % Constants
 nx = numel(vxInd);
 nu = numel(vuInd);
+nk = size(dA3dk_fk_ux, 1) / nx;
 
 % Return handle
 handle = @d2fdudk;
@@ -1318,17 +1892,40 @@ handle = @d2fdudk;
     function val = d2fdudk(t, x, u)
 %   d2fdudk = 
         % Compartment column
-        xvx = x ./ v(vxInd);
+        v = v_fun(t,x,u);
+        dvdu = dvdu_fun(t,x,u);
+        dvinvdu = bsxfun(@times, (v .^ -2), (dvdu .* -1));
+        xvxinv = x ./ v(vxInd);
         vuinv = 1 ./ v(vuInd);
-        uvu = u .* vuinv;
+        uvuinv = u .* vuinv;
+        dvxinvdu = dvinvdu(vxInd,:);
+        dvuinvdu = dvinvdu(vuInd,:);
         
-        % Sparse kronecker multiplication
-        Iukronxvx = sparse(D3UsedColumns, D3UsedSpecies1, xvx(D3UsedSpecies2), nx*nu,nu);
-        xkron1vu  = sparse(D4UsedColumns, D4UsedSpecies2, x(D4UsedSpecies1) .* vuinv(D4UsedSpecies2), nu*nx,nu);
-        Iukronuvu = sparse(D5UsedColumns, D5UsedSpecies1, uvu(D5UsedSpecies2), nu*nu,nu);
-        ukron1vu  = sparse(D5UsedColumns, D5UsedSpecies2, u(D5UsedSpecies1) .* vuinv(D5UsedSpecies2), nu*nu,nu);
+        % A2
+        xkronxdvxinvdu = sparse(nx*nx,nu);
+        xkronxdvxinvdu(D2UsedColumns,:) = bsxfun(@times, x(D2UsedSpecies1) .* x(D2UsedSpecies2), dvxinvdu(D2UsedSpecies2,:));
         
-        val = dA3dk_fk_ux * Iukronxvx + dA4dk_fk_xu * xkron1vu + dA5dk_fk_uu * (Iukronuvu + ukron1vu) + dA6dk_fk_u; % fk_u
+        % A3
+        Iukronxvxinv = sparse(D3UsedColumns, D3UsedSpecies1, xvxinv(D3UsedSpecies2), nx*nu,nu);
+        ukronxdvxinvdu = sparse(nu*nx,nu);
+        ukronxdvxinvdu(D3UsedColumns,:) = bsxfun(@times, u(D3UsedSpecies1) .* x(D3UsedSpecies2), dvxinvdu(D3UsedSpecies2,:));
+        
+        % A4
+        xkronIuvuinv  = sparse(D4UsedColumns, D4UsedSpecies2, x(D4UsedSpecies1) .* vuinv(D4UsedSpecies2), nu*nx,nu);
+        xkronudvuinvdu = sparse(nx*nu,nu);
+        xkronudvuinvdu(D4UsedColumns,:) = bsxfun(@times, x(D4UsedSpecies1) .* u(D4UsedSpecies2), dvuinvdu(D4UsedSpecies2,:));
+        
+        % A5
+        Iukronuvuinv = sparse(D5UsedColumns, D5UsedSpecies1, uvuinv(D5UsedSpecies2), nu*nu,nu);
+        ukronIuvuinv  = sparse(D5UsedColumns, D5UsedSpecies2, u(D5UsedSpecies1) .* vuinv(D5UsedSpecies2), nu*nu,nu);
+        ukronudvuinvdu = sparse(nu*nu,nu);
+        ukronudvuinvdu(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), dvuinvdu(D5UsedSpecies2,:));
+        
+        val = dA2dk_fk_xx * xkronxdvxinvdu ...
+              + dA3dk_fk_ux * (Iukronxvxinv + ukronxdvxinvdu) ...
+              + dA4dk_fk_xu * (xkronIuvuinv + xkronudvuinvdu) ...
+              + dA5dk_fk_uu * (Iukronuvuinv + ukronIuvuinv + ukronudvuinvdu) ...
+              + dA6dk_fk_u; % fk_u
     end
 end
 
