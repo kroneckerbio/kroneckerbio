@@ -76,10 +76,12 @@ for iCon = 1:nCon
     % Do not use select methods since the solution is needed at all time
     if opts.continuous(iCon)
         [der, jac] = constructObjectiveSystem();
-        xSol = accumulateOde(der, jac, 0, con(iCon).tF, [ic; 0], u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx+1));
+        %xSol = accumulateOde(der, jac, 0, con(iCon).tF, [ic; 0], u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx+1));
+        xSol = accumulateOdeFwd(der, jac, 0, con(iCon).tF, [ic; 0], u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx+1));
     else
         [der, jac] = constructSystem();
-        xSol = accumulateOde(der, jac, 0, con(iCon).tF, ic, u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx));
+        %xSol = accumulateOde(der, jac, 0, con(iCon).tF, ic, u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx));
+        xSol = accumulateOdeFwd(der, jac, 0, con(iCon).tF, ic, u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx));
     end
     xSol.u = u;
     xSol.C1 = m.C1;
@@ -123,7 +125,8 @@ for iCon = 1:nCon
     ic = zeros(nx+inT,1);
     
     % Integrate [lambda; D] backward in time
-    sol = accumulateOde(der, jac, 0, con(iCon).tF, ic, u, [con(iCon).Discontinuities; discreteTimes], [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), del, -1, [], [], [], 0);
+    %sol = accumulateOde(der, jac, 0, con(iCon).tF, ic, u, [con(iCon).Discontinuities; discreteTimes], [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), del, -1, [], [], [], 0);
+    sol = accumulateOdeRevSelect(der, jac, 0, con(iCon).tF, ic, u, [con(iCon).Discontinuities; discreteTimes], 0, [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), del);
     
     % * Complete steady-state *
     if con(iCon).SteadyState
@@ -134,7 +137,8 @@ for iCon = 1:nCon
         ic = sol.y;
         
         % Integrate [lambda; D] backward in time and replace previous run
-        sol = accumulateOde(der, jac, 0, ssSol.x(end), ic, u, [], [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), [], -1, [], [], [], 0);
+        %sol = accumulateOde(der, jac, 0, ssSol.x(end), ic, u, [], [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), [], -1, [], [], [], 0);
+        sol = accumulateOdeRevSelect(der, jac, 0, ssSol.x(end), ic, u, [], 0, [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT));
     end
     
     % *Add contributions to derivative*

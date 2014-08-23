@@ -78,7 +78,7 @@ for it = 1:nPick
     % Integrate [dx/dx0; d2x/dx0dv]
     if verbose; fprintf('Integrating from time %d...', t0); end
     % There is actual integration to be done
-    soli = accumulateOde(der, jac, t0, con.tF, ic, u, con.Discontinuities, [], opts.RelTol, opts.AbsTol(absTolStart:absTolEnd));
+    soli = accumulateOdeFwd(der, jac, t0, con.tF, ic, u, con.Discontinuities, [], opts.RelTol, opts.AbsTol(absTolStart:absTolEnd));
     if verbose; fprintf('done.\n'); end
     
     % Compute the effect over remaining time

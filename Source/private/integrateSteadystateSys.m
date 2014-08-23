@@ -25,7 +25,7 @@ else
 end
 
 % Integrate x over time
-sol = accumulateOde(der, jac, 0, inf, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], 1, eve, [], 1);
+sol = accumulateOdeFwd(der, jac, 0, inf, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, [], 1);
 sol.u = u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;

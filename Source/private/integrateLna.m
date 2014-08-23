@@ -39,7 +39,7 @@ else
 end
 
 % Integrate x over time
-sol = accumulateOde(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+numel(upperVInd)));
+sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+numel(upperVInd)));
 sol.u = u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;

@@ -50,7 +50,7 @@ else
 end
 
 % Integrate [x; G; dxdT; dGdT] with respect to time
-sol = accumulateOde(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1+nx*nT+nT), [], [], [], [], [], tGet);
+sol = accumulateOde(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1+nx*nT+nT));
 sol.u = u(tGet);
 sol.C1 = m.C1;
 sol.C2 = m.C2;
