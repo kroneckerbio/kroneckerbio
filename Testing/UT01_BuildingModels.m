@@ -20,6 +20,11 @@ m = FinalizeModel(m);
 a.verifyEqual(m.Compartments(1).Dimension, 0);
 end
 
+function testNonUnityZeroCompartment(a)
+m = InitializeModel();
+a.verifyError(@()AddCompartment(m, 'test', 0, 2), 'KroneckerBio:Compartment:NonUnityZeroCompartment');
+end
+
 function testAddCompartment1(a)
 m = InitializeModel();
 m = AddCompartment(m, 'test', 1, 1);

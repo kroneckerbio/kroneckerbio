@@ -1,0 +1,22 @@
+## Equilibrium ##
+# A simple model showing an equilibrium binding reaction
+
+% Compartments Equilibrium
+v 3 1
+
+% States v
+a 1
+b 1
+c
+
+% Outputs
+A a
+B b
+C c
+
+% Parameters
+kon  1
+koff 1
+
+% Reactions
+a b c 0 kon koff On,Off

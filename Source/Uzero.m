@@ -22,11 +22,17 @@ function con = Uzero(m)
 %       .u [ handle @(t) returns nonnegative matrix nu by numel(t) ]
 %           A function handle that returns the value of the inputs at any
 %           time t. This function should accept t as a vector.
+%       .d [ handle @(t) returns nonnegative matrix ns by numel(t) ]
+%           A function handle that returns the values of hte doses at any
+%           time t. This function should accept t as a vector.
 %       .q [ real vector nq ]
 %           The values of the input control parameters
-%       .dudq [ handle @(t) returns real matrix nu by nq]
+%       .dudq [ handle @(t) returns real matrix nu by nq ]
 %           A function handle that returns the derivative of each input
 %           with respect to each input control parameter
+%       .dddq [ handle @(t) returns real matrix ns by nq ]
+%           A function handle that returns the derivative of each dose with
+%           respect to each input control parameter
 %       .nq [ whole scalar ]
 %           The number of input control parameters
 %       .nqu [ whole vector nv ]
@@ -49,17 +55,18 @@ function con = Uzero(m)
 %           except that the parameter values have been changed and the
 %           appropriate matrices and function handles have been updated.
 
-% (c) 2011 David R Hagen & Bruce Tidor
+% (c) 2014 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 % Special case of numeric inputs
 if isnumeric(m)
-    con = emptystruct(m, 'Type', 'Name', 'tF', 's', 'u', 'q', 'dudq', 'nq', 'SteadyState', 'Periodic', 'Discontinuities', 'Update');
+    con = emptystruct(m, 'Type', 'Name', 'tF', 's', 'u', 'd', 'q', 'dudq', 'dddq', 'nq', 'SteadyState', 'Periodic', 'Discontinuities', 'Update');
     return
 end
 
 % Constants
 nu = m.nu;
+ns = m.ns;
 s = m.s;
 
 % Gut m
@@ -75,8 +82,10 @@ con.Name = 'UnnamedExperiment';
 con.tF = 0;
 con.s = s;
 con.u  = @(t)zeros(nu,1);
+con.d  = @(t)zeros(ns,1);
 con.q  = zeros(0,1);
 con.dudq = @(t)zeros(nu,0);
+con.dddq = @(t)zeros(ns,0);
 con.nq = 0;
 con.SteadyState = false;
 con.Periodic = false;
@@ -85,6 +94,6 @@ con.Update = @Update;
 
     function con = Update(s, q)
         assert(numel(q) == 0, 'KroneckerBio:Experiment:Update:InvalidInputControl', 'An input control parameter vector was supplied with %i elements, but the input of this experiment is controlled by 0 input parameters. They must be the same.', numel(q))
-        con = Experiment(m, 0, s, false, false, zeros(nu,1), [], q);
+        con = Experiment(m, 0, s, false, false, zeros(nu,1), zeros(ns,1), [], q);
     end
 end

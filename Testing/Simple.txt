@@ -1,0 +1,59 @@
+## Simple ##
+# A simple model that encompasses the range of mass action model features
+% Compartments Simple
+extracellular 3 5
+cell_membrane 2 1
+cell          3 1
+dna           1 1
+
+% Inputs v1
+extracellular.ligand 10
+dna.gene             2
+
+% Seeds
+Inhibitor   20
+Transporter 10
+Factor      12
+
+% States extracellular
+inhibitor Inhibitor
+
+% States cell_membrane
+transporter Transporter
+ligand:transporter
+pump 3
+
+% States cell
+ligand
+product
+ligand:product
+ligand:product:factor
+inhibitor
+
+% States dna
+gene:factor Factor
+
+% Outputs
+
+
+% Parameters
+production   5
+degradation  9
+pump_in      17
+ligand_on    7
+ligand_off   8
+product_on   6
+product_off  13
+release      5
+capture      5
+destruction  4
+
+% Reactions
+gene                    0              product               0    production 0
+product                 0              0                     0    degradation
+extracellular.inhibitor pump           cell.inhibitor        pump pump_in 0
+extracellular.ligand    transporter    ligand:transporter    0    ligand_on ligand_off
+cell.ligand             transporter    ligand:transporter    0    ligand_on ligand_off
+cell.ligand             product        ligand:product        0    product_on product_off
+ligand:product          gene:factor    ligand:product:factor gene release capture
+ligand:product:factor   cell.inhibitor 0                     0    destruction 0

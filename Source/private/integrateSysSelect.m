@@ -4,7 +4,7 @@ function sol = integrateSysSelect(m, con, tGet, opts)
 nx = m.nx;
 
 % Construct system
-[der, jac] = constructSystem();
+[der, jac, del] = constructSystem();
 
 % Initial conditions
 if opts.UseModelSeeds
@@ -29,7 +29,7 @@ else
 end
 
 % Integrate x over time
-sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx));
+sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx), del);
 sol.u = u(tGet);
 sol.C1 = m.C1;
 sol.C2 = m.C2;
@@ -44,12 +44,14 @@ sol.q = q;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% The system for integrating x %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [der, jac] = constructSystem()
+    function [der, jac, del] = constructSystem()
         f    = m.f;
         dfdx = m.dfdx;
+        d    = con.d;
         
         der = @derivative;
         jac = @jacobian;
+        del = @delta;
 
         % Derivative of x with respect to time
         function val = derivative(t, x, u)
@@ -61,6 +63,11 @@ sol.q = q;
         function val = jacobian(t, x, u)
             u   = u(t);
             val = dfdx(t, x, u);
+        end
+        
+        % Dosing
+        function val = delta(t, x, u)
+            val = m.dx0ds * d(t);
         end
     end
 end

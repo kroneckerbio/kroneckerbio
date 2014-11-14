@@ -67,7 +67,7 @@ for iFile = 1:nFiles
         isSwitchMode = ~isempty(regexp(line, '^\s*%', 'once'));
         
         if isSwitchMode
-            [match payload] = regexp(line, '^\s*%*\s*\w*', 'match', 'split', 'once');
+            [match, payload] = regexp(line, '^\s*%*\s*\w*', 'match', 'split', 'once');
             payload = payload{2}; % Only want the end, not the starting empty string
             match = regexp(match, '\w*', 'match');
 
@@ -322,10 +322,11 @@ for iFile = 1:nFiles
                 end
                 
                 % Extract parameter name
-                assert(~isempty(regexp(tokens{1}, '^[^\s,.]*$', 'once')), 'KroneckerBio:LoadModelMassAction:InvalidName', 'Line %i in %s has an invalid compartment name: %s', lineNumber, files{iFile}, line)
+                assert(~isempty(regexp(tokens{1}, '^[^\s,.]*$', 'once')), 'KroneckerBio:LoadModelMassAction:InvalidName', 'Line %i in %s has an invalid parameter name: %s', lineNumber, files{iFile}, line)
                 name = tokens{1};
                 
                 % Second token is value
+                assert(numel(tokens) >= 2, 'KroneckerBio:LoadModelMassAction:MissingParameterValue', 'Line %i in %s is missing its parameter value: %s', lineNumber, files{iFile}, line)
                 value = eval(tokens{2});
                 
                 % Add parameter
