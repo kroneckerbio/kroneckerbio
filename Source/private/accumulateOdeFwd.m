@@ -102,8 +102,9 @@ for k = 1:(N-1)
         end
         
         % Handle delta
-        if ~isempty(delta)
-            sim_sol.y(:,end) = sim_sol.y(:,end) + delta(sim_sol.x(end));
+        if ~isempty(delta) && sim_sol.x(end) == t_int(2)
+            % Deltas are evaluated with boost removed only if no events triggered
+            sim_sol.y(:,end) = sim_sol.y(:,end) + delta(discontinuities(i1));
         end
         
         % Update ICs
