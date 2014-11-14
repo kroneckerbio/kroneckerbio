@@ -1,5 +1,9 @@
-function volume = fixCompartmentSize(volume)
+function volume = fixCompartmentSize(volume, dimension)
 % Standardize the compartment size
+
+if dimension == 0
+    assert(isnumeric(volume) && isscalar(volume) && volume == 1, 'KroneckerBio:Compartment:NonUnityZeroCompartment', 'A compartment with dimension 0 must have a size equal to 1.')
+end
 
 if isnumeric(volume) && isscalar(volume)
     assert(isscalar(volume) && volume > 0, 'KroneckerBio:Compartment:NonpositiveSize', 'Scalar compartment size must be positive')

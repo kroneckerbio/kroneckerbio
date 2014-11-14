@@ -43,6 +43,6 @@ m.add.Compartments = growCompartments(m.add.Compartments, m.add.nv);
 % Add item
 m.add.Compartments(nv).Name = fixCompartmentName(name);
 m.add.Compartments(nv).Dimension = fixCompartmentDimension(dimension);
-m.add.Compartments(nv).Size = fixCompartmentSize(size);
+m.add.Compartments(nv).Size = fixCompartmentSize(size, dimension);
 
 m.Ready = false;
