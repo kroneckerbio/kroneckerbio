@@ -18,7 +18,7 @@ nObj = size(obj,1);
 G = 0;
 
 if verbose; disp('Integrating forward...'); end
-parfor iCon = 1:nCon
+for iCon = 1:nCon
     if verboseAll; tic; end
     
     intOpts = opts;

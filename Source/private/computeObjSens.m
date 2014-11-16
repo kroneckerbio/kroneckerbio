@@ -22,7 +22,7 @@ G = 0;
 D = zeros(nT,1);
 
 if opts.Verbose; fprintf('Integrating sensitivities:\n'); end
-parfor iCon = 1:nCon
+for iCon = 1:nCon
     if verboseAll; tic; end
     
     intOpts = opts;
