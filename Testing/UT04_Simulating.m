@@ -27,3 +27,14 @@ a.verifyEqual(con.d(1), dose)
 
 sim = Simulate(m,con);
 end
+
+function testSimulateSelectSimpleWithDosing(a)
+dose = [2;0;0];
+schedule = 1:6;
+m = a.TestData.m;
+con = Experiment(m, 6, m.s, false, false, m.u, dose, schedule);
+
+sim = SimulateSelect(m,con,linspace(0,6,101));
+a.verifyEqual(numel(sim.t), 101);
+a.verifyEqual(size(sim.y), [m.ny,101]);
+end

@@ -2,8 +2,8 @@ function con = Experiment(m, tF, s, steadyState, periodic, u, d, discontinuities
 %Experiment constructs a KroneckerBio experimental conditions structure
 %   taking advantage of the full potential of experimental conditions
 %
-%   con = Experiment(m, tF, s, steadyState, periodic, u, discontinuities,
-%                    q, dudq, name)
+%   con = Experiment(m, tF, s, steadyState, periodic, u, d,
+%                    discontinuities, q, dudq, dddq, name)
 %
 %   The inputs to this function allow one to set all the variables that are
 %   permitted on a KroneckerBio experimental conditions structure.
@@ -57,9 +57,9 @@ function con = Experiment(m, tF, s, steadyState, periodic, u, d, discontinuities
 % This work is released under the MIT license.
 
 % Clean-up inputs
-if nargin < 11
+if nargin < 12
     name = [];
-    if nargin < 10
+    if nargin < 11
         dddq = [];
         if nargin < 10
             dudq = [];
@@ -152,7 +152,7 @@ if isempty(discontinuities)
     discontinuities = zeros(0,1);
 end
 
-discontinuities = unique(discontinuities);
+discontinuities = vec(unique(discontinuities));
 
 %% Infer dudq and dddq if possible
 if isempty(q)

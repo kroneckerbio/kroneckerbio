@@ -73,15 +73,14 @@ for iCon = 1:nCon
     end
     
     % * Integrate system *
+    % TODO: consider reusing the existing methods for doing this
     % Do not use select methods since the solution is needed at all time
     if opts.continuous(iCon)
-        [der, jac] = constructObjectiveSystem();
-        %xSol = accumulateOde(der, jac, 0, con(iCon).tF, [ic; 0], u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx+1));
-        xSol = accumulateOdeFwd(der, jac, 0, con(iCon).tF, [ic; 0], u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx+1));
+        [der, jac, del] = constructObjectiveSystem();
+        xSol = accumulateOdeFwd(der, jac, 0, con(iCon).tF, [ic; 0], u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx+1), del);
     else
-        [der, jac] = constructSystem();
-        %xSol = accumulateOde(der, jac, 0, con(iCon).tF, ic, u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx));
-        xSol = accumulateOdeFwd(der, jac, 0, con(iCon).tF, ic, u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx));
+        [der, jac, del] = constructSystem();
+        xSol = accumulateOdeFwd(der,jac, 0, con(iCon).tF, ic, u, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx), del);
     end
     xSol.u = u;
     xSol.C1 = m.C1;
@@ -125,7 +124,6 @@ for iCon = 1:nCon
     ic = zeros(nx+inT,1);
     
     % Integrate [lambda; D] backward in time
-    %sol = accumulateOde(der, jac, 0, con(iCon).tF, ic, u, [con(iCon).Discontinuities; discreteTimes], [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), del, -1, [], [], [], 0);
     sol = accumulateOdeRevSelect(der, jac, 0, con(iCon).tF, ic, u, [con(iCon).Discontinuities; discreteTimes], 0, [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), del);
     
     % * Complete steady-state *
@@ -137,7 +135,6 @@ for iCon = 1:nCon
         ic = sol.y;
         
         % Integrate [lambda; D] backward in time and replace previous run
-        %sol = accumulateOde(der, jac, 0, ssSol.x(end), ic, u, [], [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT), [], -1, [], [], [], 0);
         sol = accumulateOdeRevSelect(der, jac, 0, ssSol.x(end), ic, u, [], 0, [], opts.RelTol, opts.AbsTol{iCon}(nx+opts.continuous(iCon)+1:nx+opts.continuous(iCon)+nx+nT));
     end
     
@@ -215,7 +212,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         end
         
         % Discrete effects of the objective function
-        function val = delta(t)
+        function val = delta(t, joint)
             dGdx = zeros(nx,1);
             dGdT = zeros(inT,1);
             for iObj = 1:nObj
@@ -225,6 +222,10 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
                 dGdq = obj(iObj,iCon).dGdq(t, xSol); % q_ % partial dGdq(i)
                 dGdT = dGdT + opts.ObjWeights(iObj,iCon)*[dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseControls_i)]; % T_ + (k_ -> T_) -> T_
             end
+            
+            lambda = -joint(1:nx,end) + dGdx; % Update current lambda
+            dose_change = con.dddq(t).' * m.dx0ds.' * lambda; % minus or plus?; defintately needs UseControls
+            dGdT = dGdT + [zeros(nTk,1); zeros(nTx,1); dose_change];
             
             val = [dGdx; dGdT];
         end
@@ -276,12 +277,15 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         end
     end
 
-    function [gDer, gJac] = constructObjectiveSystem()
-        f      = m.f;
-        dfdx   = m.dfdx;
+    function [der, jac, del] = constructObjectiveSystem()
+        f     = m.f;
+        dfdx  = m.dfdx;
+        d     = con.d;
+        dx0ds = m.dx0ds;
         
-        gDer = @derivative;
-        gJac = @jacobian;
+        der = @derivative;
+        jac = @jacobian;
+        del = @delta;
         
         % Derivative of [x; G] with respect to time
         function val = derivative(t, joint, u)
@@ -290,11 +294,11 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             
             % Sum continuous objective functions
             g = 0;
-            for iObj = 1:nObj
-                g = g + opts.ObjWeights(iObj,iCon) * obj(iObj,iCon).g(t,x,u);
+            for i = 1:nObj
+                g = g + opts.ObjWeights(i) * obj(i).g(t, x, u);
             end
             
-            val = [f(t,x,u); g];
+            val = [f(t, x, u); g];
         end
         
         % Jacobian of [x; G] derivative
@@ -304,21 +308,29 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             
             % Sum continuous objective gradients
             dgdx = zeros(1,nx);
-            for iObj = 1:nObj
-                dgdx = dgdx + opts.ObjWeights(iObj,iCon) * vec(obj(iObj,iCon).dgdx(t,x,u)).';
+            for i = 1:nObj
+                dgdx = dgdx + opts.ObjWeights(i) * vec(obj(i).dgdx(t, x, u)).';
             end
             
-            val = [dfdx(t,x,u), sparse(nx,1);
-                          dgdx,            0];
+            val = [dfdx(t, x, u), sparse(nx,1);
+                            dgdx,            0];
+        end
+
+        % Dosing
+        function val = delta(t, joint)
+            val = [dx0ds * d(t); 0];
         end
     end
 
-    function [der, jac] = constructSystem()
-        f    = m.f;
-        dfdx = m.dfdx;
+    function [der, jac, del] = constructSystem()
+        f     = m.f;
+        dfdx  = m.dfdx;
+        d     = con.d;
+        dx0ds = m.dx0ds;
         
         der = @derivative;
         jac = @jacobian;
+        del = @delta;
         
         % Derivative of x with respect to time
         function val = derivative(t, x, u)
@@ -330,6 +342,11 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         function val = jacobian(t, x, u)
             u   = u(t);
             val = dfdx(t,x,u);
+        end
+        
+        % Dosing
+        function val = delta(t, x)
+            val = dx0ds * d(t);
         end
     end
 end

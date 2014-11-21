@@ -8,7 +8,7 @@ nTq = sum(opts.UseControls);
 nT  = nTk + nTs + nTq;
 
 % Construct system
-[der, jac] = constructSystem();
+[der, jac, del] = constructSystem();
 
 if opts.UseModelSeeds
     s = m.s;
@@ -21,16 +21,16 @@ if ~con.SteadyState
     x0 = m.dx0ds * s + m.x0c;
     
     % Initial effect of rates on sensitivities is 0
-    dxdTk0 = zeros(nx, nTk); % Active rate parameters
+    dxdTk = zeros(nx, nTk); % Active rate parameters
     
     % Initial effect of seeds on states is dx0ds
-    dxdTx0 = m.dx0ds(:,opts.UseSeeds);
-    
+    dxdTs = m.dx0ds(:,opts.UseSeeds);
+        
     % Initial effect of qs on sensitivities is 0
     dxdTq = zeros(nx, nTq);
     
     % Combine them into a vector
-    ic = [x0; vec([dxdTk0, dxdTx0, dxdTq])];
+    ic = [x0; vec([dxdTk, dxdTs, dxdTq])];
 else
     % Run to steady-state first
     ic = steadystateSens(m, con, opts);
@@ -45,8 +45,8 @@ else
     q = con.q;
 end
 
-% Integrate [x; G; dxdT; dGdv] with respect to time
-sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT));
+% Integrate [x; G; dxdT; dGdT] with respect to time
+sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), del);
 sol.u = u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;
@@ -61,7 +61,7 @@ sol.q = q;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% The system for integrating x and dxdT %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [der, jac] = constructSystem()
+    function [der, jac, del] = constructSystem()
         
         IT = speye(nT);
 
@@ -80,9 +80,13 @@ sol.q = q;
         else
             dudq = con.dudq;
         end
+        d    = con.d;
+        dddq    = con.dddq;
+        dx0ds = m.dx0ds;
         
         der = @derivative;
         jac = @jacobian;
+        del = @delta;
         
         % Derivative of [x; dxdT] with respect to time
         function val = derivative(t, joint, u)
@@ -110,6 +114,16 @@ sol.q = q;
             % Combine
             val = [dfdx(t,x,u), sparse(nx,nx*nT);
                        d2xdxdT, kron(IT, dfdx(t,x,u))];
+        end
+        
+        % Dosing
+        function val = delta(t, joint)
+            deltax = dx0ds * d(t);
+            
+            ddeltaxdq = dx0ds * dddq(t);
+            ddeltaxdT = [zeros(nx,nTk), zeros(nx,nTs), ddeltaxdq(:,opts.UseControls)];
+            
+            val = [deltax; vec(ddeltaxdT)];
         end
         
         % Modifies dfdk to relate only to the parameters of interest

@@ -8,7 +8,7 @@ nTq = sum(opts.UseControls);
 nT  = nTk + nTs + nTq;
 
 % Construct system
-[der, jac] = constructSystem();
+[der, jac, del] = constructSystem();
 
 if opts.UseModelSeeds
     s = m.s;
@@ -46,7 +46,7 @@ else
 end
 
 % Integrate [x; dxdT] with respect to time
-sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT));
+sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), del);
 sol.u = u(tGet);
 sol.C1 = m.C1;
 sol.C2 = m.C2;
@@ -61,7 +61,7 @@ sol.q = q;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% The system for integrating x and dxdT %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [der, jac] = constructSystem()
+    function [der, jac, del] = constructSystem()
         
         IT = speye(nT);
 
@@ -80,9 +80,13 @@ sol.q = q;
         else
             dudq = con.dudq;
         end
+        d    = con.d;
+        dddq    = con.dddq;
+        dx0ds = m.dx0ds;
         
         der = @derivative;
         jac = @jacobian;
+        del = @delta;
         
         % Derivative of [x; dxdT] with respect to time
         function val = derivative(t, joint, u)
@@ -110,6 +114,16 @@ sol.q = q;
             % Combine
             val = [dfdx(t,x,u), sparse(nx,nx*nT);
                        d2xdxdT, kron(IT, dfdx(t,x,u))];
+        end
+        
+        % Dosing
+        function val = delta(t, joint)
+            deltax = dx0ds * d(t);
+            
+            ddeltaxdq = dx0ds * dddq(t);
+            ddeltaxdT = [zeros(nx,nTk), zeros(nx,nTs), ddeltaxdq(:,opts.UseControls)];
+            
+            val = [deltax; vec(ddeltaxdT)];
         end
         
         % Modifies dfdk to relate only to the parameters of interest

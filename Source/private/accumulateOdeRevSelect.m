@@ -64,7 +64,7 @@ cum_sol.idata = [];
 
 % Apply the appropriate delta for the first discontinuities
 if ~isempty(delta)
-    ic = ic - delta(discontinuities(N));
+    ic = ic - delta(discontinuities(N), ic);
 end
 
 %% Integrate through each time interval
@@ -134,7 +134,7 @@ for k = 1:(N-1)
         
         % Handle delta
         if ~isempty(delta)
-            sim_sol.y(:,end) = sim_sol.y(:,end) - delta(sim_sol.x(end));
+            sim_sol.y(:,end) = sim_sol.y(:,end) - delta(sim_sol.x(end), sim_sol.y(:,end));
         end
         
         % Update ICs

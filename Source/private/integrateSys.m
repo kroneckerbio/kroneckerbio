@@ -45,9 +45,10 @@ sol.q = q;
 %%%%% The system for integrating x %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructSystem()
-        f    = m.f;
-        dfdx = m.dfdx;
-        d    = con.d;
+        f     = m.f;
+        dfdx  = m.dfdx;
+        d     = con.d;
+        dx0ds = m.dx0ds;
         
         der = @derivative;
         jac = @jacobian;
@@ -66,8 +67,8 @@ sol.q = q;
         end
         
         % Dosing
-        function val = delta(t, x, u)
-            val = m.dx0ds * d(t);
+        function val = delta(t, x)
+            val = dx0ds * d(t);
         end
     end
 end

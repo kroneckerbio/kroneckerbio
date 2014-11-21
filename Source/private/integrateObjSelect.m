@@ -5,7 +5,7 @@ nx = m.nx;
 nObj = numel(obj);
 
 % Construct system
-[der, jac, events] = constructSystem();
+[der, jac, del] = constructSystem();
 
 % Initial conditions
 if opts.UseModelSeeds
@@ -31,7 +31,7 @@ else
 end
 
 % Integrate
-sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1));
+sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1)), del);
 sol.u = u(tGet);
 sol.C1 = m.C1;
 sol.C2 = m.C2;
@@ -46,20 +46,15 @@ sol.q = q;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% The system for integrating x and g %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [gDer, gJac, gEvents] = constructSystem()
+    function [der, jac, del] = constructSystem()
+        f     = m.f;
+        dfdx  = m.dfdx;
+        d     = con.d;
+        dx0ds = m.dx0ds;
         
-        f      = m.f;
-        dfdx   = m.dfdx;
-        
-        gDer = @derivative;
-        gJac = @jacobian;
-        if false%~isempty(obj.Events)
-            %TODO: events
-            events  = obj.Events;
-            gEvents = @eventFun;
-        else
-            gEvents = [];
-        end
+        der = @derivative;
+        jac = @jacobian;
+        del = @delta;
         
         % Derivative of [x; G] with respect to time
         function val = derivative(t, joint, u)
@@ -89,12 +84,10 @@ sol.q = q;
             val = [dfdx(t, x, u), sparse(nx,1);
                             dgdx,            0];
         end
-        
-        % Event function for system
-        function [val, dir, term] = eventFun(t, joint, u)
-            u = u(t);
-            x = joint(1:nx);
-            [val, dir, term] = events(t, x, u);
+
+        % Dosing
+        function val = delta(t, joint)
+            val = [dx0ds * d(t); 0];
         end
     end
 end
