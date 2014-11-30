@@ -14,4 +14,4 @@ KroneckerBio is written entirely in Matlab. No compilation is necessary. Simply 
 
 At the moment, KroneckerBio does not have a full-featured tutorial. However, the `Testing` folder covers a broad range of common uses of toolbox. The help sections of each Matlab function should be entirely up-to-date.
 
-In lieu of a tutorial, email the lead developer [David Hagen](`drhagen@mit.edu`) for help in using KroneckerBio. Bugs can also be reported to him or in the GitHub issues tab.
+In lieu of a tutorial, email the lead developer [David Hagen](`david@drhagen.com`) for help in using KroneckerBio. Bugs can also be reported to him or in the GitHub issues tab.
