@@ -8,7 +8,7 @@ upperVInd = upperInd(nx);
 lowerVInd = lowerInd(nx);
 
 % Construct system
-[der, jac] = constructSystem();
+[der, jac, del] = constructSystem();
 
 % Initial conditions
 if opts.UseModelSeeds
@@ -39,7 +39,7 @@ else
 end
 
 % Integrate x over time
-sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+numel(upperVInd)));
+sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+numel(upperVInd)), del);
 sol.u = u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;
@@ -51,13 +51,15 @@ sol.q = q;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% The system for integrating the linear noise approximation %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [der, jac] = constructSystem()
+    function [der, jac, del] = constructSystem()
         S    = m.S;
         r    = m.r;
         drdx = m.drdx;
         f    = m.f;
         dfdx = m.dfdx;
         d2fdx2 = m.d2fdx2;
+        d     = con.d;
+        dx0ds = m.dx0ds;
         
         Ix = speye(nx);
         
@@ -67,6 +69,7 @@ sol.q = q;
         
         der = @derivative;
         jac = @jacobian;
+        del = @delta;
         
         % Derivative of [x;V] with respect to time
         function val = derivative(t, joint, u)
@@ -74,7 +77,7 @@ sol.q = q;
             V = zeros(nx,nx);
             V(upperVInd) = joint(VStart:VEnd); % x_x
             V(lowerVInd) = joint(VStart:VEnd); % x_x
-            u   = u(t); % u_
+            u = u(t); % u_
             
             % xdot = f
             % Vdot = dfdx *{x.x} V +{f+V.x;V.x+f} dfdx *{x.x} V +{f+x;f+x} S *{rxr} r *{r.r} S
@@ -108,5 +111,10 @@ sol.q = q;
             val = [dfdx(t,x,u), zeros(nx, numel(upperVInd));
                    dVdotdx,     dVdordV];
         end
-    end
+        
+        % Dosing
+        function val = delta(t, x)
+            val = [dx0ds * d(t); zeros(numel(upperVInd),1)];
+        end
+end
 end
