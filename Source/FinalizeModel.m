@@ -1246,9 +1246,6 @@ handle = @dfdx;
         ukronudvuinvdx = sparse(nu*nu,nx);
         ukronudvuinvdx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), dvuinvdx(D5UsedSpecies2,:));
         
-        %val = A2 * (Ixkronxvxinv + xkronIxvxinv + xkronxdvxinvdx);
-        %val = A4 * (Ixkronuvuinv + xkronudvuinvdx);
-        %val = A5 * ukronudvuinvdx;
         val = A1 + A2 * (Ixkronxvxinv + xkronIxvxinv + xkronxdvxinvdx) + A3 * (ukronIxvxinv + ukronxdvxinvdx) + A4 * (Ixkronuvuinv + xkronudvuinvdx) + A5 * ukronudvuinvdx; % f_x
     end
 end
@@ -1625,9 +1622,6 @@ handle = @d2fdudx;
         ukronud2vuinvdudx = sparse(nu*nu,nx*nu);
         ukronud2vuinvdudx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), d2vuinvdudx(D5UsedSpecies2,:));
 
-        %val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx);
-        %val = A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx);
-        %val = A5 * (Iukronudvuinvdx + ukronIudvuinvdx + ukronud2vuinvdudx);
         val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx) ...
               + A3 * (IukronIxvxinv + ukronIxdvxinvdu + Iukronxdvxinvdu + ukronxd2vxinvdudx) ...
               + A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx) ...
@@ -1725,9 +1719,6 @@ handle = @d2fdudx;
         ukronud2vuinvdudx = sparse(nu*nu,nx*nu);
         ukronud2vuinvdudx(D5UsedColumns,:) = bsxfun(@times, u(D5UsedSpecies1) .* u(D5UsedSpecies2), d2vuinvdxdu(D5UsedSpecies2,:));
 
-        %val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx);
-        %val = A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx);
-        %val = A5 * (Iukronudvuinvdx + ukronIudvuinvdx + ukronud2vuinvdudx);
         val = A2 * (Ixkronxdvxinvdu + xkronIxdvxinvdu + xkronxd2vxinvdudx) ...
               + A3 * (IukronIxvxinv + ukronIxdvxinvdu + Iukronxdvxinvdu + ukronxd2vxinvdudx) ...
               + A4 * (IxkronIuvuinv_1 + Ixkronudvuinvdu_1 + xkronIudvuinvdx_1 + xkronud2vuinvdudx) ...
