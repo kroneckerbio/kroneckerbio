@@ -38,6 +38,8 @@ for i = 1:nFiles
 end
 
 %% Loop over each file
+decimal_regex = '^[+]?([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?$';
+
 for iFile = 1:nFiles
     % Open file
     fid = fopen(files{iFile});
@@ -147,7 +149,7 @@ for iFile = 1:nFiles
                 dim = str2double(tokens{2});
                 
                 % Second token is value
-                assert(~isempty(regexp(tokens{3}, '^[+]?([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?$', 'once')), 'KroneckerBio:LoadModelMassAction:InvalidCompartmentSize', 'Line %i in %s has an invalid compartment size: %s', lineNumber, files{iFile}, line)
+                assert(~isempty(regexp(tokens{3}, decimal_regex, 'once')), 'KroneckerBio:LoadModelMassAction:InvalidCompartmentSize', 'Line %i in %s has an invalid compartment size: %s', lineNumber, files{iFile}, line)
                 value = eval(tokens{3});
                 
                 % Add compartment
@@ -174,45 +176,16 @@ for iFile = 1:nFiles
                     name = regexp(name, '[^.]*$', 'match', 'once');
                 end
                 
-                % Extract expressions into seperate cells
-                func = cell(0,1);
-                nVal = 0;
-                for i = 2:numel(tokens)
-                    assert(~strcmp(tokens{i}, ','), 'KroneckerBio:LoadModelMassAction:UnexpectedToken', 'Line %i in %s has an unexpected comma: %s', lineNumber, files{iFile}, line)
-                    
-                    % Stop if this is the last token or the next token is
-                    % not a comma
-                    if i == numel(tokens) || ~strcmp(tokens{i+1}, ',')
-                        func = tokens(2:i);
-                        nVal = numel(func);
-                        break
-                    else
-                        % Remove the comma and continue extraction
-                        tokens(i+1) = [];
-                    end
-                end
-                
-                % Process parameters
-                parameters = zeros(0,1);
-                if numel(tokens) > 1+nVal
-                    % There are parameters
-                    for i = 2+nVal:numel(tokens)
-                        assert(~strcmp(tokens{i}, ','), 'KroneckerBio:LoadModelMassAction:UnexpectedToken', 'Line %i in %s has an unexpected comma: %s', lineNumber, files{iFile}, line)
-                        % Stop if this is the last token or the next token is
-                        % not a comma
-                        if i == numel(tokens) || strcmp(tokens{i}, ',')
-                            parameters = tokens(2+nVal:i);
-                            break
-                        else
-                            % Remove the comma and continue extraction
-                            tokens(i+1) = [];
-                        end
-                    end
-                    parameters = str2double(parameters);
+                % Second token is value
+                if numel(tokens) >= 2
+                    assert(~isempty(regexp(tokens{2}, decimal_regex, 'once')), 'KroneckerBio:LoadModelMassAction:InvalidInputValue', 'Line %i in %s has an input with a value that is not a number: %s', lineNumber, files{iFile}, line)
+                    value = str2double(tokens{2});
+                else
+                    value = 0;
                 end
                 
                 % Add Input
-                m = AddInput(m, name, compartment, func, parameters);
+                m = AddInput(m, name, compartment, value);
             elseif mode == 3
                 % Seeds
                 tokens = vec(regexp(line, ',|".*"|[^\s,]*','match'));

@@ -12,12 +12,6 @@ function [varargout] = Simulate(m, con, opts)
 %   con: [ experiment struct vector ]
 %       The experimental conditions under which the model will be simulated
 %   opts: [ options struct scalar {} ]
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions
 %       .RelTol [ nonnegative scalar {1e-6} ]
 %           Relative tolerance of the integration
 %       .AbsTol [ cell vector of nonnegative vectors | nonnegative vector |
@@ -47,7 +41,7 @@ function [varargout] = Simulate(m, con, opts)
 %       .sol [ odesolver struct scalar ]
 %           The integrator solution to the system
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
@@ -62,10 +56,8 @@ assert(isscalar(m), 'KroneckerBio:Simulate:MoreThanOneModel', 'The model structu
 % Default options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
 opts = mergestruct(defaultOpts, opts);
 

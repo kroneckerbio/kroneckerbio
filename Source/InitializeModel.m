@@ -40,14 +40,9 @@ function m = InitializeModel(name)
 %               The name of the input species
 %           .Compartment [ string ]
 %               The name of the compartment in which this input resides
-%           .Function [ handle @(t,q) that returns a nonnegative vector
-%                       1 by numel(t) ]
-%               A handle that returns the value of the input. This function
-%               should accept t as a vector and return the appropriate
-%               length row vector for each t.
-%           .Parameters [ real vector ]
-%               The input control parameters associated with this input
-%               function.
+%           .DefaultValue [ nonnegative scalar ]
+%               The value assigned when an experiment is constructed but no
+%               value is given for the inputs
 %       .States [ struct vector ]
 %           .Name [ string ]
 %               The name of the state species
@@ -115,17 +110,8 @@ function m = InitializeModel(name)
 %           The values of each kinetic parameter
 %       .s [ nonegative vector ns ]
 %           The values of the the seed parameters
-%       .q [ real vector nq ]
-%           The values of the input control parameters
-%       .u [ handle @(t) returns nonnegative matrix nu by numel(t) ]
-%           A function handle that returns the value of the inputs at any
-%           time t. This function should accept t as a vector.
-%       .dudq [ handle @(t) returns real matrix nu by nq]
-%           A function handle that returns the derivative of each input
-%           with respect to each input control parameter
-%       .nqu [ whole vector nv ]
-%           The number of input control parameters associated with each
-%           input
+%       .u [ nonnegative vector nu ]
+%           The vector of default values
 %       .vxInd [ natural vector nx ]
 %           The indexes to the compartments containing each state species
 %       .vuInd [ natural vector nu ]
@@ -356,10 +342,7 @@ m.ny = 0;
 
 m.k    = zeros(0,1);
 m.s    = zeros(0,1);
-m.q    = zeros(0,1);
-m.u    = @(t)(zeros(0,1));
-m.dudq = zeros(0,0);
-m.nqu  = zeros(0,1);
+m.u    = zeros(0,1);
 
 m.dv   = zeros(0,1);
 m.vxInd  = zeros(0,1);
@@ -447,9 +430,14 @@ m.drdu = @(t,x,u)(zeros(0,0));
 m.drdk = @(t,x,u)(zeros(0,0));
 
 m.d2rdx2  = @(t,x,u)(zeros(0,0));
+m.d2rdu2  = @(t,x,u)(zeros(0,0));
 m.d2rdk2  = @(t,x,u)(zeros(0,0));
-m.d2rdxdk = @(t,x,u)(zeros(0,0));
+m.d2rdudx = @(t,x,u)(zeros(0,0));
+m.d2rdxdu = @(t,x,u)(zeros(0,0));
 m.d2rdkdx = @(t,x,u)(zeros(0,0));
+m.d2rdxdk = @(t,x,u)(zeros(0,0));
+m.d2rdkdu = @(t,x,u)(zeros(0,0));
+m.d2rdudk = @(t,x,u)(zeros(0,0));
 
 m.v       = @(t,x,u)(zeros(0,1));
 m.dvdx    = @(t,x,u)(zeros(0,0));

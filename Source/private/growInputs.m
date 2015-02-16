@@ -6,5 +6,5 @@ add = nu - current;
 if add > 0 || isempty(inputs)
     % Double length
     add = max(current,add);
-    inputs = [inputs; struct('Name', cell(add,1), 'Compartment', cell(add,1), 'Function', cell(add,1), 'Parameters', cell(add,1))];
+    inputs = [inputs; struct('Name', cell(add,1), 'Compartment', cell(add,1), 'DefaultValue', cell(add,1))];
 end

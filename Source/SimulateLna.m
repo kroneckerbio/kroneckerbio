@@ -14,12 +14,6 @@ function [varargout] = SimulateLna(m, con, opts)
 %   opts: [ options struct scalar {} ]
 %       .V0 [ matrix nx by nx {zeros(nx,nx)} ]
 %           The initial variance matrix of the state species
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's initial conditions should be used
-%           instead of those of the experimental conditions
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions
 %       .RelTol [ nonnegative scalar {1e-6} ]
 %           Relative tolerance of the integration
 %       .AbsTol [ cell vector of nonnegative vectors | nonnegative vector |
@@ -74,8 +68,6 @@ defaultOpts.Verbose        = 1;
 
 defaultOpts.RelTol         = NaN;
 defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
 
 defaultOpts.V0             = zeros(m.nx,m.nx);
 

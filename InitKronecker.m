@@ -19,4 +19,4 @@ for i = 1:numel(compatibility_files)
     end
 end
 
-disp('KroneckerBio v0.4.0');
+disp('KroneckerBio v0.5.0');

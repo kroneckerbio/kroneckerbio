@@ -1,30 +1,25 @@
-function ic = steadystateDblsens(m, con, opts)
+function ic = steadystateCurv(m, con, opts)
 % Constants
 nx = m.nx;
 nu = m.nu;
-nq = numel(opts.UseControls{1});
 nk = m.nk;
 nTk = sum(opts.UseParams);
-nTx = sum(sum(opts.UseICs));
-nTq = sum(opts.UseControls{1});
-nT  = nTk + nTx + nTq;
+nTs = sum(opts.UseSeeds);
+nTq = sum(opts.UseInputControls);
+nTh = sum(opts.UseDoseControls);
+nT  = nTk + nTs + nTq + nTh;
 
 % Construct system
 [der, jac, eve] = constructSystem();
 
 % Initial conditions [x0; vec(dxdT0)]
-if opts.UseModelICs
-    x0 = m.x0;
-else
-    x0 = con.x0;
-end
+x0 = m.dx0ds * con.s + m.x0c;
 
 % Initial effect of rates on sensitivities is 0
-dxdT0 = zeros(nx, nTk); % Active rate parameters
+dxdTk = zeros(nx, nTk); % Active rate parameters
 
-% Initial effect of ics on sensitivities is 1 for that state
-dxdTx0                = zeros(nx,nTx);
-dxdTx0(opts.UseICs,:) = eye(nTx);
+% Initial effect of seeds on states is dx0ds
+dxdTs = m.dx0ds(:,opts.UseSeeds);
 
 % Initial effect of qs on sensitivities is 0
 dxdTq = zeros(nx, nTq);
@@ -33,17 +28,10 @@ dxdTq = zeros(nx, nTq);
 d2xdT2 = zeros(nx*nT*nT,1);
 
 % Combine them into a vector
-ic = [x0; vec([dxdT0, dxdTx0, dxdTq]); d2xdT2];
+ic = [x0; vec([dxdTk, dxdTs, dxdTq]); d2xdT2];
 
-% Input
-if opts.UseModelInputs
-    u = m.u;
-else
-    u = con.u;
-end
-
-% Integrate [x; dxdT] with respect to time
-sol = accumulateOde(der, jac, 0, inf, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT+nx*nT*nT), [], 1, eve, [], 1, 0);
+% Integrate [f; dfdT] over time
+sol = accumulateOde(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT+nx*nT*nT), [], 1, eve, [], 1, 0);
 
 % Return steady-state value
 ic = sol.ye;
@@ -51,9 +39,9 @@ ic = sol.ye;
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% The system for integrating x and dxdT %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% The system for integrating f and dfdT and d2fdT2 %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, eve] = constructSystem()
         
         IT = speye(nT);
@@ -77,12 +65,8 @@ ic = sol.ye;
         d2fdT2  = @d2fdT2Sub;
         d2fdudx = m.d2fdudx;
         d2fdTdx = @d2fdTdxSub;
-        d2fdxdT = @d2fdxdTSub;
-        if opts.UseModelInputs
-            dudq = m.dudq;
-        else
-            dudq = con.dudq;
-        end
+        uf      = con.u;
+        dudq    = con.dudq;
         
         der = @derivative;
         jac = @jacobian;
@@ -179,7 +163,7 @@ ic = sol.ye;
         end
         
         % Steady-state event
-        function [value, isTerminal, direction] = events(t, joint, u)
+        function [value, isTerminal, direction] = events(t, joint)
             u = u(-1);
             x = joint(1:nx); % x_
 
@@ -201,5 +185,4 @@ ic = sol.ye;
             direction = -1;
         end
     end
-
 end

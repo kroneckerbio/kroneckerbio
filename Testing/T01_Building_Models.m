@@ -19,9 +19,9 @@ m = AddState(m, 'x4', 'v1', 's1');
 
 %% Add Inputs
 m = AddInput(m, 'u1', 'v1', 1);
-m = AddInput(m, 'u2', 'v1', @(t,q)2);
-m = AddInput(m, 'u3', 'v1', @(t,q)(q), 3);
-m = AddInput(m, 'u4', 'v1', @(t,q)(t*q), 4);
+m = AddInput(m, 'u2', 'v1', 2);
+m = AddInput(m, 'u3', 'v1', 3);
+m = AddInput(m, 'u4', 'v1', 4);
 
 %% Add Outputs
 m = AddOutput(m, 'y1', 'x1');

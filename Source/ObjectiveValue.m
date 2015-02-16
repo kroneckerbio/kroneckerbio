@@ -13,16 +13,6 @@ function G = ObjectiveValue(m, con, obj, opts)
 %       evaluated.
 %   opts: [ options struct scalar ]
 %       Optional
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions. This will
-%           determine both which parameters are used for simulation as well
-%           as what parameters will be varied in the optimization.
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions. This will determine both
-%           which parameters are used for simulation as well as what
-%           parameters will be varied in the optimization.
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Indicates the kinetic parameters that will be allowed to vary
 %           during the optimization
@@ -36,11 +26,14 @@ function G = ObjectiveValue(m, con, obj, opts)
 %           and every experiment will be considered to have the same active
 %           seed parameters. It can also be a vector of linear indexes into
 %           the ns vector and assumed the same for all conditions.
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
-%           Indicates the input control parameters that will be allowed to
-%           vary during the optimization
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the input control parameters that are active
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the dose control parameters that are active
 %       .RelTol [ nonnegative scalar {1e-6} ]
 %           Relative tolerance of the integration
 %       .AbsTol [ cell vector of nonnegative vectors | nonnegative vector |
@@ -73,14 +66,13 @@ assert(isscalar(m), 'KroneckerBio:ObjectiveValue:MoreThanOneModel', 'The model s
 % Default options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = nan;
+defaultOpts.UseInputControls = nan;
+defaultOpts.UseDoseControls  = nan;
 
 defaultOpts.ObjWeights     = ones(size(obj));
 
@@ -95,13 +87,14 @@ nCon = numel(con);
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
-% Ensure UseICs is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+% Ensure UseSeeds is a logical matrix
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 % Refresh conditions and objectives
 con = refreshCon(m, con);

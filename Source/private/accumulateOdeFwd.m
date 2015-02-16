@@ -1,5 +1,5 @@
-function cum_sol = accumulateOdeFwd(der, jac, t0, tF, ic, u, discontinuities, nonnegative, RelTol, AbsTol, delta, events, t_first_event, n_events)
-% function cumSol = accumulateOdeFwd(der, jac, t0, tF, ic, u, discontinuities, 
+function cum_sol = accumulateOdeFwd(der, jac, t0, tF, ic, discontinuities, nonnegative, RelTol, AbsTol, delta, events, t_first_event, n_events)
+% function cumSol = accumulateOdeFwd(der, jac, t0, tF, ic, discontinuities, 
 % nonnegative, RelTol, AbsTol, delta, events, t_frst_event, n_events)
 
 % All discontinuities must be equal to their limit from right
@@ -7,13 +7,13 @@ function cum_sol = accumulateOdeFwd(der, jac, t0, tF, ic, u, discontinuities, no
 
 %% Work-up
 % Clean up inputs
-if nargin < 14
+if nargin < 13
     n_events = [];
-    if nargin < 13
+    if nargin < 12
         t_first_event = [];
-        if nargin < 12
+        if nargin < 11
             events = [];
-            if nargin < 11
+            if nargin < 10
                 delta = [];
             end
         end
@@ -66,15 +66,7 @@ for k = 1:(N-1)
     i1 = k+1;
     
     % Integration time interval between discontinuities
-    if i1 == N
-        % At final interval evaluate both points
-        t_int = [discontinuities(i0), discontinuities(i1)];
-    else
-        % At intermediate intervals, do not evaluate the forwardmost point
-        % Instead, stop a little before going forward or start a little
-        % going backward.
-        t_int = [discontinuities(i0), discontinuities(i1) - forward_boost*eps(discontinuities(i1))];
-    end
+    t_int = [discontinuities(i0), discontinuities(i1) - forward_boost*eps(discontinuities(i1))];
     
     % Initialize variables for tracking events
     t_event_int = t_int;
@@ -86,7 +78,7 @@ for k = 1:(N-1)
     % Note: t_event_start >= t_event_end if boost goes past the end time
     while t_event_start < t_event_end && ne < n_events && n_false_events < max_false_events
         % Start or restart integration after an event
-        sim_sol = ode15sf(der, t_event_int, ic, sim_opts, u);
+        sim_sol = ode15sf(der, t_event_int, ic, sim_opts);
         
         % Check if integration failed when it shouldn't have
         if isempty(events) && sim_sol.x(end) ~= t_int(2)
@@ -104,14 +96,13 @@ for k = 1:(N-1)
         % Handle delta
         if ~isempty(delta) && sim_sol.x(end) == t_int(2)
             % Deltas are evaluated with boost removed only if no events triggered
-            sim_sol.y(:,end) = sim_sol.y(:,end) + delta(discontinuities(i1), sim_sol.y(:,end));
+            ic = sim_sol.y(:,end) + delta(discontinuities(i1), sim_sol.y(:,end));
+        else
+            ic = sim_sol.y(:,end);
         end
         
-        % Update ICs
-        ic  = sim_sol.y(:,end);
-        
         % Combine new solution with cumulative
-        cum_sol = mergeSolsFwd(cum_sol, sim_sol);
+        cum_sol = mergeSols(cum_sol, sim_sol);
         
         % Update time interval that remains to be integrated
         t_event_start = sim_sol.x(end) + forward_boost*eps(sim_sol.x(end));
@@ -176,7 +167,28 @@ if N == 1
     cum_sol.x = t0;
     cum_sol.y = ic;
     cum_sol.stats = [];
-    cum_sol.idata = [];
+    cum_sol.idata.kvec = 0;
+    cum_sol.idata.dif3d = zeros(N,1,1);
+    cum_sol.idata.idxNonNegative = sim_opts.NonNegative;
+else
+    % Handle final point (mainly because of delta at last point)
+    if all(ic == sim_sol.y(:,end))
+        % Just assume that we made it to the end
+        cum_sol.x(end) = tF;
+    else
+        % A new point has to be added to the end to handle discontinuities
+        sim_sol = struct;
+        sim_sol.solver = 'ode15s';
+        sim_sol.extdata = [];
+        sim_sol.x = tF;
+        sim_sol.y = ic;
+        sim_sol.stats = [];
+        sim_sol.idata.kvec = 0;
+        sim_sol.idata.dif3d = zeros(size(cum_sol.idata.dif3d,1),1,1);
+        sim_sol.idata.idxNonNegative = sim_opts.NonNegative;
+        
+        cum_sol = mergeSols(cum_sol, sim_sol);
+    end
 end
 
 % Make non-events solutions compatible with those that expect them

@@ -1,5 +1,13 @@
 % The root testing function for KroneckerBio
-function results = RunAllTests()
+function results = RunAllTests(blank)
+if nargin < 1
+    blank = true;
+end
+
+if blank
+    clc
+end
+
 % Find file names of all unit test files (begin with "UT")
 [test_directory, ~, ~] = fileparts(mfilename('fullpath'));
 files_in_test_directory = dir(test_directory);

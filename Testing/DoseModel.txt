@@ -1,0 +1,20 @@
+% Compartments
+v 3 1
+
+% States v
+A
+B BB
+C CC
+
+% Inputs v
+U 0
+
+% Seeds
+BB 0
+CC 0
+
+% Parameters
+k1 1
+
+% Reactions
+C U A 0 k1

@@ -60,6 +60,8 @@ function obj = Gzero(dims)
 %           The derivative of G wrt s at the scalar time point t.
 %       .dGdq [ handle @(t,sol) returns real vector nq ]
 %           The derivative of G wrt q at the scalar time point t.
+%       .dGdh [ handle @(t,sol) returns real vector nh ]
+%           The derivative of G wrt h at the scalar time point t.
 %       .d2Gdx2 [ handle @(t,sol) returns real vector nx by nx ]
 %           The derivative of dGdx wrt x at the scalar time point t.
 %       .d2Gdk2 [ handle @(t,sol) returns real vector nk by nk ]
@@ -68,30 +70,48 @@ function obj = Gzero(dims)
 %           The derivative of dGds wrt s at the scalar time point t.
 %       .d2Gdq2 [ handle @(t,sol) returns real vector nq by nq ]
 %           The derivative of dGdq wrt q at the scalar time point t.
+%       .d2Gdh2 [ handle @(t,sol) returns real vector nh by nh ]
+%           The derivative of dGdq wrt h at the scalar time point t.
 %       .d2Gdkdx [ handle @(t,sol) returns real vector nx by nk ]
 %           The derivative of dGdx wrt k at the scalar time point t.
-%       .d2Gdsdx [ handle @(t,sol) returns real vector nx by nk ]
+%       .d2Gdsdx [ handle @(t,sol) returns real vector nx by ns ]
 %           The derivative of dGdx wrt s at the scalar time point t.
-%       .d2Gdqdx [ handle @(t,sol) returns real vector nx by nk ]
+%       .d2Gdqdx [ handle @(t,sol) returns real vector nx by nq ]
 %           The derivative of dGdx wrt q at the scalar time point t.
+%       .d2Gdhdx [ handle @(t,sol) returns real vector nx by nh ]
+%           The derivative of dGdx wrt h at the scalar time point t.
 %       .d2Gdxdk [ handle @(t,sol) returns real vector nk by nx ]
 %           The derivative of dGdk wrt x at the scalar time point t.
-%       .d2Gdsdk [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdsdk [ handle @(t,sol) returns real vector nk by s ]
 %           The derivative of dGdk wrt s at the scalar time point t.
-%       .d2Gdqdk [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdqdk [ handle @(t,sol) returns real vector nk by nq ]
 %           The derivative of dGdk wrt q at the scalar time point t.
-%       .d2Gdxds [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdhdk [ handle @(t,sol) returns real vector nk by nh ]
+%           The derivative of dGdk wrt h at the scalar time point t.
+%       .d2Gdxds [ handle @(t,sol) returns real vector ns by nx ]
 %           The derivative of dGds wrt x at the scalar time point t.
-%       .d2Gdkds [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdkds [ handle @(t,sol) returns real vector ns by nk ]
 %           The derivative of dGds wrt k at the scalar time point t.
-%       .d2Gdqds [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdqds [ handle @(t,sol) returns real vector ns by ns ]
 %           The derivative of dGds wrt q at the scalar time point t.
-%       .d2Gdxdq [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdhds [ handle @(t,sol) returns real vector ns by nh ]
+%           The derivative of dGds wrt h at the scalar time point t.
+%       .d2Gdxdq [ handle @(t,sol) returns real vector nq by nx ]
 %           The derivative of dGdq wrt x at the scalar time point t.
-%       .d2Gdkdq [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdkdq [ handle @(t,sol) returns real vector nq by nk ]
 %           The derivative of dGdq wrt k at the scalar time point t.
-%       .d2Gdsdq [ handle @(t,sol) returns real vector nk by nx ]
+%       .d2Gdsdq [ handle @(t,sol) returns real vector nq by ns ]
 %           The derivative of dGdq wrt s at the scalar time point t.
+%       .d2Gdhdq [ handle @(t,sol) returns real vector nq by nh ]
+%           The derivative of dGdq wrt h at the scalar time point t.
+%       .d2Gdxdh [ handle @(t,sol) returns real vector nh by nx ]
+%           The derivative of dGdh wrt x at the scalar time point t.
+%       .d2Gdkdh [ handle @(t,sol) returns real vector nh by nk ]
+%           The derivative of dGdh wrt k at the scalar time point t.
+%       .d2Gdsdh [ handle @(t,sol) returns real vector nh by ns ]
+%           The derivative of dGdh wrt s at the scalar time point t.
+%       .d2Gdqdh [ handle @(t,sol) returns real vector nh by nq ]
+%           The derivative of dGdh wrt q at the scalar time point t.
 %
 %       The following are defined for information-theory-based structures.
 %       .p [ handle @(sol) returns real scalar ]
@@ -144,22 +164,28 @@ obj.dGdx = @dGdx;
 obj.dGdk = @dGdk;
 obj.dGds = @dGds;
 obj.dGdq = @dGdq;
+obj.dGdh = @dGdh;
 obj.d2Gdx2 = @d2Gdx2;
 obj.d2Gdk2 = @d2Gdk2;
 obj.d2Gds2 = @d2Gds2;
 obj.d2Gdq2 = @d2Gdq2;
+obj.d2Gdh2 = @d2Gdh2;
 obj.d2Gdkdx = @d2Gdkdx;
 obj.d2Gdsdx = @d2Gdsdx;
 obj.d2Gdqdx = @d2Gdqdx;
+obj.d2Gdhdx = @d2Gdhdx;
 obj.d2Gdxdk = @d2Gdxdk;
 obj.d2Gdsdk = @d2Gdsdk;
 obj.d2Gdqdk = @d2Gdqdk;
+obj.d2Gdhdk = @d2Gdhdk;
 obj.d2Gdxds = @d2Gdxds;
 obj.d2Gdkds = @d2Gdkds;
 obj.d2Gdqds = @d2Gdqds;
+obj.d2Gdhds = @d2Gdhds;
 obj.d2Gdxdq = @d2Gdxdq;
 obj.d2Gdkdq = @d2Gdkdq;
 obj.d2Gdsdq = @d2Gdsdq;
+obj.d2Gdhdq = @d2Gdhdq;
 
 % Information theory
 obj.p = @p;
@@ -207,6 +233,10 @@ function val = dGdq(t,sol)
 nq = numel(sol.q);
 val = sparse(nq, 1);
 end
+function val = dGdh(t,sol)
+nh = numel(sol.h);
+val = sparse(nh, 1);
+end
 function val = d2Gdx2(t,sol)
 nx = size(sol.C1,2);
 val = sparse(nx, nx);
@@ -223,6 +253,10 @@ function val = d2Gdq2(t,sol)
 nq = numel(sol.q);
 val = sparse(nq, nq);
 end
+function val = d2Gdh2(t,sol)
+nh = numel(sol.h);
+val = sparse(nh, nh);
+end
 function val = d2Gdkdx(t,sol)
 nk = numel(sol.k);
 nx = size(sol.C1,2);
@@ -237,6 +271,11 @@ function val = d2Gdqdx(t,sol)
 nq = numel(sol.q);
 nx = size(sol.C1,2);
 val = sparse(nx, nq);
+end
+function val = d2Gdhdx(t,sol)
+nh = numel(sol.h);
+nx = size(sol.C1,2);
+val = sparse(nx, nh);
 end
 function val = d2Gdxdk(t,sol)
 nk = numel(sol.k);
@@ -253,6 +292,11 @@ nk = numel(sol.k);
 nq = numel(sol.q);
 val = sparse(nk, nq);
 end
+function val = d2Gdhdk(t,sol)
+nk = numel(sol.k);
+nh = numel(sol.h);
+val = sparse(nk, nh);
+end
 function val = d2Gdxds(t,sol)
 ns = numel(sol.s);
 nx = size(sol.C1,2);
@@ -267,6 +311,11 @@ function val = d2Gdqds(t,sol)
 ns = numel(sol.s);
 nq = numel(sol.q);
 val = sparse(ns, nq);
+end
+function val = d2Gdhds(t,sol)
+ns = numel(sol.s);
+nh = numel(sol.h);
+val = sparse(ns, nh);
 end
 function val = d2Gdxdq(t,sol)
 nq = numel(sol.q);
@@ -283,6 +332,31 @@ ns = numel(sol.s);
 nq = numel(sol.q);
 val = sparse(nq, ns);
 end
+function val = d2Gdhdq(t,sol)
+ns = numel(sol.s);
+nh = numel(sol.h);
+val = sparse(nh, ns);
+end
+function val = d2Gdxdh(t,sol)
+nh = numel(sol.h);
+nx = size(sol.C1,2);
+val = sparse(nh, nx);
+end
+function val = d2Gdkdh(t,sol)
+nk = numel(sol.k);
+nh = numel(sol.h);
+val = sparse(nh, nk);
+end
+function val = d2Gdsdh(t,sol)
+ns = numel(sol.s);
+nh = numel(sol.h);
+val = sparse(nh, ns);
+end
+function val = d2Gdqdh(t,sol)
+nq = numel(sol.q);
+nh = numel(sol.h);
+val = sparse(nh, nq);
+end
 
 % For Objective.Information
 function val = p(sol)
@@ -294,15 +368,17 @@ end
 function val = F(sol)
 nTk = sum(sol.UseParams);
 nTs = sum(sol.UseSeeds);
-nTq = sum(sol.UseControls);
-nT  = nTk + nTs + nTq;
+nTq = sum(sol.UseInputControls);
+nTh = sum(sol.UseDoseControls);
+nT  = nTk + nTs + nTq + nTh;
 val = zeros(nT,nT);
 end
 function val = Fn(sol)
 nTk = sum(sol.UseParams);
 nTs = sum(sol.UseSeeds);
-nTq = sum(sol.UseControls);
-nT  = nTk + nTs + nTq;
+nTq = sum(sol.UseInputControls);
+nTh = sum(sol.UseDoseControls);
+nT  = nTk + nTs + nTq + nTh;
 val = zeros(nT,nT);
 end
 

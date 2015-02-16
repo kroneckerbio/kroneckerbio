@@ -79,15 +79,13 @@ v3.x7 1
 
 % Inputs v1
 
-# The input control parameters (mathematically known as q) provide a means
-# of controling the value of an input species. Below shows an example of
-# this. q(1) and q(2) refer to 2 and 1e4 here, but those numbers could be 
-# changed after the model has already been built.
-# Name Function   Parameters
-u4     q(1)*q(2)  2,1e4
-
-# An input can also be a function of time t.
-u5 t^2+q(1)*q(2) 2,1e4
+# The input can be time varying and have parameters that govern its
+# behavior. However, these cannot be specified via and model and must be 
+# supplied via an experiment. A default value for the input can be
+# provided.
+# Name Default
+u4     2
+u5 5
 
 
 # Output headers do not take any additional parameters

@@ -6,7 +6,7 @@ function newCon = refreshCon(m, con)
 %   depend on the changes. This function loops over the experimental
 %   conditions in order to accomplish this common task.
 
-% (c) 2012 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 nTop = numel(m);
@@ -14,6 +14,6 @@ nCon = size(con,1);
 newCon = Uzero([nCon,nTop]);
 for iTop = 1:nTop
     for iCon = 1:nCon
-        newCon(iCon,iTop) = pastestruct(Uzero(m(iTop)), con(iCon,iTop).Update(con(iCon,iTop).s, con(iCon,iTop).q));
+        newCon(iCon,iTop) = con(iCon,iTop).Update(con(iCon,iTop).s, con(iCon,iTop).q, con(iCon,iTop).h);
     end
 end

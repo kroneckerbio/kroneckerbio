@@ -7,10 +7,6 @@ verboseAll = max(verbose-1,0);
 
 % Constants
 nx = m.nx;
-nTk = sum(opts.UseParams);
-nTs = sum(sum(opts.UseSeeds));
-nTq = sum(cat(1,opts.UseControls{:}));
-nT  = nTk + nTs + nTq;
 nCon = numel(con);
 nObj = size(obj,1);
 
@@ -21,29 +17,18 @@ if verbose; disp('Integrating forward...'); end
 for iCon = 1:nCon
     if verboseAll; tic; end
     
+    % Modify opts structure
     intOpts = opts;
     
-    % If opts.UseModelSeeds is false, the number of variables can change
-    if opts.UseModelSeeds
-        UseSeeds_i = opts.UseSeeds;
-    else
-        UseSeeds_i = opts.UseSeeds(:,iCon);
-    end
+    UseSeeds_i = opts.UseSeeds(:,iCon);
     intOpts.UseSeeds = UseSeeds_i;
-    inTs = nnz(UseSeeds_i);
     
-    % If opts.UseModelInputs is false, the number of variables can change
-    if opts.UseModelInputs
-        UseControls_i = opts.UseControls{1};
-    else
-        UseControls_i = opts.UseControls{iCon};
-    end
-    intOpts.UseControls = UseControls_i;
-    inTq = nnz(UseControls_i);
+    UseInputControls_i = opts.UseInputControls{iCon};
+    intOpts.UseInputControls = UseInputControls_i;
     
-    inT = nTk + inTs + inTq;
-
-    % Modify opts structure
+    UseDoseControls_i = opts.UseDoseControls{iCon};
+    intOpts.UseDoseControls = UseDoseControls_i;
+    
     intOpts.AbsTol = opts.AbsTol{iCon};
     intOpts.ObjWeights = opts.ObjWeights(:,iCon);
     tGet = opts.tGet{iCon};
@@ -62,7 +47,8 @@ for iCon = 1:nCon
     % Add fields for prior objectives
     sol.UseParams = opts.UseParams;
     sol.UseSeeds = UseSeeds_i;
-    sol.UseControls = UseControls_i;
+    sol.UseInputControls = UseInputControls_i;
+    sol.UseDoseControls = UseDoseControls_i;
     
     % Extract continuous term
     if opts.continuous(iCon)

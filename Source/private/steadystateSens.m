@@ -4,18 +4,15 @@ function ic = steadystateSens(m, con, opts)
 nx = m.nx;
 nTk = sum(opts.UseParams);
 nTs = sum(opts.UseSeeds);
-nTq = sum(opts.UseControls);
-nT  = nTk + nTs + nTq;
+nTq = sum(opts.UseInputControls);
+nTh = sum(opts.UseDoseControls);
+nT  = nTk + nTs + nTq + nTh;
 
 % Construct system
 [der, jac, eve] = constructSystem();
 
 % Initial conditions [x0; vec(dxdT0)]
-if opts.UseModelSeeds
-    x0 = m.dx0ds * m.s + m.x0c;
-else
-    x0 = m.dx0ds * con.s + m.x0c;
-end
+x0 = m.dx0ds * con.s + m.x0c;
 
 % Initial effect of rates on sensitivities is 0
 dxdTk = zeros(nx, nTk); % Active rate parameters
@@ -29,15 +26,8 @@ dxdTq = zeros(nx, nTq);
 % Combine them into a vector
 ic = [x0; vec([dxdTk, dxdTs, dxdTq])];
 
-% Input
-if opts.UseModelInputs
-    u = m.u;
-else
-    u = con.u;
-end
-
-% Integrate [x; dxdT] with respect to time
-sol = accumulateOde(der, jac, 0, inf, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], 1, eve, [], 1, 0);
+% Integrate [f; dfdT] over time
+sol = accumulateOde(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], 1, eve, [], 1, 0);
 
 % Return steady-state value
 ic = sol.ye;
@@ -46,7 +36,7 @@ ic = sol.ye;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% The system for integrating x and dxdT %%%%%
+%%%%% The system for integrating f and dfdT %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, eve] = constructSystem()
         
@@ -62,23 +52,20 @@ ic = sol.ye;
         d2fdx2  = m.d2fdx2;
         d2fdudx = m.d2fdudx;
         d2fdTdx = @d2fdTdxSub;
-        if opts.UseModelInputs
-            dudq = m.dudq;
-        else
-            dudq = con.dudq;
-        end
+        uf      = con.u;
+        dudq    = con.dudq;
         
         der = @derivative;
         jac = @jacobian;
         eve = @events;
         
         % Derivative of [x; dxdT] with respect to time
-        function val = derivative(t, joint, u)
-            u = u(-1);            
+        function val = derivative(t, joint)
+            u = uf(-1);            
             x = joint(1:nx);
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % xT_ --> x_T
             
-            % Compute derivative of dxdT
+            % Derivative of dxdT
             dxdTdot = dfdx(-1,x,u) * dxdT + dfdT(-1,x,u); % f_x * x_T + f_T --> f_T
             
             % Combine
@@ -86,8 +73,8 @@ ic = sol.ye;
         end
         
         % Jacobian of [x; dxdT] derivative
-        function val = jacobian(t, joint, u)
-            u = u(-1);            
+        function val = jacobian(t, joint)
+            u = uf(-1);            
             x = joint(1:nx); % x_
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % x_T
             
@@ -104,18 +91,18 @@ ic = sol.ye;
         function val = dfdTSub(t, x, u)
             val = m.dfdk(t,x,u);
             dfdq = dfdu(t,x,u) * dudq(t);
-            val = [val(:,opts.UseParams), sparse(nx, nTs), dfdq(:,opts.UseControls)];
+            val = [val(:,opts.UseParams), sparse(nx,nTs), dfdq(:,opts.UseInputControls), sparse(nx,nTq)];
         end
         
         % Modifies d2fdkdx to relate only to the parameters of interest
         function val = d2fdTdxSub(t, x, u)
-            val = m.d2fdkdx(t,x,u);
-            d2fdqdx = d2fdudx(t,x,u) * dudq(t);
-            val = [val(:,opts.UseParams), sparse(nx*nx, nTs), d2fdqdx(:,opts.UseControls)];
+            val = m.d2fdkdx(t,x,u); % fx_k
+            d2fdqdx = d2fdudx(t,x,u) * dudq(t); % fx_u * u_q -> fx_q
+            val = [val(:,opts.UseParams), sparse(nx*nx, nTs), d2fdqdx(:,opts.UseInputControls), sparse(nx*nx,nTq)]; % fx_T
         end
         
         % Steady-state event
-        function [value, isTerminal, direction] = events(t, joint, u)
+        function [value, isTerminal, direction] = events(t, joint)
             u = u(-1);
             x = joint(1:nx); % x_
 
@@ -137,5 +124,4 @@ ic = sol.ye;
             direction = -1;
         end
     end
-
 end

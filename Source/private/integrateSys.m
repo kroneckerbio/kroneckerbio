@@ -6,47 +6,33 @@ nx = m.nx;
 % Construct system
 [der, jac, del] = constructSystem();
 
-% Initial conditions
-if opts.UseModelSeeds
-    s = m.s;
-else
-    s = con.s;
-end
-
 if ~con.SteadyState
-    ic = m.dx0ds * s + m.x0c;
+    ic = m.dx0ds * con.s + m.x0c;
 else
     ic = steadystateSys(m, con, opts);
 end
 
-% Input
-if opts.UseModelInputs
-    u = m.u;
-    q = m.q;
-else
-    u = con.u;
-    q = con.q;
-end
-
-% Integrate x over time
-sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), del);
-sol.u = u;
+% Integrate f over time
+sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), del);
+sol.u = con.u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;
 sol.c  = m.c;
 sol.k = m.k;
-sol.s = s;
-sol.q = q;
+sol.s = con.s;
+sol.q = con.q;
+sol.h = con.h;
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% The system for integrating x %%%%%
+%%%%% The system for integrating f %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
+        uf    = con.u;
         d     = con.d;
         dx0ds = m.dx0ds;
         
@@ -55,14 +41,14 @@ sol.q = q;
         del = @delta;
         
         % Derivative of x with respect to time
-        function val = derivative(t, x, u)
-            u   = u(t);
+        function val = derivative(t, x)
+            u   = uf(t);
             val = f(t, x, u);
         end
         
         % Jacobian of x derivative
-        function val = jacobian(t, x, u)
-            u   = u(t);
+        function val = jacobian(t, x)
+            u   = uf(t);
             val = dfdx(t, x, u);
         end
         

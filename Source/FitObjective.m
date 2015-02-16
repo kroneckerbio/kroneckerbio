@@ -24,16 +24,6 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 %       The objective structures defining the objective functions to be
 %       evaluated.
 %   opts: [ options struct scalar {} ]
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions. This will
-%           determine both which parameters are used for simulation as well
-%           as what parameters will be varied in the optimization.
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions. This will determine both
-%           which parameters are used for simulation as well as what
-%           parameters will be varied in the optimization.
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Indicates the kinetic parameters that will be allowed to vary
 %           during the optimization
@@ -47,9 +37,14 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 %           and every experiment will be considered to have the same active
 %           seed parameters. It can also be a vector of linear indexes into
 %           the ns vector and assumed the same for all conditions.
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the input control parameters that will be allowed to
+%           vary during the optimization
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
 %           Indicates the input control parameters that will be allowed to
 %           vary during the optimization
 %       .LowerBound [ nonegative vector {0} ]
@@ -123,7 +118,7 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 %       D: [ real vector nT ]
 %           The objective gradient at the optimum parameter set
 
-% (c) 2011 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
@@ -138,14 +133,13 @@ assert(isscalar(m), 'KroneckerBio:FitObjective:MoreThanOneModel', 'The model str
 % Default options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = nan;
+defaultOpts.UseInputControls = nan;
+defaultOpts.UseDoseControls  = nan;
 
 defaultOpts.ObjWeights     = ones(size(obj));
 
@@ -182,12 +176,13 @@ nObj = size(obj,1);
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 % Ensure Restart is a positive integer
 if ~(opts.Restart >= 0)
@@ -209,7 +204,7 @@ end
 con = refreshCon(m, con);
 
 % Construct starting variable parameter set
-T0 = collectActiveParameters(m, con, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 % Fix integration type
 [opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(con, obj);
@@ -218,11 +213,11 @@ T0 = collectActiveParameters(m, con, opts.UseModelSeeds, opts.UseModelInputs, op
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, nCon, opts.UseAdjoint, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, nCon, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 % Bounds
-opts.LowerBound = fixBounds(opts.LowerBound, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
-opts.UpperBound = fixBounds(opts.UpperBound, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+opts.LowerBound = fixBounds(opts.LowerBound, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+opts.UpperBound = fixBounds(opts.UpperBound, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Options structure for integration
 intOpts = opts;
@@ -333,7 +328,7 @@ if opts.Normalized
 end
 
 % Update parameter sets
-[m, con] = updateAll(m, con, Tbest, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+[m, con] = updateAll(m, con, Tbest, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -355,7 +350,7 @@ end
         end
         
         % Update parameter sets
-        [m, con] = updateAll(m, con, T, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+        [m, con] = updateAll(m, con, T, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
         
         % Integrate system to get objective function value
         if nargout == 1

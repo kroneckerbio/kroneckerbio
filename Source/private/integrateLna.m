@@ -11,11 +11,7 @@ lowerVInd = lowerInd(nx);
 [der, jac, del] = constructSystem();
 
 % Initial conditions
-if opts.UseModelSeeds
-    s = m.s;
-else
-    s = con.s;
-end
+s = con.s;
 
 % V is symmetric. Only integrate the upper half of the matrix
 if ~con.SteadyState
@@ -29,24 +25,16 @@ else
     ic = steadystateSys(m, con, opts);
 end
 
-% Input
-if opts.UseModelInputs
-    u = m.u;
-    q = m.q;
-else
-    u = con.u;
-    q = con.q;
-end
-
 % Integrate x over time
-sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+numel(upperVInd)), del);
-sol.u = u;
+sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+numel(upperVInd)), del);
+sol.u = con.u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;
 sol.c  = m.c;
 sol.k = m.k;
-sol.s = s;
-sol.q = q;
+sol.s = con.s;
+sol.q = con.q;
+sol.h = con.h;
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% The system for integrating the linear noise approximation %%%%%
@@ -58,6 +46,7 @@ sol.q = q;
         f    = m.f;
         dfdx = m.dfdx;
         d2fdx2 = m.d2fdx2;
+        uf    = con.u;
         d     = con.d;
         dx0ds = m.dx0ds;
         
@@ -72,12 +61,12 @@ sol.q = q;
         del = @delta;
         
         % Derivative of [x;V] with respect to time
-        function val = derivative(t, joint, u)
+        function val = derivative(t, joint)
             x = joint(1:nx); % x_
             V = zeros(nx,nx);
             V(upperVInd) = joint(VStart:VEnd); % x_x
             V(lowerVInd) = joint(VStart:VEnd); % x_x
-            u = u(t); % u_
+            u = uf(t); % u_
             
             % xdot = f
             % Vdot = dfdx *{x.x} V +{f+V.x;V.x+f} dfdx *{x.x} V +{f+x;f+x} S *{rxr} r *{r.r} S
@@ -88,12 +77,12 @@ sol.q = q;
         end
         
         % Jacobian of x derivative
-        function val = jacobian(t, joint, u)
+        function val = jacobian(t, joint)
             x = joint(1:nx); % x_
             V = zeros(nx,nx);
             V(upperVInd) = joint(VStart:VEnd); % x_x
             V(lowerVInd) = joint(VStart:VEnd); % x_x
-            u   = u(t); % u_
+            u = uf(t); % u_
             
             % dxdot/dx = dfdx
             % dxdot/dV = 0
@@ -113,7 +102,7 @@ sol.q = q;
         end
         
         % Dosing
-        function val = delta(t, x)
+        function val = delta(t, joint)
             val = [dx0ds * d(t); zeros(numel(upperVInd),1)];
         end
 end

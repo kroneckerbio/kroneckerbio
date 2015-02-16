@@ -7,48 +7,35 @@ nObj = numel(obj);
 % Construct system
 [der, jac, del] = constructSystem();
 
-% Initial conditions
-if opts.UseModelSeeds
-    s = m.s;
-else
-    s = con.s;
-end
-
 if ~con.SteadyState
-    x0 = m.dx0ds * s + m.x0c;
+    x0 = m.dx0ds * con.s + m.x0c;
     ic = [x0; 0];
 else
-    ic = [steadystateSys(m, con, opts); 0];
+    x0 = steadystateSys(m, con, opts);
+    ic = [x0; 0];
 end
 
-% Input
-if opts.UseModelInputs
-    u = m.u;
-    q = m.q;
-else
-    u = con.u;
-    q = con.q;
-end
-
-% Integrate
-sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, u, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1)), del);
-sol.u = u(tGet);
+% Integrate [f; g] over time
+sol = accumulateOdeFwdSelect(der, jac, 0, con.tF, ic, con.Discontinuities, tGet, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1), del);
+sol.u = con.u(tGet);
 sol.C1 = m.C1;
 sol.C2 = m.C2;
 sol.c  = m.c;
 sol.k = m.k;
-sol.s = s;
-sol.q = q;
+sol.s = con.s;
+sol.q = con.q;
+sol.h = con.h;
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% The system for integrating x and g %%%%%
+%%%%% The system for integrating f and g %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
+        uf    = con.u;
         d     = con.d;
         dx0ds = m.dx0ds;
         
@@ -57,8 +44,8 @@ sol.q = q;
         del = @delta;
         
         % Derivative of [x; G] with respect to time
-        function val = derivative(t, joint, u)
-            u = u(t);            
+        function val = derivative(t, joint)
+            u = uf(t);            
             x = joint(1:nx);
             
             % Sum continuous objective functions
@@ -71,8 +58,8 @@ sol.q = q;
         end
         
         % Jacobian of [x; G] derivative
-        function val = jacobian(t, joint, u)
-            u = u(t);
+        function val = jacobian(t, joint)
+            u = uf(t);
             x = joint(1:nx);
             
             % Sum continuous objective gradients

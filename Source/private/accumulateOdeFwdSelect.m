@@ -1,5 +1,5 @@
-function cum_sol = accumulateOdeFwdSelect(der, jac, t0, tF, ic, u, discontinuities, t_get, nonnegative, RelTol, AbsTol, delta, events, t_first_event, n_events)
-% function cumSol = accumulateOdeFwdSelect(der, jac, t0, tF, ic, u, discontinuities,
+function cum_sol = accumulateOdeFwdSelect(der, jac, t0, tF, ic, discontinuities, t_get, nonnegative, RelTol, AbsTol, delta, events, t_first_event, n_events)
+% function cumSol = accumulateOdeFwdSelect(der, jac, t0, tF, ic, discontinuities,
 % tGet, nonnegative, RelTol, AbsTol, delta, events, t_first_event, n_events)
 
 % All discontinuities must be equal to their limit from right
@@ -7,13 +7,13 @@ function cum_sol = accumulateOdeFwdSelect(der, jac, t0, tF, ic, u, discontinuiti
 
 %% Work-up
 % Clean up inputs
-if nargin < 15
+if nargin < 14
     n_events = [];
-    if nargin < 14
+    if nargin < 13
         t_first_event = [];
-        if nargin < 13
+        if nargin < 12
             events = [];
-            if nargin < 12
+            if nargin < 11
                 delta = [];
             end
         end
@@ -106,11 +106,11 @@ for k = 1:(N-1)
         
         % Start or restart integration after an event
         if isempty(events)
-            [sim_x, sim_y] = ode15sf(der, t_ode, ic, sim_opts, u);
+            [sim_x, sim_y] = ode15sf(der, t_ode, ic, sim_opts);
             sim_sol.x = sim_x';
             sim_sol.y = sim_y';
         else
-            [sim_x, sim_y, sim_xe, sim_ye, sim_ie] = ode15sf(der, t_ode, ic, sim_opts, u);
+            [sim_x, sim_y, sim_xe, sim_ye, sim_ie] = ode15sf(der, t_ode, ic, sim_opts);
             sim_sol.x = sim_x';
             sim_sol.y = sim_y';
             sim_sol.xe = sim_xe';

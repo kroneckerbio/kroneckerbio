@@ -17,22 +17,21 @@ function D = FiniteObjectiveGradient(m, con, obj, opts)
 %   obj: [ objective struct matrix ]
 %       The objective structures defining the objective functions to be
 %       evaluated.
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Which kinetic parameters the gradient will be calculated on
 %       .UseSeeds [ logical matrix nx by nCon | logical vector nx |
 %                   positive integer vector {[]} ]
 %           Which seed parameters the gradient will be calculated on
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
-%           Which input control parameters the gradient will be calculated
-%           on
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the input control parameters whose gradient will be
+%           calculated
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the dose control parameters whose gradient will be
+%           calculated
 %     	.ObjWeights [ real matrix nObj by nCon {ones(nObj,nCon)} ]
 %           Applies a post evaluation weight on each objective function
 %           in terms of how much it will contribute to the final objective
@@ -53,29 +52,28 @@ function D = FiniteObjectiveGradient(m, con, obj, opts)
 %       D: [ real vector nT ]
 %           The sum of all objective function gradients
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
-% Clean up inVuts
-assert(nargin >= 3, 'KroneckerBio:FiniteObjectiveGradient:AtLeastThreeInputs', 'FiniteObjectiveGradient requires at least 3 input arguments.')
+% Clean up inputs
 if nargin < 4
     opts = [];
 end
 
+assert(nargin >= 3, 'KroneckerBio:FiniteObjectiveGradient:TooFewInputs', 'FiniteObjectiveGradient requires at least 3 input arguments.')
 assert(isscalar(m), 'KroneckerBio:FiniteObjectiveGradient:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = nan;
+defaultOpts.UseInputControls = nan;
+defaultOpts.UseDoseControls  = nan;
 
 defaultOpts.ObjWeights     = ones(size(obj));
 
@@ -96,15 +94,16 @@ nCon = numel(con);
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseICs is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls, nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 % Store starting parameter sets
-T0 = collectActiveParameters(m, con, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 % Refresh conditions and objectives
 con = refreshCon(m, con);
@@ -142,11 +141,11 @@ for iT = 1:nT
     
     % Compute objective values
     Tup(iT) = Tup(iT) + diff;
-    [m, con] = updateAll(m, con, Tup, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+    [m, con] = updateAll(m, con, Tup, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
     Gup = computeObj(m, con, obj, opts);
 
     Tdown(iT) = Tdown(iT) - diff;
-    [m, con] = updateAll(m, con, Tdown, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+    [m, con] = updateAll(m, con, Tdown, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
     Gdown = computeObj(m, con, obj, opts);
 
     % Compute D

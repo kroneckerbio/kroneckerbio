@@ -21,38 +21,28 @@ function absTol = GoodAbsTol(m, con, sd, opts)
 %       output value.
 %   opts: [ options struct scalar ]
 %       Optional
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions. This will determine both
-%           which parameters are used for simulation as well as what
-%           parameters will be varied in the optimization.
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
-%           Indicates the kinetic parameters that will be allowed to vary
-%           during the optimization
+%           Which kinetic parameters are active
 %       .UseSeeds [ logical matrix nx by nCon | logical vector nx |
 %                   positive integer vector {[]} ]
-%           Indicates the seeds that will be allowed to vary during the
-%           optimzation. If UseModelSeeds is true then UseSeeds can be a
-%           vector of linear indexes or a vector of logicals length of ns.
-%           If UseModelSeeds is false then UseSeeds can be a matrix of
-%           logicals size ns by nCon. It can also be a vector of length ns,
-%           and every experiment will be considered to have the same active
-%           seed parameters. It can also be a vector of linear indexes into
-%           the ns vector and assumed the same for all conditions.
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
-%           Indicates the input control parameters that will be allowed to
-%           vary during the optimization
+%           Which seed parameters are active
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Which input control parameters arae active
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Which dose control parameters are active
+%       .RelTol [ nonnegative scalar {1e-6} ]
+%           Relative tolerance of the integration. This is used to scale
+%           the good absolute tolerances.
 %
 %   Outputs
 %   absTol: [ struct vector nCon ]
 %       An AbsTol structure that is valid for all simulations
 
-% (c) 2012 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 % Constants
@@ -63,28 +53,29 @@ ny = m.ny;
 nCon = numel(con);
 
 % Default options
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
-defaultOpts.UseAdjoint     = false;
-
-defaultOpts.TolOptim       = 1e-5;
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = nan;
+defaultOpts.UseInputControls = nan;
+defaultOpts.UseDoseControls  = nan;
 
 opts = mergestruct(defaultOpts, opts);
 
-% Ensure UseParams is column vector of logical indexes
+% Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
-% Ensure UseSeeds is a matrix of logical indexes
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+% Ensure UseICs is a logical matrix
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls, nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
+
+% RelTol
+opts.RelTol = fixRelTol(opts.RelTol);
 
 %% xGoodRatio
 % Get the typical uncertainties for the outputs
@@ -120,7 +111,7 @@ objectiveGoodRatio = 1;
 absTol = emptystruct(nCon, 'System', 'Objective', 'Sensitivity', 'Adjoint', 'Gradient', 'Doublesensitivity');
 for iCon = 1:nCon
     % Experiment specific parameters
-    T = collectActiveParameters(m, con, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+    T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
     
     % dxdTGoodRatio
     % If the model is linear and x >= 0 for all T >= 0, then the

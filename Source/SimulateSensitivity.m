@@ -12,22 +12,21 @@ function [varargout] = SimulateSensitivity(m, con, opts)
 %   con: [ experiment struct vector ]
 %       The experimental conditions under which the model will be simulated
 %   opts: [ options struct scalar {} ]
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Indicates the kinetic parameters whose sensitivities are
 %           desired
 %       .UseSeeds [ logical matrix ns by nCon | logical vector ns |
 %                   positive integer vector {[]} ]
 %           Indicates the seed parameters whose sensitivities are desired
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
 %           Indicates the input control parameters whose sensitivites are
+%           desired
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the dose control parameters whose sensitivites are
 %           desired
 %       .RelTol [ nonnegative scalar {1e-6} ]
 %           Relative tolerance of the integration
@@ -68,7 +67,7 @@ function [varargout] = SimulateSensitivity(m, con, opts)
 %       .sol [ odesolver struct scalar ]
 %           The integrator solution to the system
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
@@ -81,16 +80,15 @@ assert(nargin >= 2, 'KroneckerBio:SimulateSensitivity:TooFewInputs', 'SimulateSe
 assert(isscalar(m), 'KroneckerBio:SimulateSensitivity:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
-defaultOpts.Verbose        = 1;
+defaultOpts.Verbose          = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol           = [];
+defaultOpts.AbsTol           = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -107,12 +105,13 @@ nCon = numel(con);
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, nx, nCon);
+[opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, nx, nCon);
 
-% Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+% Ensure UseControls are cell vectors of logical vectors
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
 
-nT = nTk + nTx + nTq;
+nT = nTk + nTx + nTq + nTh;
 
 % Refresh conditions
 con = refreshCon(m, con);
@@ -121,7 +120,7 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(nCon,1), nx, nCon, false, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(nCon,1), nx, nCon, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Run integration for each experiment
 sim = emptystruct(nCon, 'Type', 'Name', 't', 'y', 'x', 'dydT', 'dxdT', 'sol');
@@ -131,27 +130,19 @@ for iCon = 1:nCon
     intOpts = opts;
     intOpts.AbsTol = opts.AbsTol{iCon};
     
-    % If opts.UseModelSeeds is false, the number of variables can change
-    if opts.UseModelSeeds
-        UseSeeds_i = opts.UseSeeds;
-    else
-        UseSeeds_i = opts.UseSeeds(:,iCon);
-    end
+    UseSeeds_i = opts.UseSeeds(:,iCon);
     intOpts.UseSeeds = UseSeeds_i;
     inTs = nnz(UseSeeds_i);
     
-    % If opts.UseModelInputs is false, the number of variables can change
-    if opts.UseModelInputs
-        UseControls_i = opts.UseControls{1};
-    else
-        UseControls_i = opts.UseControls{iCon};
-    end
-    intOpts.UseControls = UseControls_i;
-    inTq = nnz(UseControls_i);
+    intOpts.UseInputControls = opts.UseInputControls{iCon};
+    inTq = nnz(intOpts.UseInputControls);
     
-    inT = nTk + inTs + inTq;
+    intOpts.UseDoseControls = opts.UseDoseControls{iCon};
+    inTh = nnz(intOpts.UseDoseControls);
+    
+    inT = nTk + inTs + inTq + inTh;
 
-    % Integrate dx/dp over time
+    % Integrate [x; dx/dT] over time
     if verbose; fprintf(['Integrating sensitivities for ' con(iCon).Name '...']); end
     sol = integrateSens(m, con(iCon), intOpts);
     if verbose; fprintf('done.\n'); end

@@ -47,7 +47,7 @@ function con = Uzero(m)
 %       .Discontinuities [ nonegative vector ]
 %           Any discontinuous times in the u function must be listed here
 %           in order to ensure sucessful integration of the system.
-%       .Update [handle @(s,q) returns struct scalar ]
+%       .Update [ handle @(s,q) returns struct scalar ]
 %           This function handle allows the parameter values of the
 %           experiment to be changed. Each vector x0 and q must have the
 %           same size as their appropriate counterparts. The structure
@@ -60,40 +60,8 @@ function con = Uzero(m)
 
 % Special case of numeric inputs
 if isnumeric(m)
-    con = emptystruct(m, 'Type', 'Name', 'tF', 's', 'u', 'd', 'q', 'dudq', 'dddq', 'nq', 'SteadyState', 'Periodic', 'Discontinuities', 'Update');
+    con = emptystruct(m, 'Type', 'Name', 'tF', 'nu', 'ns', 'nq', 'nh', 's', 'q', 'h', 'u', 'dudq', 'd2udq2', 'd', 'dddh', 'd2ddh2', 'SteadyState', 'Periodic', 'Discontinuities', 'Update');
     return
 end
 
-% Constants
-nu = m.nu;
-ns = m.ns;
-s = m.s;
-
-% Gut m
-temp = m;
-clear m
-m.nu = temp.nu;
-m.ns = temp.ns;
-m.s = temp.s;
-clear temp
-
-con.Type = 'Experiment';
-con.Name = 'UnnamedExperiment';
-con.tF = 0;
-con.s = s;
-con.u  = @(t)zeros(nu,1);
-con.d  = @(t)zeros(ns,1);
-con.q  = zeros(0,1);
-con.dudq = @(t)zeros(nu,0);
-con.dddq = @(t)zeros(ns,0);
-con.nq = 0;
-con.SteadyState = false;
-con.Periodic = false;
-con.Discontinuities = zeros(0,1);
-con.Update = @Update;
-
-    function con = Update(s, q)
-        assert(numel(q) == 0, 'KroneckerBio:Experiment:Update:InvalidInputControl', 'An input control parameter vector was supplied with %i elements, but the input of this experiment is controlled by 0 input parameters. They must be the same.', numel(q))
-        con = Experiment(m, 0, s, false, false, zeros(nu,1), zeros(ns,1), [], q);
-    end
-end
+con = InitialValueExperiment(m, 0, [], [], [], 'Uzero');

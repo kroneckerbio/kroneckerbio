@@ -10,10 +10,11 @@ verboseAll = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
-nTk = sum(opts.UseParams);
-nTs = sum(sum(opts.UseSeeds));
-nTq = sum(cat(1,opts.UseControls{:}));
-nT  = nTk + nTs + nTq;
+nTk = nnz(opts.UseParams);
+nTs = nnz(opts.UseSeeds);
+nTq = nnz(cat(1,opts.UseInputControls{:}));
+nTh = nnz(cat(1,opts.UseDoseControls{:}));
+nT  = nTk + nTs + nTq + nTh;
 nCon = numel(con);
 nObj = size(obj,1);
 
@@ -25,31 +26,25 @@ if opts.Verbose; fprintf('Integrating sensitivities:\n'); end
 for iCon = 1:nCon
     if verboseAll; tic; end
     
+    % Modify opts structure
     intOpts = opts;
+    intOpts.AbsTol = opts.AbsTol{iCon};
+    intOpts.ObjWeights = opts.ObjWeights(:,iCon);
     
-    % If opts.UseModelSeeds is false, the number of variables can change
-    if opts.UseModelSeeds
-        UseSeeds_i = opts.UseSeeds;
-    else
-        UseSeeds_i = opts.UseSeeds(:,iCon);
-    end
+    UseSeeds_i = opts.UseSeeds(:,iCon);
     intOpts.UseSeeds = UseSeeds_i;
     inTs = nnz(UseSeeds_i);
     
-    % If opts.UseModelInputs is false, the number of variables can change
-    if opts.UseModelInputs
-        UseControls_i = opts.UseControls{1};
-    else
-        UseControls_i = opts.UseControls{iCon};
-    end
-    intOpts.UseControls = UseControls_i;
-    inTq = nnz(UseControls_i);
+    UseInputControls_i = opts.UseInputControls{iCon};
+    intOpts.UseInputControls = UseInputControls_i;
+    inTq = nnz(UseInputControls_i);
     
-    inT = nTk + inTs + inTq;
+    UseDoseControls_i = opts.UseDoseControls{iCon};
+    intOpts.UseDoseControls = UseDoseControls_i;
+    inTh = nnz(UseDoseControls_i);
+    
+    inT = nTk + inTs + inTq + inTh;
 
-    % Modify opts structure
-    intOpts.AbsTol = opts.AbsTol{iCon};
-    intOpts.ObjWeights = opts.ObjWeights(:,iCon);
     tGet = opts.tGet{iCon};
     
     % Integrate
@@ -66,7 +61,8 @@ for iCon = 1:nCon
     % Add fields for prior objectives
     sol.UseParams = opts.UseParams;
     sol.UseSeeds = UseSeeds_i;
-    sol.UseControls = UseControls_i;
+    sol.UseInputControls = UseInputControls_i;
+    sol.UseDoseControls = UseDoseControls_i;
     
     % *Compute G*
     % Extract continuous term
@@ -117,7 +113,8 @@ for iCon = 1:nCon
             dGdk = obj(iObj,iCon).dGdk(discreteTimes(iDisc), sol); % k_ % partial dGdk(i)
             dGds = obj(iObj,iCon).dGds(discreteTimes(iDisc), sol); % s_ % partial dGds(i)
             dGdq = obj(iObj,iCon).dGdq(discreteTimes(iDisc), sol); % q_ % partial dGdq(i)
-            objDiscD = objDiscD + [dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseControls_i)]; % T_
+            dGdh = obj(iObj,iCon).dGdh(discreteTimes(iDisc), sol); % h_ % partial dGdh(i)
+            objDiscD = objDiscD + [dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseInputControls_i); dGdh(UseDoseControls_i)]; % T_
             discD(:,(iObj-1)*nDisc + iDisc) = opts.ObjWeights(iObj,iCon) * objDiscD; % T_ as a row in T_ot
         end
     end
@@ -135,21 +132,17 @@ for iCon = 1:nCon
     % Rate parameters are the same
     Di(1:nTk) = Di(1:nTk) + contD(1:nTk) + discD(1:nTk);
     
-    if opts.UseModelSeeds
-        Di(nTk+1:nTk+nTs) = Di(nTk+1:nTk+nTs) + contD(nTk+1:nTk+inTs) + discD(nTk+1:nTk+inTs);
-    else
-        % s parameters are different
-        Tsind = nTk + sum(sum(opts.UseSeeds(:,1:iCon-1)));
-        Di(Tsind+1:Tsind+inTs) = contD(nTk+1:nTk+inTs) + discD(nTk+1:nTk+inTs);
-    end
+    % s parameters are different
+    Tsind = nTk + sum(sum(opts.UseSeeds(:,1:iCon-1)));
+    Di(Tsind+1:Tsind+inTs) = contD(nTk+1:nTk+inTs) + discD(nTk+1:nTk+inTs);
     
-    if opts.UseModelInputs
-        Di(nTk+nTs+1:end) = Di(nTk+nTs+1:end) + contD(nTk+inTs+1:end) + discD(nTk+inTs+1:end);
-    else
-        % q parameters are different
-        Tqind = nTk + nTs + sum(cellfun(@sum, opts.UseControls(1:iCon-1)));
-        Di(Tqind+1:Tqind+inTq) = contD(nTk+inTs+1:end) + discD(nTk+inTs+1:end);
-    end
+    % q parameters are different
+    Tqind = nTk + nTs + sum(cellfun(@sum, opts.UseInputControls(1:iCon-1)));
+    Di(Tqind+1:Tqind+inTq) = contD(nTk+inTs+1:nTk+inTs+inTq) + discD(nTk+inTs+1:nTk+inTs+inTq);
+    
+    % h parameters are different
+    Thind = nTk + nTs + nTq + sum(cellfun(@sum, opts.UseDoseControls(1:iCon-1)));
+    Di(Thind+1:Thind+inTh) = contD(nTk+inTs+inTq+1:end) + discD(nTk+inTs+inTq+1:end);
     
     % Update sum
     D = D + Di;

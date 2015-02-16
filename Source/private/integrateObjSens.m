@@ -4,22 +4,16 @@ function sol = integrateObjSens(m, con, obj, opts)
 nx = m.nx;
 nTk = sum(opts.UseParams);
 nTs = sum(opts.UseSeeds);
-nTq = sum(opts.UseControls);
-nT  = nTk + nTs + nTq;
-nObj = numel(obj);
+nTq = sum(opts.UseInputControls);
+nTh = sum(opts.UseDoseControls);
+nT  = nTk + nTs + nTq + nTh;
 
 % Construct system
 [der, jac, del] = constructSystem();
 
-if opts.UseModelSeeds
-    s = m.s;
-else
-    s = con.s;
-end
-
 if ~con.SteadyState
     % Initial conditions [x0; G0; vec(dxdT0); vec(dGdv0)]
-    x0 = m.dx0ds * s + m.x0c;
+    x0 = m.dx0ds * con.s + m.x0c;
     
     % Initial effect of rates on sensitivities is 0
     dxdTk = zeros(nx, nTk); % Active rate parameters
@@ -40,32 +34,24 @@ else
     ic = [ic(1:nx); 0; ic(nx+1:nx+1+nx*nT); zeros(nT,1)];
 end
 
-% Input
-if opts.UseModelInputs
-    u = m.u;
-    q = m.q;
-else
-    u = con.u;
-    q = con.q;
-end
-
-% Integrate [x; G; dxdT; dGdT] with respect to time
-sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, u, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1+nx*nT+nT), del);
-sol.u = u;
+% Integrate [f; g; dfdT; dgdT] over time
+sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+1+nx*nT+nT), del);
+sol.u = con.u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;
 sol.c  = m.c;
 sol.k = m.k;
-sol.s = s;
-sol.q = q;
+sol.s = con.s;
+sol.q = con.q;
+sol.h = con.h;
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% The system for integrating x, G, dxdT, and D %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [der, jac] = constructSystem()
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% The system for integrating f, g, dfdT, and dgdT %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function [der, jac, del] = constructSystem()
         
         IT = speye(nT);
 
@@ -79,42 +65,39 @@ sol.q = q;
         d2fdx2  = m.d2fdx2;
         d2fdudx = m.d2fdudx;
         d2fdTdx = @d2fdTdxSub;
-        if opts.UseModelInputs
-            dudq = m.dudq;
-        else
-            dudq = con.dudq;
-        end
-        d     = con.d;
-        dddq  = con.dddq;
-        dx0ds = m.dx0ds;
+        uf      = con.u;
+        dudq    = con.dudq;
+        d       = con.d;
+        dddh    = con.dddh;
+        dx0ds   = m.dx0ds;
         
         der = @derivative;
         jac = @jacobian;
         del = @delta;
         
         % Derivative of [x; G; dxdT; dGdT] with respect to time
-        function val = derivative(t, joint, u)
-            u = u(t);            
+        function val = derivative(t, joint)
+            u = uf(t);            
             x = joint(1:nx);
-            dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % xT_ --> x_T
+            dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
             
-            % Compute derivative of dxdT
-            dxdTdot = dfdx(t,x,u) * dxdT + dfdT(t,x,u); % f_x * x_T + f_T --> f_T
+            % Derivative of dxdT
+            dxdTdot = dfdx(t,x,u) * dxdT + dfdT(t,x,u); % f_x * x_T + f_T -> f_T
             
             % Sum continuous objective functions
             g = 0;
             dgdT = zeros(nT,1);
             for i = 1:nObj
                 g = g + opts.ObjWeights(i) * obj(i).g(t,x,u);
-                dgdT = dgdT + opts.ObjWeights(i) * vec(vec(obj(i).dgdx(t,x,u)).' * dxdT); % T_ + (_x * x_T --> _T --> T_) + T_ --> T_
+                dgdT = dgdT + opts.ObjWeights(i) * vec(vec(obj(i).dgdx(t,x,u)).' * dxdT); % T_ + (_x * x_T -> _T -> T_) + T_ -> T_
             end
                         
             val = [f(t,x,u); g; vec(dxdTdot); dgdT];
         end
         
         % Jacobian of [x; G; dxdT; dGdv] derivative
-        function val = jacobian(t, joint, u)
-            u = u(t);            
+        function val = jacobian(t, joint)
+            u = uf(t);            
             x = joint(1:nx); % x_
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % x_T
             
@@ -125,7 +108,7 @@ sol.q = q;
                 dgdx = dgdx + opts.ObjWeights(i) * vec(obj(i).dgdx(t,x,u)).'; % _x
                 
                 % Compute d/dx(dgdT)
-                d2gdxdT = d2gdxdT + opts.ObjWeights(i) * (dxdT.' * obj(i).d2gdx2(t,x,u)); % T_x + T_x * x_x + T_x --> T_x
+                d2gdxdT = d2gdxdT + opts.ObjWeights(i) * (dxdT.' * obj(i).d2gdx2(t,x,u)); % T_x + T_x * x_x + T_x -> T_x
             end
             
             % Compute d/dx(dfdT)
@@ -146,8 +129,8 @@ sol.q = q;
         function val = delta(t, joint)
             deltax = dx0ds * d(t);
             
-            ddeltaxdq = dx0ds * dddq(t);
-            ddeltaxdT = [zeros(nx,nTk), zeros(nx,nTs), ddeltaxdq(:,opts.UseControls)];
+            ddeltaxdh = dx0ds * dddh(t);
+            ddeltaxdT = [zeros(nx,nTk), zeros(nx,nTs), zeros(nx,nTq), ddeltaxdh(:,opts.UseDoseControls)];
             
             val = [deltax; 0; vec(ddeltaxdT); zeros(nT,1)];
         end
@@ -156,14 +139,14 @@ sol.q = q;
         function val = dfdTSub(t, x, u)
             val = m.dfdk(t,x,u);
             dfdq = dfdu(t,x,u) * dudq(t);
-            val = [val(:,opts.UseParams), sparse(nx, nTs), dfdq(:,opts.UseControls)];
+            val = [val(:,opts.UseParams), sparse(nx,nTs), dfdq(:,opts.UseInputControls), sparse(nx,nTq)];
         end
         
         % Modifies d2fdkdx to relate only to the parameters of interest
         function val = d2fdTdxSub(t, x, u)
             val = m.d2fdkdx(t,x,u);
             d2fdqdx = d2fdudx(t,x,u) * dudq(t);
-            val = [val(:,opts.UseParams), sparse(nx*nx, nTs), d2fdqdx(:,opts.UseControls)];
+            val = [val(:,opts.UseParams), sparse(nx*nx, nTs), d2fdqdx(:,opts.UseInputControls), sparse(nx*nx,nTq)];
         end
     end
 end

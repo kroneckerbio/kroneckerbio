@@ -1,4 +1,4 @@
-function con = Experiment(m, tF, s, steadyState, periodic, u, d, discontinuities, q, dudq, dddq, name)
+function con = SteadyStateExperiment(m, tF, s, u, d, discontinuities, q, dudq, dddq, name)
 %Experiment constructs a KroneckerBio experimental conditions structure
 %   taking advantage of the full potential of experimental conditions
 %
@@ -15,12 +15,6 @@ function con = Experiment(m, tF, s, steadyState, periodic, u, d, discontinuities
 %       The time at which this experiment ends.
 %   s: [ nonnegative vector ns {m.s} ]
 %       The values of the seed parameters
-%   steadyState: [ logical scalar {false} ]
-%       Declares if the system should be run to steady state before
-%       the experiment begins
-%   periodic: [ logical scalar {false} ]
-%       Declares if the system should be run to a periodic steady state for
-%       the duration of the experiment [ Warning: not implemented ]
 %   u: [ handle @(t,q) returns nonnegative matrix nu by numel(t) | 
 %       nonnegative vector nu {m.u} ]
 %       A function handle that returns the value of the inputs at any time
