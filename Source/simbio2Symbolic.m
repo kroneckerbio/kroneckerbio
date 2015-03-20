@@ -11,10 +11,13 @@ function SymModel = simbio2Symbolic(SimbioModel, opts)
 %   opts: [ options struct scalar {} ]
 %       .Verbose [ logical scalar {false} ]
 %       	Print progress to command window
-%       .Order [ 0 | 1 | {2} | 3 ]
-%       	Determines how deep the derivatives should be taken. Each level
-%       	increases the cost exponentially, but increases the number of
-%       	Kronecker functions that can be run on the model.
+%       .EvaluateExternalFunctions [ logical scalar {false} ]
+%           Determines whether to evaluate calls to external functions in
+%           the reaction rate expressions. The external functions are
+%           evaluated with symbolic input arguments to obtain a symbolic
+%           version of the output that can be differentiated. If set to
+%           false, derivatives of external function calls cannot be
+%           computed.
 %
 %   Outputs
 %   SymModel
@@ -92,6 +95,7 @@ end
 
 % Options for displaying progress
 defaultOpts.Verbose = 0;
+defaultOpts.EvaluateExternalFunctions = false;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -346,6 +350,15 @@ end
 
 if verbose; fprintf('done.\n'); end
 
+%% Generate seed parameters for each species
+% Formatted as seed(xi)x, where xi is the index of the species
+
+sNicestrs = sprintf('seed%dx\n',(1:nxu - sum(isu))');
+sNicestrs = textscan(sNicestrs,'%s','Delimiter','\n');
+sNicestrs = sNicestrs{1};
+sSyms = sym(sNicestrs);
+sNames = sNicestrs;
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 3: Building the Diff Eqs %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -385,13 +398,11 @@ nx = nnz(~isu);
 xNames = xuNames(~isu);
 xSyms  = xuSyms(~isu);
 xNicestrs = xuNicestrs(~isu);
-x0      = sym(xu0(~isu)); % Default is no seed
+x0      = sSyms; % Default is one seed per state
 vxInd   = vxuInd(~isu);
 
-ns = 0;
-sSyms = sym(zeros(0,1));
-sNames = cell(0,1);
-s = zeros(0,1);
+ns = nxu - sum(isu);
+s = xu0(~isu);
 
 nu = nnz(isu);
 uNames = xuNames(isu);
@@ -480,6 +491,17 @@ end
 
 % Symbolically evaluate r
 r = sym(rStrs);
+
+% Reevaluate terms to change external functions to symbolic expressions
+if opts.EvaluateExternalFunctions
+    % Initialize symbolic variables
+    syms(kNicestrs{:})
+    syms(xuNicestrs{:})
+    % Evaluate the expressions to remove function calls
+    r = eval(r);
+    % Clear the symbolic variables
+    clear(kNicestrs{:},xuNicestrs{:})
+end
 
 % Assemble stoichiometry matrix
 S = sparse(SEntries(1:nSEntries,1), SEntries(1:nSEntries,2), SEntries(1:nSEntries,3), nxu, nr);

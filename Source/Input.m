@@ -65,8 +65,8 @@ q = vec(q);
 nq = numel(q);
 
 % Derivatives
-assert(isfunction(dudq) && nargin(dudq) == 2, 'KroneckerBio:Input:dudq', 'dudq must be a function handle acceptiong 2 arguments')
-assert(isfunction(d2udq2) && nargin(d2udq2) == 2, 'KroneckerBio:Input:d2udq2', 'd2dh2 must be a function handle acceptiong 2 arguments')
+assert(isfunction(dudq) && nargin(dudq) == 2, 'KroneckerBio:Input:dudq', 'dudq must be a function handle accepting 2 arguments')
+assert(isfunction(d2udq2) && nargin(d2udq2) == 2, 'KroneckerBio:Input:d2udq2', 'd2udq2 must be a function handle accepting 2 arguments')
 
 % Build input
 inp.Type = 'Input';

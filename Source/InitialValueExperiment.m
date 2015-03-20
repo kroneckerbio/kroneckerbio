@@ -2,7 +2,7 @@ function con = InitialValueExperiment(m, tF, s, inp, dos, name)
 %InitialValueExperiment Construct a KroneckerBio experimental conditions
 %   structure describing an initial value problem
 %
-%   con = Experiment(m, tF, s, inp, dos, name)
+%   con = InitialValueExperiment(m, tF, s, inp, dos, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -25,7 +25,7 @@ function con = InitialValueExperiment(m, tF, s, inp, dos, name)
 %
 %   For the meanings of the fields of con see "help Uzero"
 
-% (c) 2015 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen, David Flowers, & Bruce Tidor
 % This work is released under the MIT license.
 
 if nargin < 6
@@ -91,17 +91,7 @@ con.nh = numel(dos.h);
 con.s  = s;
 con.q  = inp.q;
 con.h  = dos.h;
-con.u  = @(t)inp.u(t,inp.q);
-try
-    % See if u is vectorized
-    test = con.u([1,2]);
-    assert(size(test) == [nu,2])
-catch
-    % Nope, vectorize it
-    con.u = @(t)vectorize_u(t, @(ti)inp.u(ti,inp.q));
-end
-con.dudq = @(t)inp.dudq(t,inp.q);
-con.d2udq2 = @(t)inp.d2udq2(t,inp.q);
+[con.u,con.dudq,con.d2udq2] = getU(inp,m.nu);
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
@@ -110,15 +100,38 @@ con.Periodic = false;
 con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
 
-    function val = vectorize_u(t, f_u)
-        nt = numel(t);
-        val = zeros(nu,nt);
-        for i = 1:nt
-            val(:,i) = f_u(t(i));
-        end
-    end
-
     function con_out = update(s, q, h)
         con_out = InitialValueExperiment(m, tF, s, inp.Update(q), dos.Update(h), name);
     end
+
+end
+
+function [u_t,dudq_t,d2udq2_t] = getU(inp,nu)
+
+u_tq = inp.u;
+dudq_tq = inp.dudq;
+d2udq2_tq = inp.d2udq2;
+q = inp.q;
+clear inp
+u_t = @(t) u_tq(t,q);
+
+% Determine if u is vectorized, and fix if not
+testut = u_t([1 2]);
+if size(testut,2) == 1
+    u_t = @ut_vectorized;
+elseif size(testut,2) ~= 2
+    error('u should return an nu-by-1 or nu-by-nt vector of input values')
+end
+
+dudq_t = @(t) dudq_tq(t,q);
+d2udq2_t = @(t) d2udq2_tq(t,q);
+
+    function u = ut_vectorized(t)
+        nt = numel(t);
+        u = zeros(nu,nt);
+        for ti = 1:nt
+            u(:,ti) = u_tq(t(ti),q);
+        end
+    end
+
 end

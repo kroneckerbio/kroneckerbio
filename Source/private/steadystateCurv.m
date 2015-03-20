@@ -31,7 +31,7 @@ d2xdT2 = zeros(nx*nT*nT,1);
 ic = [x0; vec([dxdTk, dxdTs, dxdTq]); d2xdT2];
 
 % Integrate [f; dfdT] over time
-sol = accumulateOde(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT+nx*nT*nT), [], 1, eve, [], 1, 0);
+sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT+nx*nT*nT), [], eve, [], 1);
 
 % Return steady-state value
 ic = sol.ye;
@@ -73,8 +73,8 @@ ic = sol.ye;
         eve = @events;
         
         % Derivative of [x; dxdT; d2xdT2] with respect to time
-        function val = derivative(t, joint, u)
-            u = u(-1);            
+        function val = derivative(t, joint)
+            u = uf(-1);            
             x = joint(1:nx);
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
             d2xdT2 = reshape(joint(d2xdT2Start:d2xdT2End), nx,nT*nT); % xTT_ -> x_TT
@@ -97,8 +97,8 @@ ic = sol.ye;
         end
         
         % Jacobian of [x; dxdT; d2xdT2] derivative
-        function val = jacobian(t, joint, u)
-            u = u(-1);            
+        function val = jacobian(t, joint)
+            u = uf(-1);            
             x = joint(1:nx); % x_
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % x_T
             d2xdT2 = reshape(joint(d2xdT2Start:d2xdT2End), nx,nT*nT); % xTT_ -> x_TT
@@ -164,7 +164,7 @@ ic = sol.ye;
         
         % Steady-state event
         function [value, isTerminal, direction] = events(t, joint)
-            u = u(-1);
+            u = uf(-1);
             x = joint(1:nx); % x_
 
             % Absolute change

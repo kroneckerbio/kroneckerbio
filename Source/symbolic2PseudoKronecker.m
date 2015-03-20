@@ -59,10 +59,20 @@ if nargin < 5
     end
 end
 
+% Set up default directory name, based on the clock
+thistime = num2cell(clock);
+thistime = cellfun(@num2str,thistime,'UniformOutput',false);
+thistime = [thistime{:}];
+defaultMEXdirectory = ['mexfuns_' regexprep(thistime,'\.','_') filesep];
+
 % Default options
 defaultOpts.Order             = 2;
 defaultOpts.VolumeToParameter = false;
 defaultOpts.Verbose           = 0;
+defaultOpts.MultipleyMembers  = false; % added by David Flowers
+defaultOpts.NewJacobianMethod = false; % added by David Flowers
+defaultOpts.UseMEX            = false; % added by David Flowers
+defaultOpts.MEXDirectory      = defaultMEXdirectory;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -70,6 +80,10 @@ verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
 
 order = opts.Order;
+
+if opts.UseMEX && exist(opts.MEXDirectory,'dir') ~= 7
+    mkdir(opts.MEXDirectory);
+end
 
 %% Extract symbolic values
 name    = SymModel.Name;
@@ -128,23 +142,18 @@ for is = 1:ns
     sStrs{is} = char(sSyms(is));
 end
 
-qStrs = cell(nq,1);
-for iq = 1:nq
-    qStrs{iq} = char(uSyms(iq));
-end
-
 uStrs = cell(nu,1);
 uNamesFull = cell(nu,1);
 for iu = 1:nu
     uStrs{iu} = char(uSyms(iu));
-    uNamesFull{iu} = [vStrs{vuInd(iu)} '.' uStrs{iu}];
+    uNamesFull{iu} = [vNames{vuInd(iu)} '.' uNames{iu}];
 end
 
 xStrs = cell(nx,1);
 xNamesFull = cell(nx,1);
 for ix = 1:nx
     xStrs{ix} = char(xSyms(ix));
-    xNamesFull{ix} = [vStrs{vxInd(ix)} '.' xStrs{ix}];
+    xNamesFull{ix} = [vNames{vxInd(ix)} '.' xNames{ix}];
 end
 
 % Convert compartment volumes to parameters or constants
@@ -159,28 +168,198 @@ end
 
 f = S*r;
 
-% Generate derivatives of desired order
+% Standardize names of input parameters
+qStrs = cell(nq,1);
+for iq = 1:nq
+    newqSym = sym(['q' num2str(iq) 'x']);
+    u = subs(u, qSyms(iq), newqSym);
+    qSyms(iq) = newqSym;
+    qStrs{iq} = char(qSyms(iq));
+end
+
+%% Determine the species and parameters in each reaction
+
+rstates = cell(nr,1);
+rinputs = cell(nr,1);
+rparams = cell(nr,1);
+% For each reaction...
+if verbose; fprintf('Determining what terms are present in each reaction rate...\n'); end
+% Substitute 1's for parameters and inputs to find states
+statesubs = subs(r,[kSyms;uSyms],ones(size([kSyms;uSyms])));
+% Substitute 1's for parameters and states to find inputs
+inputsubs = subs(r,[kSyms;xSyms],ones(size([kSyms;xSyms])));
+% Substitute 1's for species to find parameters
+paramssubs =  subs(r,[xSyms;uSyms],ones(size([xSyms;uSyms])));
+ndigitstoprint = 4;
+strtoprint = ['Reaction %' num2str(ndigitstoprint) 'g'];
+lenstr = length(strtoprint) - 3 + ndigitstoprint;
+fprintf(repmat(' ',1,lenstr))
+for ri = 1:nr
+    if verbose; fprintf([repmat('\b',1,lenstr) strtoprint],ri); end
+    rstates{ri} = symvar(statesubs(ri));
+    rinputs{ri} = symvar(inputsubs(ri));
+    rparams{ri} = symvar(paramssubs(ri));
+end
+if verbose; fprintf('\n'); end
+
+%% Find nonzero derivative terms
+
+% Convert the species and parameter indicators into logical matrices
+rstatesi = false(nr,nx);
+rinputsi = false(nr,nu);
+rparamsi = false(nr,nk);
+uqi = false(nu,nq);
+if verbose; fprintf('Determining approximate sparsity patterns for derivative matrices...\n'); end
+ndigitstoprint = 4;
+strtoprint = ['Reaction %' num2str(ndigitstoprint) 'g'];
+lenstr = length(strtoprint) - 3 + ndigitstoprint;
+fprintf(repmat(' ',1,lenstr))
+for ri = 1:nr
+    if verbose; fprintf([repmat('\b',1,lenstr) strtoprint],ri); end
+    for xii = 1:length(rstates{ri})
+        rstatesi(ri,:) = rstatesi(ri,:) + logical(rstates{ri}(xii) == xSyms)';
+    end
+    for ui = 1:length(rinputs{ri})
+        rinputsi(ri,:) = rinputsi(ri,:) + logical(rinputs{ri}(ui) == uSyms)';
+    end
+    for ki = 1:length(rparams{ri})
+        rparamsi(ri,:) = rparamsi(ri,:) + logical(rparams{ri}(ki) == kSyms)';
+    end
+end
+for ui = 1:nu
+    qsinui = symvar(u(ui));
+    for qi = 1:length(qsinui)
+        uqi(ui,:) = uqi(ui,:) + logical(qsinui(qi) == qSyms)';
+    end
+end
+% The above logical arrays are the nonzero elements of the first derivative
+% matrix for r. Record these in a struct, and construct a function that can
+% calculate whether higher-order derivatives contain a given parameter,
+% input, or state.
+nz.r.x = rstatesi;
+nz.r.u = rinputsi;
+nz.r.k = rparamsi;
+nz.f.x = logical(abs(S)*rstatesi);
+nz.f.u = logical(abs(S)*rinputsi);
+nz.f.k = logical(abs(S)*rparamsi);
+nz.u.q = uqi;
+
+% Set up sizes struct
+sizes.f = nx;
+sizes.r = nr;
+sizes.k = nk;
+sizes.x = nx;
+sizes.u = nu;
+sizes.q = nq;
+
+    function nzout = getNonZeroEntries(num,dens)
+        % Inputs:
+        %   num: "numerator" of derivative, either 'r' or 'f'
+        %   dens: "denominator" terms of derivative, any combination of 'x',
+        %   'u', and 'k' in a cell array
+        % Outputs:
+        %   nzout: a logical array of size n(r or f)-by-n(x or u or
+        %   k)-by-n(x or u or k)-by-..., where nzout(i,j,k,...) is true if
+        %   d(r or f)/d(x or u or k)(x or u or k)... is potentially
+        %   nonzero, based on what terms are present in each of the
+        %   reaction or state derivative terms. Note that the first term
+        %   appearing in the "denominator" string of the derivative is the
+        %   last dimension, since it is the derivative taken last. I.E.,
+        %   dr/dxdk has dimensions nr-by-nk-by-nx.
+        %
+        % Example:
+        %   nzout = getNonZeroEntries('f',{'x','k'}) would return nzout,
+        %   the logical array of size nf-by-nx-by-nk indicating the
+        %   potentially nonzero entries of df/dkdx.
+        if ischar(dens)
+            dens = {dens};
+        end
+        ndens = numel(dens);
+        singletondims = 3:(ndens+1);
+        nzout = true(sizes.(num),1); % Start with this value
+        for nzi = 1:ndens
+            nztoadd = nz.(num).(dens{nzi});
+            if length(singletondims) <= 1
+                permutedims = [1 singletondims(1:nzi-1) 2];
+            else
+                permutedims = [1 singletondims(1:nzi-1) 2 singletondims(nzi:end)];
+            end
+            permutednztoadd = permute(nztoadd,permutedims);
+            nzout = bsxfun(@and,nzout,permutednztoadd);
+        end
+    end
+
+% if order > 1
+%     nz_rxx = nz_addorder(nz_rx,nz_rx);
+%     nz_rkx = nz_addorder(nz_rx,nz_rk);
+%     nz_rxk = nz_addorder(nz_rk,nz_rx);
+%     nz_rkk = nz_addorder(nz_rk,nz_rk);
+%     nz_ruu = nz_addorder(nz_ru,nz_ru);
+%     nz_rux = nz_addorder(nz_rx,nz_ru);
+%     nz_rxu = nz_addorder(nz_ru,nz_rx);
+%     nz_ruk = nz_addorder(nz_rk,nz_ru);
+%     nz_rku = nz_addorder(nz_ru,nz_rk);
+% end
+% if order > 2
+%     error('This function does not support orders greater than 2 at this time.')
+% end
+% 
+%     function nzout = nz_addorder(nz1,nz2)
+%         nz1dimsizes = cell(ndims(nz1),1);
+%         nz2dimsizes = cell(ndims(nz2),1);
+%         [nz1dimsizes{:}] = size(nz1);
+%         [nz2dimsizes{:}] = size(nz2);
+%         permutedims1 = [nz1dimsizes{:} 1];
+%         nzout = bsxfun(@and,nz1,permute(nz2,
+%     end
+fprintf('\n')
+
+%% Generate derivatives of desired order
+
+% Determine which method to use to calculate Jacobians
+if opts.NewJacobianMethod
+    jacobianfun = @calcDerivative;
+    reshapefun = @reshapeDerivative;
+else
+    jacobianfun = @(x, syms) jacobian(vec(x), syms);
+    reshapefun = @reshape_extraarguments;
+end
+
 if order >= 1
     % Gradient of u with respect to q
-    dudq = jacobian(u, qSyms);
+    if verbose; fprintf('Calculating dudq...'); end
+    dudq = jacobianfun(u, qSyms);
+    if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to x
-    drdx = jacobian(r, xSyms);
+    if verbose; fprintf('Calculating drdx...'); end
+    drdx = jacobianfun(r, xSyms);
+    if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to u
-    drdu = jacobian(r, uSyms);
+    if verbose; fprintf('Calculating drdu...'); end
+    drdu = jacobianfun(r, uSyms);
+    if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to k
-    drdk = jacobian(r, kSyms);
+    if verbose; fprintf('Calculating drdk...'); end
+    drdk = jacobianfun(r, kSyms);
+    if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to x
+    if verbose; fprintf('Calculating dfdx...'); end
     dfdx = S*drdx;
+    if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to u
+    if verbose; fprintf('Calculating dfdu...'); end
     dfdu = S*drdu;
+    if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to k
+    if verbose; fprintf('Calculating dfdk...'); end
     dfdk = S*drdk;
+    if verbose; fprintf('Done.\n'); end
 else
     dudq = '';
     drdx = '';
@@ -191,67 +370,104 @@ end
 
 if order >= 2
     % Gradient of drdx with respect to x
-    d2rdx2 = jacobian(vec(drdx), xSyms);
+    if verbose; fprintf('Calculating d2rdx2...'); end
+    d2rdx2 = jacobianfun(drdx, xSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdu with respect to u
-    d2rdu2 = jacobian(vec(drdu), uSyms);
+    if verbose; fprintf('Calculating d2rdu2...'); end
+    d2rdu2 = jacobianfun(drdu, uSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdu with respect to u
-    d2rdxdu = jacobian(vec(drdu), xSyms);
+    if verbose; fprintf('Calculating d2rdxdu...'); end
+    d2rdxdu = jacobianfun(drdu, xSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdx with respect to u
-    d2rdudx = jacobian(vec(drdx), uSyms);
+    if verbose; fprintf('Calculating d2rdudx...'); end
+    d2rdudx = jacobianfun(drdx, uSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdk with respect to k
-    d2rdk2 = jacobian(vec(drdk), kSyms);
+    if verbose; fprintf('Calculating d2rdk2...'); end
+    d2rdk2 = jacobianfun(drdk, kSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdx with respect to k
-    d2rdkdx = jacobian(vec(drdx), kSyms);
+    if verbose; fprintf('Calculating d2rdkdx...'); end
+    d2rdkdx = jacobianfun(drdx, kSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdu with respect to k
-    d2rdkdu = jacobian(vec(drdu), kSyms);
+    if verbose; fprintf('Calculating d2rdkdu...'); end
+    d2rdkdu = jacobianfun(drdu, kSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdk with respect to x
-    d2rdxdk = jacobian(vec(drdk), xSyms);
+    if verbose; fprintf('Calculating d2rdxdk...'); end
+    d2rdxdk = jacobianfun(drdk, xSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of drdk with respect to u
-    d2rdudk = jacobian(vec(drdk), uSyms);
+    if verbose; fprintf('Calculating d2rdudk...'); end
+    d2rdudk = jacobianfun(drdk, uSyms);
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdx with respect to x
-    d2fdx2 = S*reshape(d2rdx2, nr,nx*nx);
-    d2fdx2 = reshape(d2fdx2, nx*nx,nx);
+    if verbose; fprintf('Calculating d2fdx2...'); end
+    d2fdx2 = S*reshapefun(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
+    d2fdx2 = reshapefun(d2fdx2, [nx*nx nx], 'f', {'x' 'x'});
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdu with respect to u
-    d2fdu2 = S*reshape(d2rdu2, nr,nu*nu);
-    d2fdu2 = reshape(d2fdu2, nx*nu,nu);
+    if verbose; fprintf('Calculating d2fdu2...'); end
+    d2fdu2 = S*reshapefun(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
+    d2fdu2 = reshapefun(d2fdu2, [nx*nu,nu], 'f', {'u' 'u'});
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdu with respect to x
-    d2fdxdu = S*reshape(d2rdxdu, nr,nu*nx);
-    d2fdxdu = reshape(d2fdxdu, nx*nu,nx);
+    if verbose; fprintf('Calculating d2fdxdu...'); end
+    d2fdxdu = S*reshapefun(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
+    d2fdxdu = reshapefun(d2fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdx with respect to u
-    d2fdudx = S*reshape(d2rdudx, nr,nx*nu);
-    d2fdudx = reshape(d2fdudx, nx*nx,nu);
+    if verbose; fprintf('Calculating d2fdudx...'); end
+    d2fdudx = S*reshapefun(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
+    d2fdudx = reshapefun(d2fdudx, [nx*nx,nu], 'f', {'x' 'u'});
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdk with respect to k
-    d2fdk2 = S*reshape(d2rdk2, nr,nk*nk);
-    d2fdk2 = reshape(d2fdk2, nx*nk,nk);
+    if verbose; fprintf('Calculating d2fdk2...'); end
+    d2fdk2 = S*reshapefun(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
+    d2fdk2 = reshapefun(d2fdk2, [nx*nk,nk], 'f', {'k' 'k'});
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdx with respect to k
-    d2fdkdx = S*reshape(d2rdkdx, nr,nx*nk);
-    d2fdkdx = reshape(d2fdkdx, nx*nx,nk);
+    if verbose; fprintf('Calculating d2fdkdx...'); end
+    d2fdkdx = S*reshapefun(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
+    d2fdkdx = reshapefun(d2fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdu with respect to k
-    d2fdkdu = S*reshape(d2rdkdu, nr,nu*nk);
-    d2fdkdu = reshape(d2fdkdu, nx*nu,nk);
+    if verbose; fprintf('Calculating d2fdkdu...'); end
+    d2fdkdu = S*reshapefun(d2rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
+    d2fdkdu = reshapefun(d2fdkdu, [nx*nu,nk], 'f',{'u' 'k'});
+    if verbose; fprintf('\n'); end
     
     % Gradient of dfdk with respect to x
-    d2fdxdk = S*reshape(d2rdxdk, nr,nk*nx);
-    d2fdxdk = reshape(d2fdxdk, nx*nk,nx);
-
+    if verbose; fprintf('Calculating d2fdxdk...'); end
+    d2fdxdk = S*reshapefun(d2rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
+    d2fdxdk = reshapefun(d2fdxdk, [nx*nk,nx], 'f',{'k' 'x'});
+    if verbose; fprintf('\n'); end
+    
     % Gradient of dfdk with respect to u
-    d2fdudk = S*reshape(d2rdudk, nr,nk*nu);
-    d2fdudk = reshape(d2fdudk, nx*nk,nu);
+    if verbose; fprintf('Calculating d2fdudk...'); end
+    d2fdudk = S*reshapefun(d2rdudk, [nr,nk*nu], 'r',{'k' 'u'});
+    d2fdudk = reshapefun(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
+    if verbose; fprintf('\n'); end
+    
 else
     d2rdx2  = '';
     d2rdu2  = '';
@@ -275,18 +491,18 @@ end
 
 if order >= 3
     %Gradient of d2rdx2 with respect to x
-    d3rdx3 = jacobian(vec(d2rdx2), xSyms);
+    d3rdx3 = jacobianfun(vec(d2rdx2), xSyms);
     
     %Gradient of d2rdx2 with respect to k
-    d3rdkdx2 = jacobian(vec(d2rdx2), kSyms);
+    d3rdkdx2 = jacobianfun(vec(d2rdx2), kSyms);
     
     %Gradient of d2fdx2 with respect to x
-    d3fdx3 = S*reshape(d3rdx3, nr,nx*nx*nx);
-    d3fdx3 = reshape(d3fdx3, xn*nx*nx,nx);
+    d3fdx3 = S*reshapefun(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
+    d3fdx3 = reshapefun(d3fdx3, [xn*nx*nx,nx], 'f',{'x' 'x' 'x'});
     
     %Gradient of d2fdx2 with respect to k
-    d3fdkdx2 = S*reshape(d3rdkdx2, nr,nx*nx*nk);
-    d3fdkdx2 = reshape(d3fdkdx2, nx*nx*nx,nk);
+    d3fdkdx2 = S*reshapefun(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
+    d3fdkdx2 = reshapefun(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
 else
     d3rdx3   = '';
     d3rdkdx2 = '';
@@ -450,7 +666,7 @@ C2 = sparse(C2Entries(:,1), C2Entries(:,2), C2Values, ny, nu);
 c  = sparse(cEntries(:,1),  cEntries(:,2),  cValues,  ny, 1);
 
 %% Extract seed information
-dx0ds = double(jacobian(x0, sSyms));
+dx0ds = double(jacobianfun(x0, sSyms));
 x0c = double(x0 - dx0ds*sSyms);
 
 initial_values = cell(nx,1);
@@ -471,148 +687,61 @@ for ix = 1:nx
 end
 
 %% Replace symbolic names with systematic
-if verbose; fprintf('Converting symbolics to strings...\n'); end
+
+if opts.UseMEX
+    symbolic2stringmethod = 'mex';
+else
+    symbolic2stringmethod = 'efficient';
+end
+
+if verbose; fprintf('Converting symbolics to functions...\n'); end
 % Convert the symbolics into strings
-u        = symbolic2string('u', nu);
-dudq     = symbolic2string('dudq', nu,nq);
+u        = symbolic2function('u', 'u', {});
+dudq     = symbolic2function('dudq', 'u', 'q');
 
-f        = symbolic2string('f', nx);
-dfdx     = symbolic2string('dfdx', nx,nx);
-dfdu     = symbolic2string('dfdu', nx,nu);
-dfdk     = symbolic2string('dfdk', nx,nk);
-d2fdx2   = symbolic2string('d2fdx2', nx,nx,nx);
-d2fdu2   = symbolic2string('d2fdu2', nx,nu,nu);
-d2fdk2   = symbolic2string('d2fdk2', nx,nk,nk);
-d2fdudx  = symbolic2string('d2fdudx', nx,nx,nu);
-d2fdxdu  = symbolic2string('d2fdxdu', nx,nu,nx);
-d2fdk2   = symbolic2string('d2fdk2', nx,nk,nk);
-d2fdkdx  = symbolic2string('d2fdkdx', nx,nx,nk);
-d2fdxdk  = symbolic2string('d2fdxdk', nx,nk,nx);
-d3fdx3   = symbolic2string('d3fdx3', nx,nx,nx,nx);
-d3fdkdx2 = symbolic2string('d3fdkdx2', nx,nx,nx,nk);
+f        = symbolic2function('f', 'f', {});
+r        = symbolic2function('r', 'r', {});
 
-r        = symbolic2string('r', nr);
-drdx     = symbolic2string('drdx', nr,nx);
-drdu     = symbolic2string('drdu', nr,nu);
-drdk     = symbolic2string('drdk', nr,nk);
-d2rdx2   = symbolic2string('d2rdx2', nr,nx,nx);
-d2rdu2   = symbolic2string('d2rdu2', nr,nu,nu);
-d2rdxdu  = symbolic2string('d2rdxdu', nr,nu,nx);
-d2rdudx  = symbolic2string('d2rdudx', nr,nx,nu);
-d2rdk2   = symbolic2string('d2rdk2', nr,nk,nk);
-d2rdkdx  = symbolic2string('d2rdkdx', nr,nx,nk);
-d2rdkdu  = symbolic2string('d2rdkdu', nr,nu,nk);
-d2rdxdk  = symbolic2string('d2rdxdk', nr,nk,nx);
-d2rdudk  = symbolic2string('d2rdudk', nr,nk,nu);
+if order >= 1
+    dfdx     = symbolic2function('dfdx', 'f', 'x');
+    dfdu     = symbolic2function('dfdu', 'f', 'u');
+    dfdk     = symbolic2function('dfdk', 'f', 'k');
 
-% Replace species names with vector index names
-if verbose; fprintf('Replacing names with vectorized variables...\n'); end
-if verbose; fprintf('   states...\n');end
-for i = 1:nx
-    sys_string = sprintf('x(%d)', i);
-    f        = regexprep(f, xStrs{i}, sys_string, 0);
-    dfdx     = regexprep(dfdx, xStrs{i}, sys_string, 0);
-    dfdu     = regexprep(dfdu, xStrs{i}, sys_string, 0);
-    dfdk     = regexprep(dfdk, xStrs{i}, sys_string, 0);
-    d2fdx2   = regexprep(d2fdx2, xStrs{i}, sys_string, 0);
-    d2fdu2   = regexprep(d2fdu2, xStrs{i}, sys_string, 0);
-    d2fdk2   = regexprep(d2fdk2, xStrs{i}, sys_string, 0);
-    d2fdudx  = regexprep(d2fdudx, xStrs{i}, sys_string, 0);
-    d2fdxdu  = regexprep(d2fdxdu, xStrs{i}, sys_string, 0);
-    d2fdkdx  = regexprep(d2fdkdx, xStrs{i}, sys_string, 0);
-    d2fdxdk  = regexprep(d2fdxdk, xStrs{i}, sys_string, 0);
-    d3fdx3   = regexprep(d3fdx3, xStrs{i}, sys_string, 0);
-    d3fdkdx2 = regexprep(d3fdkdx2, xStrs{i}, sys_string, 0);
-    r        = regexprep(r, xStrs{i}, sys_string, 0);
-    drdx     = regexprep(drdx, xStrs{i}, sys_string, 0);
-    drdu     = regexprep(drdu, xStrs{i}, sys_string, 0);
-    drdk     = regexprep(drdk, xStrs{i}, sys_string, 0);
-    d2rdx2   = regexprep(d2rdx2, xStrs{i}, sys_string, 0);
-    d2rdu2   = regexprep(d2rdu2, xStrs{i}, sys_string, 0);
-    d2rdxdu  = regexprep(d2rdxdu, xStrs{i}, sys_string, 0);
-    d2rdudx  = regexprep(d2rdudx, xStrs{i}, sys_string, 0);
-    d2rdk2   = regexprep(d2rdk2, xStrs{i}, sys_string, 0);
-    d2rdkdx  = regexprep(d2rdkdx, xStrs{i}, sys_string, 0);
-    d2rdkdu  = regexprep(d2rdkdu, xStrs{i}, sys_string, 0);
-    d2rdxdk  = regexprep(d2rdxdk, xStrs{i}, sys_string, 0);
-    d2rdudk  = regexprep(d2rdudk, xStrs{i}, sys_string, 0);
+    drdx     = symbolic2function('drdx', 'r', 'x');
+    drdu     = symbolic2function('drdu', 'r', 'u');
+    drdk     = symbolic2function('drdk', 'r', 'k');
 end
 
-% Replace input namus with vector index names
-if verbose; fprintf('   input...\n'); end
-for i = 1:nu
-    sys_string = sprintf('u(%d)', i);
-    f        = regexprep(f, uStrs{i}, sys_string, 0);
-    dfdx     = regexprep(dfdx, uStrs{i}, sys_string, 0);
-    dfdu     = regexprep(dfdu, uStrs{i}, sys_string, 0);
-    dfdk     = regexprep(dfdk, uStrs{i}, sys_string, 0);
-    d2fdx2   = regexprep(d2fdx2, uStrs{i}, sys_string, 0);
-    d2fdu2   = regexprep(d2fdu2, uStrs{i}, sys_string, 0);
-    d2fdk2   = regexprep(d2fdk2, uStrs{i}, sys_string, 0);
-    d2fdudx  = regexprep(d2fdudx, uStrs{i}, sys_string, 0);
-    d2fdxdu  = regexprep(d2fdxdu, uStrs{i}, sys_string, 0);
-    d2fdkdx  = regexprep(d2fdkdx, uStrs{i}, sys_string, 0);
-    d2fdxdk  = regexprep(d2fdxdk, uStrs{i}, sys_string, 0);
-    d3fdx3   = regexprep(d3fdx3, uStrs{i}, sys_string, 0);
-    d3fdkdx2 = regexprep(d3fdkdx2, uStrs{i}, sys_string, 0);
-    r        = regexprep(r, uStrs{i}, sys_string, 0);
-    drdx     = regexprep(drdx, uStrs{i}, sys_string, 0);
-    drdu     = regexprep(drdu, uStrs{i}, sys_string, 0);
-    drdk     = regexprep(drdk, uStrs{i}, sys_string, 0);
-    d2rdx2   = regexprep(d2rdx2, uStrs{i}, sys_string, 0);
-    d2rdu2   = regexprep(d2rdu2, uStrs{i}, sys_string, 0);
-    d2rdxdu  = regexprep(d2rdxdu, uStrs{i}, sys_string, 0);
-    d2rdudx  = regexprep(d2rdudx, uStrs{i}, sys_string, 0);
-    d2rdk2   = regexprep(d2rdk2, uStrs{i}, sys_string, 0);
-    d2rdkdx  = regexprep(d2rdkdx, uStrs{i}, sys_string, 0);
-    d2rdkdu  = regexprep(d2rdkdu, uStrs{i}, sys_string, 0);
-    d2rdxdk  = regexprep(d2rdxdk, uStrs{i}, sys_string, 0);
-    d2rdudk  = regexprep(d2rdudk, uStrs{i}, sys_string, 0);
+if order >= 2
+    d2fdx2   = symbolic2function('d2fdx2', 'f', {'x' 'x'});
+    d2fdu2   = symbolic2function('d2fdu2', 'f', {'u' 'u'});
+    d2fdk2   = symbolic2function('d2fdk2', 'f', {'k' 'k'});
+    d2fdudx  = symbolic2function('d2fdudx', 'f', {'x' 'u'});
+    d2fdxdu  = symbolic2function('d2fdxdu', 'f', {'u' 'x'});
+    d2fdkdx  = symbolic2function('d2fdkdx', 'f', {'x' 'k'});
+    d2fdxdk  = symbolic2function('d2fdxdk', 'f', {'k' 'x'});
+
+    d2rdx2   = symbolic2function('d2rdx2', 'r', {'x' 'x'});
+    d2rdu2   = symbolic2function('d2rdu2', 'r', {'u' 'u'});
+    d2rdxdu  = symbolic2function('d2rdxdu', 'r', {'u' 'x'});
+    d2rdudx  = symbolic2function('d2rdudx', 'r', {'x' 'u'});
+    d2rdk2   = symbolic2function('d2rdk2', 'r', {'k' 'k'});
+    d2rdkdx  = symbolic2function('d2rdkdx', 'r', {'x' 'k'});
+    d2rdkdu  = symbolic2function('d2rdkdu', 'r', {'u' 'k'});
+    d2rdxdk  = symbolic2function('d2rdxdk', 'r', {'k' 'x'});
+    d2rdudk  = symbolic2function('d2rdudk', 'r', {'k' 'u'});
 end
 
-% Replace parameters with vector index names
-if verbose; fprintf('   kinetic parameters...\n');end
-for i = 1:nk
-    sys_string = sprintf('k(%d)', i);
-    f        = regexprep(f, kStrs{i}, sys_string, 0);
-    dfdx     = regexprep(dfdx, kStrs{i}, sys_string, 0);
-    dfdu     = regexprep(dfdu, kStrs{i}, sys_string, 0);
-    dfdk     = regexprep(dfdk, kStrs{i}, sys_string, 0);
-    d2fdx2   = regexprep(d2fdx2, kStrs{i}, sys_string, 0);
-    d2fdu2   = regexprep(d2fdu2, kStrs{i}, sys_string, 0);
-    d2fdk2   = regexprep(d2fdk2, kStrs{i}, sys_string, 0);
-    d2fdudx  = regexprep(d2fdudx, kStrs{i}, sys_string, 0);
-    d2fdxdu  = regexprep(d2fdxdu, kStrs{i}, sys_string, 0);
-    d2fdkdx  = regexprep(d2fdkdx, kStrs{i}, sys_string, 0);
-    d2fdxdk  = regexprep(d2fdxdk, kStrs{i}, sys_string, 0);
-    d3fdx3   = regexprep(d3fdx3, kStrs{i}, sys_string, 0);
-    d3fdkdx2 = regexprep(d3fdkdx2, kStrs{i}, sys_string, 0);
-    r        = regexprep(r, kStrs{i}, sys_string, 0);
-    drdx     = regexprep(drdx, kStrs{i}, sys_string, 0);
-    drdu     = regexprep(drdu, kStrs{i}, sys_string, 0);
-    drdk     = regexprep(drdk, kStrs{i}, sys_string, 0);
-    d2rdx2   = regexprep(d2rdx2, kStrs{i}, sys_string, 0);
-    d2rdu2   = regexprep(d2rdu2, kStrs{i}, sys_string, 0);
-    d2rdxdu  = regexprep(d2rdxdu, kStrs{i}, sys_string, 0);
-    d2rdudx  = regexprep(d2rdudx, kStrs{i}, sys_string, 0);
-    d2rdk2   = regexprep(d2rdk2, kStrs{i}, sys_string, 0);
-    d2rdkdx  = regexprep(d2rdkdx, kStrs{i}, sys_string, 0);
-    d2rdkdu  = regexprep(d2rdkdu, kStrs{i}, sys_string, 0);
-    d2rdxdk  = regexprep(d2rdxdk, kStrs{i}, sys_string, 0);
-    d2rdudk  = regexprep(d2rdudk, kStrs{i}, sys_string, 0);
+if order >= 3
+    d3fdx3   = symbolic2function('d3fdx3', 'f', {'x' 'x' 'x'});
+    d3fdkdx2 = symbolic2function('d3fdkdx2', 'f', {'x' 'x' 'k'});
 end
 
-if verbose; fprintf('   input control parameters...\n');end
-for i = 1:nq
-    sys_string = sprintf('q(%d)', i);
-    u    = regexprep(u, qStrs{i}, sys_string, 0);
-    dudq = regexprep(dudq, qStrs{i}, sys_string, 0);
-end
+clear symbolic2function % clears the persistent save directory variable from memory
 
 if verbose; fprintf('   ...done.\n'); end
 
-%% Convert strings into function handles
-if verbose; fprintf('Converting expressions into handles...'); end
+%% Set up model structure
 
 % Clear unnecessary variables from scope
 clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms x0 ...
@@ -621,139 +750,10 @@ clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms x0 ...
     C1Entries C1Values C2Entries C2Values cEntries cValues ...
     nC1Entries nC2Entries ncEntries defaultOpts opts ...
     addlength currentLength iExpr ind match nAdd nExpr uAddInd sys_string ...
-    i iv ik is iq iu ix ir iy
-    
-u = eval(['@(t,q) [' u ']']);
-dudq = eval(['@(t,q) inf2big(nan2zero(sparse([' dudq '])))']);
-
-f = eval(['@(t,x,u,k) [' f ']']);
-
-dfdx = regexprep(dfdx, '[', ''); %remove extra "[" from front of lines
-dfdx = regexprep(dfdx, ']', ''); %and "]"
-dfdx = strtrim(dfdx);            %trim excess new lines from the end
-dfdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' dfdx '])))']);
-
-dfdu = regexprep(dfdu, '[', '');
-dfdu = regexprep(dfdu, ']', '');
-dfdu = strtrim(dfdu);
-dfdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' dfdu '])))']);
-
-dfdk = regexprep(dfdk, '[', '');
-dfdk = regexprep(dfdk, ']', '');
-dfdk = strtrim(dfdk);
-dfdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' dfdk '])))']);
-
-d2fdx2 = regexprep(d2fdx2, '[', '');
-d2fdx2 = regexprep(d2fdx2, ']', '');
-d2fdx2 = strtrim(d2fdx2);
-d2fdx2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdx2 '])))']);
-
-d2fdu2 = regexprep(d2fdu2, '[', '');
-d2fdu2 = regexprep(d2fdu2, ']', '');
-d2fdu2 = strtrim(d2fdu2);
-d2fdu2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdu2 '])))']);
-
-d2fdk2 = regexprep(d2fdk2, '[', '');
-d2fdk2 = regexprep(d2fdk2, ']', '');
-d2fdk2 = strtrim(d2fdk2);
-d2fdk2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdk2 '])))']);
-
-d2fdudx = regexprep(d2fdudx, '[', '');
-d2fdudx = regexprep(d2fdudx, ']', '');
-d2fdudx = strtrim(d2fdudx);
-d2fdudx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdudx '])))']);
-
-d2fdxdu = regexprep(d2fdxdu, '[', '');
-d2fdxdu = regexprep(d2fdxdu, ']', '');
-d2fdxdu = strtrim(d2fdxdu);
-d2fdxdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdxdu '])))']);
-
-d2fdkdx = regexprep(d2fdkdx, '[', '');
-d2fdkdx = regexprep(d2fdkdx, ']', '');
-d2fdkdx = strtrim(d2fdkdx);
-d2fdkdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdkdx '])))']);
-
-d2fdxdk = regexprep(d2fdxdk, '[', '');
-d2fdxdk = regexprep(d2fdxdk, ']', '');
-d2fdxdk = strtrim(d2fdxdk);
-d2fdxdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdxdk '])))']);
-
-d3fdx3 = regexprep(d3fdx3, '[', '');
-d3fdx3 = regexprep(d3fdx3, ']', '');
-d3fdx3 = strtrim(d3fdx3);
-d3fdx3 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d3fdx3 '])))']);
-
-d3fdkdx2 = regexprep(d3fdkdx2, '[', '');
-d3fdkdx2 = regexprep(d3fdkdx2, ']', '');
-d3fdkdx2 = strtrim(d3fdkdx2);
-d3fdkdx2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d3fdkdx2 '])))']);
-
-r = eval(['@(t,x,u,k) [' r ']']);
-
-drdx = regexprep(drdx, '[', ''); %remove extra "[" from front of lines
-drdx = regexprep(drdx, ']', ''); %and "]"
-drdx = strtrim(drdx);            %trim excess new lines from the end
-drdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' drdx '])))']);
-
-drdu = regexprep(drdu, '[', '');
-drdu = regexprep(drdu, ']', '');
-drdu = strtrim(drdu);
-drdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' drdu '])))']);
-
-drdk = regexprep(drdk, '[', '');
-drdk = regexprep(drdk, ']', '');
-drdk = strtrim(drdk);
-drdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' drdk '])))']);
-
-d2rdx2 = regexprep(d2rdx2, '[', '');
-d2rdx2 = regexprep(d2rdx2, ']', '');
-d2rdx2 = strtrim(d2rdx2);
-d2rdx2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdx2 '])))']);
-
-d2rdu2 = regexprep(d2rdu2, '[', '');
-d2rdu2 = regexprep(d2rdu2, ']', '');
-d2rdu2 = strtrim(d2rdu2);
-d2rdu2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdu2 '])))']);
-
-d2rdxdu = regexprep(d2rdxdu, '[', '');
-d2rdxdu = regexprep(d2rdxdu, ']', '');
-d2rdxdu = strtrim(d2rdxdu);
-d2rdxdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdxdu '])))']);
-
-d2rdudx = regexprep(d2rdudx, '[', '');
-d2rdudx = regexprep(d2rdudx, ']', '');
-d2rdudx = strtrim(d2rdudx);
-d2rdudx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdudx '])))']);
-
-d2rdk2 = regexprep(d2rdk2, '[', '');
-d2rdk2 = regexprep(d2rdk2, ']', '');
-d2rdk2 = strtrim(d2rdk2);
-d2rdk2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdk2 '])))']);
-
-d2rdkdx = regexprep(d2rdkdx, '[', '');
-d2rdkdx = regexprep(d2rdkdx, ']', '');
-d2rdkdx = strtrim(d2rdkdx);
-d2rdkdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdkdx '])))']);
-
-d2rdkdu = regexprep(d2rdkdu, '[', '');
-d2rdkdu = regexprep(d2rdkdu, ']', '');
-d2rdkdu = strtrim(d2rdkdu);
-d2rdkdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdkdu '])))']);
-
-d2rdxdk = regexprep(d2rdxdk, '[', '');
-d2rdxdk = regexprep(d2rdxdk, ']', '');
-d2rdxdk = strtrim(d2rdxdk);
-d2rdxdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdxdk '])))']);
-
-d2rdudk = regexprep(d2rdudk, '[', '');
-d2rdudk = regexprep(d2rdudk, ']', '');
-d2rdudk = strtrim(d2rdudk);
-d2rdudk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdudk '])))']);
-
-if verbose; fprintf('done.\n'); end
-
-%% Replace rate constants with their values
-if verbose; fprintf('Evaluating handles...'); end
+    i iv ik is iq iu ix ir iy ...
+    rstates rinputs rparams statesubs inputsubs paramssubs rstatesi rinputsi rparamsi...
+    uqi qsinui nz sizes jacobianfun reshapefun symbolic2stringmethod...
+    thistime defaultMEXdirectory
 
 m = InitializeModel();
 
@@ -766,7 +766,12 @@ m.Seeds        = struct('Name', sNames, 'Value', num2cell(s));
 m.Inputs       = struct('Name', uNames, 'Compartment', vNames(vuInd));
 m.States       = struct('Name', xNames, 'Compartment', vNames(vxInd), 'InitialValue', initial_values);
 m.Reactions    = struct('Name', rNames);
-m.Outputs      = struct('Name', yNames, 'Expressions', [yMembers, num2cell(yValues)]);
+if isempty(yMembers)
+    Expressions = [];
+else
+    Expressions = mat2cell([vertcat(yMembers{:}), num2cell(vertcat(yValues{:}))], cellfun(@length,yMembers), 2);
+end
+m.Outputs      = struct('Name', yNames, 'Expressions', Expressions );
 
 m.nv = nv;
 m.nk = nk;
@@ -783,7 +788,7 @@ m.s  = s;
 m.dx0ds = dx0ds;
 m.x0c = x0c;
 
-m.u    = @(t)u(t,q);
+m.u    = setfun_u(u,q);
 m.q    = q;
 m.dudq = dudq;
 m.nqu  = zeros(nu,1);
@@ -799,52 +804,52 @@ m.C1 = C1;
 m.C2 = C2;
 m.c  = c;
 
-clear vNames kNames sNames uNames xNames rNames yNames
+clear vNames kNames sNames uNames xNames rNames yNames yMembers yValues
 
-m.f         = @(t,x,u)f(t,x,u,k);
+m.f         = setfun_rf(f,k);
 
 if order >= 1
-    m.dfdx      = @(t,x,u)dfdx(t,x,u,k);
-    m.dfdk      = @(t,x,u)dfdk(t,x,u,k);
-    m.dfdu      = @(t,x,u)dfdu(t,x,u,k);
+    m.dfdx      = setfun_rf(dfdx,k);
+    m.dfdk      = setfun_rf(dfdk,k);
+    m.dfdu      = setfun_rf(dfdu,k);
 end
 
 if order >= 2
-    m.d2fdx2    = @(t,x,u)d2fdx2(t,x,u,k);
-    m.d2fdu2    = @(t,x,u)d2fdu2(t,x,u,k);
-    m.d2fdk2    = @(t,x,u)d2fdk2(t,x,u,k);
-    m.d2fdudx   = @(t,x,u)d2fdudx(t,x,u,k);
-    m.d2fdxdu   = @(t,x,u)d2fdxdu(t,x,u,k);
-    m.d2fdkdx   = @(t,x,u)d2fdkdx(t,x,u,k);
-    m.d2fdkdu   = @(t,x,u)d2fdkdu(t,x,u,k);
-    m.d2fdxdk   = @(t,x,u)d2fdxdk(t,x,u,k);
-    m.d2fdudk   = @(t,x,u)d2fdudk(t,x,u,k);
+    m.d2fdx2    = setfun_rf(d2fdx2,k);
+    m.d2fdu2    = setfun_rf(d2fdu2,k);
+    m.d2fdk2    = setfun_rf(d2fdk2,k);
+    m.d2fdudx   = setfun_rf(d2fdudx,k);
+    m.d2fdxdu   = setfun_rf(d2fdxdu,k);
+    m.d2fdkdx   = setfun_rf(d2fdkdx,k);
+    m.d2fdkdu   = setfun_rf(d2fdkdu,k);
+    m.d2fdxdk   = setfun_rf(d2fdxdk,k);
+    m.d2fdudk   = setfun_rf(d2fdudk,k);
 end
 
 if order >= 3
-    m.d3fdx3    = @(t,x,u)d3fdx3(t,x,u,k);
-    m.d3fdkdx2  = @(t,x,u)d3fdkdx2(t,x,u,k);
+    m.d3fdx3    = setfun_rf(d3fdx3,k);
+    m.d3fdkdx2  = setfun_rf(d3fdkdx2,k);
 end
 
 m.S = S;
-m.r = @(t,x,u)r(t,x,u,k);
+m.r = setfun_rf(r,k);
 
 if order >= 1
-    m.drdx      = @(t,x,u)drdx(t,x,u,k);
-    m.drdk      = @(t,x,u)drdk(t,x,u,k);
-    m.drdu      = @(t,x,u)drdu(t,x,u,k);
+    m.drdx      = setfun_rf(drdx,k);
+    m.drdk      = setfun_rf(drdk,k);
+    m.drdu      = setfun_rf(drdu,k);
 end
 
 if order >= 2
-    m.d2rdx2    = @(t,x,u)d2rdx2(t,x,u,k);
-    m.d2rdu2    = @(t,x,u)d2rdu2(t,x,u,k);
-    m.d2rdk2    = @(t,x,u)d2rdk2(t,x,u,k);
-    m.d2rdudx   = @(t,x,u)d2rdudx(t,x,u,k);
-    m.d2rdxdu   = @(t,x,u)d2rdxdu(t,x,u,k);
-    m.d2rdkdx   = @(t,x,u)d2rdkdx(t,x,u,k);
-    m.d2rdkdu   = @(t,x,u)d2rdkdu(t,x,u,k);
-    m.d2rdxdk   = @(t,x,u)d2rdxdk(t,x,u,k);
-    m.d2rdudk   = @(t,x,u)d2rdudk(t,x,u,k);
+    m.d2rdx2    = setfun_rf(d2rdx2,k);
+    m.d2rdu2    = setfun_rf(d2rdu2,k);
+    m.d2rdk2    = setfun_rf(d2rdk2,k);
+    m.d2rdudx   = setfun_rf(d2rdudx,k);
+    m.d2rdxdu   = setfun_rf(d2rdxdu,k);
+    m.d2rdkdx   = setfun_rf(d2rdkdx,k);
+    m.d2rdkdu   = setfun_rf(d2rdkdu,k);
+    m.d2rdxdk   = setfun_rf(d2rdxdk,k);
+    m.d2rdudk   = setfun_rf(d2rdudk,k);
 end
 
 m.Ready  = true;
@@ -860,54 +865,49 @@ if verbose; fprintf('done.\n'); end
 %%%%% Update function %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function varargout = update(newk, news, newq)
+    function varargout = update(newk)
         % Apply changes
         k = newk;
-        s = news;
-        q = newq;
-        
-        m.s  = s;
+
         m.k  = k;
-        m.q  = q;
         
         % Update function handles
-        m.u             = @(t)u(t,q);
-        m.f             = @(t,x,u)f(t,x,u,k);
-        m.r             = @(t,x,u)r(t,x,u,k);
+        m.f             = setfun_rf(f,k);
+        m.r             = setfun_rf(r,k);
         
         if order >= 1
-            m.dfdx      = @(t,x,u)dfdx(t,x,u,k);
-            m.dfdk      = @(t,x,u)dfdk(t,x,u,k);
-            m.dfdu      = @(t,x,u)dfdu(t,x,u,k);
-            m.drdx      = @(t,x,u)drdx(t,x,u,k);
-            m.drdk      = @(t,x,u)drdk(t,x,u,k);
-            m.drdu      = @(t,x,u)drdu(t,x,u,k);
+            m.dfdx      = setfun_rf(dfdx,k);
+            m.dfdk      = setfun_rf(dfdk,k);
+            m.dfdu      = setfun_rf(dfdu,k);
+            m.drdx      = setfun_rf(drdx,k);
+            m.drdk      = setfun_rf(drdk,k);
+            m.drdu      = setfun_rf(drdu,k);
         end
         
         if order >= 2
-            m.d2fdx2    = @(t,x,u)d2fdx2(t,x,u,k);
-            m.d2fdu2    = @(t,x,u)d2fdu2(t,x,u,k);
-            m.d2fdk2    = @(t,x,u)d2fdk2(t,x,u,k);
-            m.d2fdudx   = @(t,x,u)d2fdudx(t,x,u,k);
-            m.d2fdxdu   = @(t,x,u)d2fdxdu(t,x,u,k);
-            m.d2fdkdx   = @(t,x,u)d2fdkdx(t,x,u,k);
-            m.d2fdkdu   = @(t,x,u)d2fdkdu(t,x,u,k);
-            m.d2fdxdk   = @(t,x,u)d2fdxdk(t,x,u,k);
-            m.d2fdudk   = @(t,x,u)d2fdudk(t,x,u,k);
-            m.d2rdx2    = @(t,x,u)d2rdx2(t,x,u,k);
-            m.d2rdu2    = @(t,x,u)d2rdu2(t,x,u,k);
-            m.d2rdk2    = @(t,x,u)d2rdk2(t,x,u,k);
-            m.d2rdudx   = @(t,x,u)d2rdudx(t,x,u,k);
-            m.d2rdxdu   = @(t,x,u)d2rdxdu(t,x,u,k);
-            m.d2rdkdx   = @(t,x,u)d2rdkdx(t,x,u,k);
-            m.d2rdkdu   = @(t,x,u)d2rdkdu(t,x,u,k);
-            m.d2rdxdk   = @(t,x,u)d2rdxdk(t,x,u,k);
-            m.d2rdudk   = @(t,x,u)d2rdudk(t,x,u,k);
+            m.d2fdx2    = setfun_rf(d2fdx2,k);
+            m.d2fdu2    = setfun_rf(d2fdu2,k);
+            m.d2fdk2    = setfun_rf(d2fdk2,k);
+            m.d2fdudx   = setfun_rf(d2fdudx,k);
+            m.d2fdxdu   = setfun_rf(d2fdxdu,k);
+            m.d2fdkdx   = setfun_rf(d2fdkdx,k);
+            m.d2fdkdu   = setfun_rf(d2fdkdu,k);
+            m.d2fdxdk   = setfun_rf(d2fdxdk,k);
+            m.d2fdudk   = setfun_rf(d2fdudk,k);
+            m.d2rdx2    = setfun_rf(d2rdx2,k);
+            m.d2rdu2    = setfun_rf(d2rdu2,k);
+            m.d2rdk2    = setfun_rf(d2rdk2,k);
+            m.d2rdudx   = setfun_rf(d2rdudx,k);
+            m.d2rdxdu   = setfun_rf(d2rdxdu,k);
+            m.d2rdkdx   = setfun_rf(d2rdkdx,k);
+            m.d2rdkdu   = setfun_rf(d2rdkdu,k);
+            m.d2rdxdk   = setfun_rf(d2rdxdk,k);
+            m.d2rdudk   = setfun_rf(d2rdudk,k);
         end
         
         if order >= 3
-            m.d3fdx3    = @(t,x,u)d3fdx3(t,x,u,k);
-            m.d3fdkdx2  = @(t,x,u)d3fdkdx2(t,x,u,k);
+            m.d3fdx3    = setfun_rf(d3fdx3,k);
+            m.d3fdkdx2  = setfun_rf(d3fdkdx2,k);
         end
         
         m.Update = @update;
@@ -918,8 +918,55 @@ if verbose; fprintf('done.\n'); end
 %% %%%%%%%%%%%%%%%%%%%%%%%
 %%%% Helper functions %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%
-    function string_rep = symbolic2string(variable_name, varargin)
-        dimensions = [varargin{:}];
+
+    function fun = symbolic2function(variable_name, num, dens)
+        
+        if ischar(dens)
+            dens = {dens};
+        end
+        
+        switch symbolic2stringmethod
+            case 'efficient'
+                string_rep = symbolic2string_new(variable_name, num, dens);
+                string_rep = convertSymStrtoIndexedStr(string_rep, num);
+                fun = string2fun(string_rep, num, dens);
+            case 'original'
+                string_rep = symbolic2string_old(variable_name, num, dens);
+                string_rep = convertSymStrtoIndexedStr(string_rep, num);
+                fun = string2fun(string_rep, num, dens);
+            case 'mex'
+                
+                % Don't create MEX files for u and dudq. Use the
+                % 'efficient' method instead
+                if any(strcmp(variable_name,{'u';'dudq'}))
+                    string_rep = symbolic2string_new(variable_name, num, dens);
+                    string_rep = convertSymStrtoIndexedStr(string_rep, num);
+                    fun = string2fun(string_rep, num, dens);
+                    return
+                end
+                
+                % Prepare inputs to C code generation function
+                dsym = eval(variable_name);
+                nzlogical = getNonZeroEntries(num, dens);
+                nzi = cell(ndims(nzlogical),1);
+                nziind = find(nzlogical);
+                [nzi{:}] = ind2sub(size(nzlogical),nziind);
+                nzi = [nzi{:}];
+                nzsizes = [sizes.(num) cellfun(@(den)sizes.(den),dens(:)')];
+                
+                % Generate mex C code
+                getMexReadyCode(dsym,nzi,nzsizes,xSyms,uSyms,kSyms,variable_name,opts.MEXDirectory)
+             
+                fun = str2func([variable_name 'fun']);
+        end
+        
+    end
+    
+    function string_rep = symbolic2string_old(variable_name, num, dens)
+        
+        densizes = cellfun(@(den)sizes.(den),dens);
+        dimensions = [sizes.(num) densizes(:)'];
+        
         if numel(dimensions) == 1
             dimensions = [dimensions, 1];
         end
@@ -929,6 +976,185 @@ if verbose; fprintf('done.\n'); end
         else
             string_rep = evalc(['disp(' variable_name ')']);
         end
+        
+        string_rep = regexprep(string_rep, '[', '');
+        string_rep = regexprep(string_rep, ']', '');
+        string_rep = strtrim(string_rep);
     end
 
+    function string_rep = symbolic2string_new(variable_name, num, dens)
+        
+        % If provided an empty input, return an empty output
+        if isempty(variable_name)
+            string_rep = '';
+            return
+        end
+        
+        % For f, r, and u, just use the old method, since they are not sparse
+        if any(strcmp(variable_name,{'f';'r';'u'}))
+            string_rep = symbolic2string_old(variable_name, num, dens);
+            return
+        end
+        
+        % Evaluate variable name to get symbolic array
+        variable = eval(variable_name);
+        
+        % Get nonzero derivative logical matrix
+        nzlogical = getNonZeroEntries(num, dens);
+        
+        % Reshape nzlogical to the same size as that of the provided value
+        varsizes = size(variable);
+        nzlogical = reshape(nzlogical,varsizes);
+        
+        % Find symbolic derivatives for nonzero elements. This outputs an
+        % oddly-formatted string that needs to be stripped of some extra characters.
+        str_unformatted = char(variable(nzlogical(:)));
+        
+        % Get string elements between square brackets, not including square
+        % brackets
+        nnzelements = sum(nzlogical(:));
+        if nnzelements == 1
+            % Special case for one element: the odd formatting isn't used, so just
+            % copy the result
+            strelements = {str_unformatted};
+        else
+            [~,~,~,strelements] = regexp(str_unformatted,'(?<=\[)[^\[\]]+(?=\])');
+        end
+        
+        assert(length(strelements) == nnzelements, ['The number of expressions in d' num 'd' dens{:} ' does not match the number of nonzero elements expected for it.'])
+        
+        strelements = strjoin(strelements,',');
+        
+        % Convert subscripts into strings
+        [isubscripts,jsubscripts] = find(nzlogical);
+        isubscriptstrs = strtrim(cellstr(num2str(isubscripts)));
+        jsubscriptstrs = strtrim(cellstr(num2str(jsubscripts)));
+        isubstring = strjoin(isubscriptstrs,',');
+        jsubstring = strjoin(jsubscriptstrs,',');
+        
+        % Write sparse initialization string, which will fit in the
+        % following expression:
+        % '@(t,x,u,k) inf2big(nan2zero(sparse([' STRING_REP '])))'
+        % To fit this expression, note the square brackets are left off the
+        % left and right sides of string_rep.
+        string_rep = sprintf([isubstring '],[' jsubstring '],[' strelements '],[' num2str(varsizes(1)) '],[' num2str(varsizes(2))]);
+        
+    end
+
+    function string_rep = convertSymStrtoIndexedStr(string_rep, num)
+        if any(strcmp(num, {'f' 'r'}))
+            % Replace expressions for states, inputs, and parameters with
+            % indexed calls to x, u, and k, respectively
+            xindexstring = sprintf('x(%d)\n', 1:nx);
+            xindexstring = textscan(xindexstring,'%s','Delimiter','\n');
+            xindexstring = xindexstring{1};
+            uindexstring = sprintf('u(%d)\n', 1:nu);
+            uindexstring = textscan(uindexstring,'%s','Delimiter','\n');
+            uindexstring = uindexstring{1};
+            kindexstring = sprintf('k(%d)\n', 1:nk);
+            kindexstring = textscan(kindexstring,'%s','Delimiter','\n');
+            kindexstring = kindexstring{1};
+            string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs], [xindexstring; uindexstring; kindexstring], 0);
+        elseif strcmp(num, 'u')
+            % Replace expressions for input parameters with indexed calls to
+            % q
+            qindexstring = sprintf('q(%d)\n', 1:nq);
+            qindexstring = textscan(qindexstring,'%s','Delimiter','\n');
+            qindexstring = qindexstring{1};
+            string_rep = regexprep(string_rep, qStrs, qindexstring, 0);
+        end
+    end
+
+    function d2rdkdx_ = calcDerivative(drdx,kSyms)
+        if size(drdx,2) == 1
+            d2rdkdx_ = jacobian(drdx,kSyms);
+        elseif size(drdx,2) > 1
+            d2rdkdx_ = calcHigherOrderDerivative(drdx,kSyms);
+        end
+    end
+            
+
+    function d2rdkdx_ = calcHigherOrderDerivative(drdx, kSyms)
+        % Note that in the variable names here, I use the prototypical example
+        % of taking the derivative of drdx with respect to k. This means "r"
+        % stands for the variable whose derivative is being taken, "x" stands
+        % for the first derivative variable, and "k" stands for the second
+        % derivative variable.
+        nk_ = length(kSyms);
+        nr_ = size(drdx,1);
+        nxu_ = size(drdx,2);
+        d2rdkdxtemp = cell(nxu_,1);
+        if verbose; fprintf(repmat(' ',1,25)); end
+        for xi = 1:nxu_
+            if verbose; fprintf([repmat('\b',1,25) '%25s'],sprintf('%3g%% complete', 50*xi/nxu_)); end
+            d2rdkdxtemp{xi} = jacobian(drdx(:,xi), kSyms);
+        end
+        d2rdkdx_ = d2rdkdxtemp{1};
+        for xi = 1:nxu_-1
+            if verbose; fprintf([repmat('\b',1,25) '%25s'],sprintf('%3g%% complete', 50+50*xi/nxu_)); end
+            d2rdkdx_ = feval(symengine,'linalg::stackMatrix',d2rdkdx_,d2rdkdxtemp{xi+1});
+        end
+        
+    end
+    
+    function matout = reshape_extraarguments(mat, newsize, ~, ~)
+        matout = reshape(mat,newsize);
+    end
+
+    function matout = reshapeDerivative(mat, newsize, num, dens)
+        oldsize = size(mat);
+        nzlogical = getNonZeroEntries(num,dens);
+        newsubscripts = cell(length(newsize),1);
+        nzindices = find(nzlogical);
+        oldsubscripts = cell(length(oldsize),1);
+        newsubscripts = cell(length(newsize),1);
+        [oldsubscripts{:}] = ind2sub(oldsize,nzindices);
+        [newsubscripts{:}] = ind2sub(newsize,nzindices);
+        filename = which('initializematrix.mu');
+        read(symengine, filename);
+        matout = feval(symengine,'initializematrix',mat,[oldsubscripts{:}],newsize(1),newsize(2),[newsubscripts{:}]);
+    end
+
+end
+
+function fun = string2fun(string_rep, num, dens)
+% Note that string2fun is a subfunction instead of a nested function to
+% prevent the anonymous functions created here from saving copies of
+% the primary function workspace variables.
+
+if any(strcmp(num, {'f' 'r'}))
+    
+    % Set up the function handle by evaluating the string
+    if isempty(dens)
+        fun = eval(['@(t,x,u,k) [' string_rep ']']);
+    else
+        fun = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' string_rep '])))']);
+    end
+    
+elseif strcmp(num, 'u')
+    
+    % Set up the function handle by evaluating the string
+    if isempty(dens) % u
+        fun = eval(['@(t,q) repmat([' string_rep '],1,numel(t))']);
+    else % dudq
+        fun = eval(['@(t,q) inf2big(nan2zero(sparse([' string_rep '])))']);
+    end
+    
+end
+
+% Convert function to and from function handle to ensure that
+% MATLAB recognizes and stores the workspace for the anonymous
+% functions. Without this, saving and loading a model will
+% cause MATLAB to lose the function.
+fun = func2str(fun);
+fun = str2func(fun);
+
+end
+
+function fun = setfun_rf(basefun, k)
+    fun = @(t,x,u)basefun(t,x,u,k);
+end
+
+function fun = setfun_u(basefun, q)
+    fun = @(t)basefun(t,q);
 end
