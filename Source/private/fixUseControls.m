@@ -28,7 +28,7 @@ for iCon = 1:nCon
         UseControls{iCon} = temp;
     elseif islogical(UseControls{iCon})
         assert(numel(UseControls{iCon}) <= nq(iCon), 'KroneckerBio:UseControls:InvalidLogicalLength', 'UseControls, when a logical index, cannot be longer than con.nq')
-        UseControls{iCon} = [vec(UseControls{iCon}); false(nq - numel(UseControls{iCon}),1)];
+        UseControls{iCon} = [vec(UseControls{iCon}); false(nq(iCon) - numel(UseControls{iCon}),1)];
     else
         error('KroneckerBio:UseControls:InvalidType', 'UseControls must be provided as logical or linear index vector into con.q')
     end
