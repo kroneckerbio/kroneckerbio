@@ -35,7 +35,7 @@ values = [ % Picked a few values near a simulation
     2, 2, 16;
     3, 4, 8;
     ];
-obj = objectiveWeightedSumOfSquaresNonNeg(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
+obj = objectiveWeightedSumOfSquares(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
 
 % Options
 opts.RelTol = 1e-6;

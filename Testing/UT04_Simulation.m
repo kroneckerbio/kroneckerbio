@@ -41,3 +41,11 @@ sim = SimulateLna(m, con, opts);
 Vy = sim.Vy([2;4]);
 a.verifyEqual(size(Vy), [m.ny^2,2])
 end
+
+function testMichaelisMenten(a)
+[m, con, unused, opts] = michaelis_menten_model();
+
+sim = Simulate(m,con,opts);
+y = sim.y([2,7]);
+a.verifyEqual(size(y), [m.ny,2])
+end

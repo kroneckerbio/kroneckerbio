@@ -77,7 +77,9 @@ obj = pastestruct(Gzero, obj);
         sigma = zeros(n,1);
         for i = 1:n
             t = (discrete_times == timelist(i));
-            ybar(i) = sol.C1(outputlist(i),:) * x(:,t) + sol.C2(outputlist(i),:) * u(:,t) + sol.c(outputlist(i),:);
+            temp = sol.y(timelist(i), x(:,t), u(:,t));
+            ybar(i) = temp(outputlist(i),:);
+            %ybar(i) = sol.C1(outputlist(i),:) * x(:,t) + sol.C2(outputlist(i),:) * u(:,t) + sol.c(outputlist(i),:);
             sigma(i) = sd(timelist(i), outputlist(i), ybar(i));
         end
     end

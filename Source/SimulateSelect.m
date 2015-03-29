@@ -51,6 +51,7 @@ end
 
 assert(nargin >= 3, 'KroneckerBio:Simulate:TooFewInputs', 'Simulate requires at least 3 input arguments')
 assert(isscalar(m), 'KroneckerBio:Simulate:MoreThanOneModel', 'The model structure must be scalar')
+assert(isnumeric(tGet), 'KroneckerBio:SimulateSelect:tGet', 'tGet must be numeric')
 
 % Default options
 defaultOpts.Verbose        = 1;
@@ -93,7 +94,7 @@ for iCon = 1:nCon
     sim(iCon).Type  = 'Simulation.OrdinaryDifferentialEquations.SelectPoints';
     sim(iCon).Name  = [m.Name ' in ' con(iCon).Name];
     sim(iCon).t     = sol.x;
-    sim(iCon).y     = m.C1*sol.y + m.C2*sol.u + repmat(sol.c, 1,numel(tGet));
+    sim(iCon).y     = m.y(sol.x, sol.y, sol.u);
     sim(iCon).x     = sol.y;
     sim(iCon).sol   = sol;
 end

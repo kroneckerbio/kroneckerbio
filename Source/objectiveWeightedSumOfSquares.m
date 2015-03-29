@@ -53,7 +53,7 @@ obj = pastestruct(Gzero, obj);
 %%%%% Helper functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [ybar, sigma] = evaluate_sol(sol)
-        nx = size(sol.C1,2);
+        nx = sol.nx;
 
         % Evaluate the ODE solver structure
         if isempty(sol.idata)
@@ -61,18 +61,20 @@ obj = pastestruct(Gzero, obj);
             ind = lookup(discrete_times, sol.x);
             x = sol.y(1:nx,ind);
             u = sol.u(:,ind);
+            y = sol.y_(discrete_times, x, u);
         else
             % The complete solution is provided
             x = deval(sol, discrete_times, 1:nx); % x_t
             u = sol.u(discrete_times);
+            y = sol.y_(discrete_times, x, u);
         end
         
         % Get ybar and sigma for every point evaluated
         ybar = zeros(n,1);
         sigma = zeros(n,1);
         for i = 1:n
-            t = (discrete_times == timelist(i));
-            ybar(i) = sol.C1(outputlist(i),:) * x(:,t) + sol.C2(outputlist(i),:) * u(:,t) + sol.c(outputlist(i),:);
+            it = (discrete_times == timelist(i));
+            ybar(i) = y(outputlist(i), it);
             sigma(i) = sd(timelist(i), outputlist(i), ybar(i));
         end
     end
@@ -104,18 +106,22 @@ obj = pastestruct(Gzero, obj);
         sigma = zeros(n,1);
         for i = 1:n
             ind = find(discrete_times == timelist(i), 1);
+            it = timelist(i);
             ix = x(:,ind);
+            iu = u(:,ind);
             idxdT = reshape(dxdT(:,ind), nx,nT); %x_T
-            iC1 = sol.C1(outputlist(i),:);
+            %iC1 = sol.C1(outputlist(i),:);
+            dydx = sol.dydx(timelist(i), ix, iu);
             
             % Compute this y
-            y = iC1*ix + sol.C2(outputlist(i),:)*u(:,ind) + sol.c(outputlist(i));
+            y = sol.y_(it, ix, iu);
+            %y = iC1*ix + sol.C2(outputlist(i),:)*u(:,ind) + sol.c(outputlist(i));
             
             % Compute dy/dT
-            dydT(i,:) = iC1 * idxdT;
+            dydT(i,:) = dydx * idxdT;
             
             % Compute expected V matrix
-            sigma(i) = sd(timelist(i), outputlist(i), y);
+            sigma(i) = sd(it, outputlist(i), y);
         end
     end
 
@@ -135,7 +141,7 @@ obj = pastestruct(Gzero, obj);
     end
 
     function val = dGdx(t, sol)
-        nx = size(sol.C1,2);
+        nx = sol.nx;
 
         %Find all data points that have a time that matches t
         indt = find(t == timelist);
@@ -149,10 +155,12 @@ obj = pastestruct(Gzero, obj);
                 tInd = (sol.x == t);
                 xt = sol.y(1:nx, tInd);
                 ut = sol.u(:,tInd);
+                yt = sol.y_(t, xt, ut);
             else
                 % The complete solution is provided
                 xt = deval(sol, t, 1:nx);
                 ut = sol.u(t);
+                yt = sol.y_(t, xt, ut);
             end
             
             % Extract the data points with time t
@@ -162,19 +170,20 @@ obj = pastestruct(Gzero, obj);
             
             % Compute e for each datapoint that has a matching time to t
             ybar = zeros(ylength,1);
-            C1 = zeros(ylength,nx); % C1 = dydx
+            dydx = zeros(ylength,nx); % C1 = dydx
             sigma = zeros(ylength,1);
             dsigmady = zeros(ylength,1);
             for i = 1:ylength
-                C1(i,:) = sol.C1(outputlistt(i),:);
-                ybar(i) = C1(i,:) * xt + sol.C2(outputlistt(i),:) * ut + sol.c(outputlistt(i),:);
+                dydxi = sol.dydx(timelistt(i), xt, ut);
+                dydx(i,:) = dydxi(outputlistt(i),:);
+                ybar(i) = yt(outputlistt(i));%dydx(i,:) * xt + dydui(outputlistt(i),:) * ut + sol.c(outputlistt(i),:);
                 [sigma(i), dsigmady(i)] = sd(timelistt(i), outputlistt(i), ybar(i));
             end
             
             % Gradient function
             e = ybar - measurementst;
-            dsigmadx = bsxfun(@times, dsigmady, C1);
-            val = vec(2 * sum(bsxfun(@times, sigma.^-1, dsigmadx),1) + 2 * sum(bsxfun(@times, e .* sigma.^-2, C1),1) + -2 * sum(bsxfun(@times, e.^2 .* sigma.^-3, dsigmadx),1));
+            dsigmadx = bsxfun(@times, dsigmady, dydx);
+            val = vec(2 * sum(bsxfun(@times, sigma.^-1, dsigmadx),1) + 2 * sum(bsxfun(@times, e .* sigma.^-2, dydx),1) + -2 * sum(bsxfun(@times, e.^2 .* sigma.^-3, dsigmadx),1));
         else
             val = zeros(nx, 1);
         end
