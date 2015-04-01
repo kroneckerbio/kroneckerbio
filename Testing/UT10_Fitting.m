@@ -3,6 +3,7 @@ tests = functiontests(localfunctions);
 end
 
 function testSimpleFitting(a)
+% Uses objectiveWeightedSumOfSquares objective function
 [m, con, obj, opts] = simple_model();
 opts.MaxIter = 2;
 

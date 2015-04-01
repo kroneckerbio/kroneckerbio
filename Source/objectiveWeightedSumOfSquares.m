@@ -192,7 +192,7 @@ obj = pastestruct(Gzero, obj);
     function val = d2Gdx2(t,sol)
         nx = size(sol.C1,2);
 
-        error()
+        error('Error: Not implemented yet.')
         % THIS STILL NEEDS TO BE VERIFIED
         %Find all data points that have a time that matches t
         ind = find(t == timelist);

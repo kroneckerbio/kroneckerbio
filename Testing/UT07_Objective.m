@@ -9,7 +9,16 @@ G = ObjectiveValue(m, con, obj, opts);
 end
 
 function testObjectiveWeightedSumOfSquares(a)
-[m, con, obj, opts] = simple_model();
+[m, con, obj, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
+
+sim = SimulateSelect(m, con, 1:6, opts);
+
+verifyDerivatives(a, obj, sim.sol, 1)
+
+end
+
+function testObjectiveWeightedSumOfSquaresNonNeg(a)
+[m, con, obj, opts] = simple_model('objectiveWeightedSumOfSquaresNonNeg');
 
 sim = SimulateSelect(m, con, 1:6, opts);
 
@@ -34,6 +43,7 @@ verifyClose(a, x0, @(x)G_wrapper(sol, x), @(x)dGdx_wrapper(sol, x))
 end
 
 function verifyClose(a, x0, f, dfdx)
-[unused, dfdx_finite, dfdx_analytic] = fdiff(x0, f, dfdx);
-a.verifyEqual(dfdx_finite, dfdx_analytic, 'RelTol', 0.001)
+% dfdx_finite returned as a sparse matrix
+[~, dfdx_finite, dfdx_analytic] = fdiff(x0, f, dfdx);
+a.verifyEqual(full(dfdx_finite), dfdx_analytic, 'RelTol', 0.001)
 end

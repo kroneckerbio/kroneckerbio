@@ -58,7 +58,7 @@ obj = pastestruct(Gzero, obj);
 %%%%% Helper functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [ybar, sigma] = evaluate_sol(sol)
-        nx = size(sol.C1,2);
+        nx = sol.nx;
 
         % Evaluate the ODE solver structure
         if isempty(sol.idata)
@@ -66,20 +66,20 @@ obj = pastestruct(Gzero, obj);
             ind = lookup(discrete_times, sol.x);
             x = sol.y(1:nx,ind);
             u = sol.u(:,ind);
+            y = sol.y_(discrete_times, x, u);
         else
             % The complete solution is provided
             x = deval(sol, discrete_times, 1:nx); % x_t
             u = sol.u(discrete_times);
+            y = sol.y_(discrete_times, x, u);
         end
         
         % Get ybar and sigma for every point evaluated
         ybar = zeros(n,1);
         sigma = zeros(n,1);
         for i = 1:n
-            t = (discrete_times == timelist(i));
-            temp = sol.y(timelist(i), x(:,t), u(:,t));
-            ybar(i) = temp(outputlist(i),:);
-            %ybar(i) = sol.C1(outputlist(i),:) * x(:,t) + sol.C2(outputlist(i),:) * u(:,t) + sol.c(outputlist(i),:);
+            it = (discrete_times == timelist(i));
+            ybar(i) = y(outputlist(i), it);
             sigma(i) = sd(timelist(i), outputlist(i), ybar(i));
         end
     end
@@ -150,7 +150,7 @@ obj = pastestruct(Gzero, obj);
     end
 
     function val = dGdx(t, sol)
-        nx = size(sol.C1,2);
+        nx = sol.nx;
 
         %Find all data points that have a time that matches t
         indt = find(t == timelist);
@@ -164,10 +164,12 @@ obj = pastestruct(Gzero, obj);
                 tInd = (sol.x == t);
                 xt = sol.y(1:nx, tInd);
                 ut = sol.u(:,tInd);
+                yt = sol.y_(t, xt, ut);
             else
                 % The complete solution is provided
                 xt = deval(sol, t, 1:nx);
                 ut = sol.u(t);
+                yt = sol.y_(t, xt, ut);
             end
             
             % Extract the data points with time t
@@ -177,36 +179,37 @@ obj = pastestruct(Gzero, obj);
             measurementst = measurements(indt);
             
             % Compute e for each datapoint that has a matching time to t
-            ybart = zeros(ylength,1);
-            C1t = zeros(ylength,nx); % C1 = dydx
-            sigmat = zeros(ylength,1);
-            dsigmadyt = zeros(ylength,1);
+            ybar = zeros(ylength,1);
+            dydx = zeros(ylength,nx);
+            sigma = zeros(ylength,1);
+            dsigmady = zeros(ylength,1);
             for i = 1:ylength
-                C1t(i,:) = sol.C1(outputlistt(i),:);
-                ybart(i) = C1t(i,:) * xt + sol.C2(outputlistt(i),:) * ut + sol.c(outputlistt(i),:);
-                [sigmat(i), dsigmadyt(i)] = sd(timelistt(i), outputlistt(i), ybart(i));
+                dydxi = sol.dydx(timelistt(i), xt, ut);
+                dydx(i,:) = dydxi(outputlistt(i),:);
+                ybar(i) = yt(outputlistt(i));
+                [sigma(i), dsigmady(i)] = sd(timelistt(i), outputlistt(i), ybar(i));
             end
             
             % Non-floored data
-            enotfloored = ybart(~flooredt,1) - measurementst(~flooredt,1);
-            C1notfloored = C1t(~flooredt,:);
-            sigmanotfloored = sigmat(~flooredt,1);
-            dsigmadynotfloored = dsigmadyt(~flooredt,1);
+            enotfloored = ybar(~flooredt,1) - measurementst(~flooredt,1);
+            C1notfloored = dydx(~flooredt,:);
+            sigmanotfloored = sigma(~flooredt,1);
+            dsigmadynotfloored = dsigmady(~flooredt,1);
             dsigmadxfloored = bsxfun(@times, dsigmadynotfloored, C1notfloored);
             dchi2dx = vec(2 * sum(bsxfun(@times, sigmanotfloored.^-1, dsigmadxfloored),1) + 2 * sum(bsxfun(@times, enotfloored .* sigmanotfloored.^-2, C1notfloored),1) + -2 * sum(bsxfun(@times, enotfloored.^2 .* sigmanotfloored.^-3, dsigmadxfloored),1));
             
             % Floored data
-            yfloored = ybart(flooredt,1);
-            C1floored = C1t(flooredt,:);
-            sigmafloored = sigmat(flooredt,1);
-            dsigmadyfloored = dsigmadyt(flooredt,1);
-            dsigmadxfloored = bsxfun(@times, dsigmadyfloored, C1floored);
+            yfloored = ybar(flooredt,1);
+            dydxfloored = dydx(flooredt,:);
+            sigmafloored = sigma(flooredt,1);
+            dsigmadyfloored = dsigmady(flooredt,1);
+            dsigmadxfloored = bsxfun(@times, dsigmadyfloored, dydxfloored);
             
             % The portion that is not a function of x
             constant = 2 .* exp(-yfloored.^2./(2*sigmafloored.^2)) .* sqrt(2/pi) ./ (erfc(yfloored ./ sqrt(2*sigmafloored.^2)) .* sigmafloored.^2); 
             
             % The portion that varies with x
-            variable = bsxfun(@times, -yfloored, dsigmadxfloored) + bsxfun(@times, sigmafloored, C1floored);
+            variable = bsxfun(@times, -yfloored, dsigmadxfloored) + bsxfun(@times, sigmafloored, dydxfloored);
             
             % Combine in appropriate dimensions
             dareadx = bsxfun(@times, constant, variable);
@@ -222,7 +225,7 @@ obj = pastestruct(Gzero, obj);
     function val = d2Gdx2(t, sol)
         nx = size(sol.C1,2);
 
-        error() % Not done yet
+        error('Error: Not implemented yet.') % Not done yet
         %Find all data points that have a time that matches t
         ind = find(t == timelist);
         tlength = length(ind);

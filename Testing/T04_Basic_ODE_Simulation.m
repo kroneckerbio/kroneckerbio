@@ -19,7 +19,7 @@ m = AddReaction(m, '', '', 'A', 'B', 'C', '', 'kf', 'kr');
 m = FinalizeModel(m);
 
 %% Construct experiment
-con = InitialValueExperiment(m, 1, [], [], [], 'EquilibriumExperiment');
+con = InitialValueExperiment(m, 1, [], [], [], 'InitialValueExperiment');
 
 %% Simulate
 sim1 = Simulate(m, con);
