@@ -1,0 +1,5 @@
+# Ignore MEX function directories
+mexfuns_*
+
+# Ignore autosave files
+*~

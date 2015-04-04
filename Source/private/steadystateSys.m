@@ -9,7 +9,7 @@ nx = m.nx;
 ic = m.dx0ds * con.s + m.x0c;
 
 % Integrate f over time
-sol = accumulateOde(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], 1, eve, [], 1, 0);
+sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, [], 1);
 
 % Return steady-state value
 ic = sol.ye;
@@ -43,7 +43,7 @@ ic = sol.ye;
         
         % Steady-state event
         function [value, isTerminal, direction] = events(t, x)
-            u = u(-1);
+            u = uf(-1);
 
             % Absolute change
             absDiff = con.tF * f(-1,x,u); % Change over an entire simulation
