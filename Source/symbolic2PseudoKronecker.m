@@ -1,29 +1,13 @@
-function m = symbolic2PseudoKronecker(SymModel, yNames, yMembers, yValues, opts)
+function m = symbolic2PseudoKronecker(SymModel, opts)
 %symbolic2PseudoKronecker converts a symbolic model into a pseudo-kronecker
 %   model, which interacts with the Kronecker Bio toolbox much like a
 %   Kronecker model.
 % 
-%   m = symbolic2PseudoKronecker(SymModel, uNames, yNames, yMembers, yValues, opts)
+%   m = symbolic2PseudoKronecker(SymModel, opts)
 % 
 %   Inputs
 %   SymModel: [ symbolic model scalar ]
 %       A symbolic model
-%   yNames: [ string | cell vector of strings | symbolic vector  | 
-%             positive integer vector {1:nx} ]
-%       Names for the designated outptus. If yMembers is not provided,
-%       the names are also interpreted as the species that will be
-%       represented by the outputs. Naturally, if yMembers is not
-%       provided, then each output can only reflect the concentration
-%       of a single species.
-%   yMembers: [ cell vector of cell vectors of strings ]
-%       Regular expressions corresponding the species that will contribute
-%       to the value of the output
-%   yValues: [ cell vector of nonegative vectors ]
-%       Each numeric entry in this vector is associated with one of the
-%       expressions. This value tells how much a species will contribute
-%       when it matches the corresponding expressions. If a species is
-%       matched by multiple expressions, the last expression to match
-%       overrides all others.
 %   opts: [ options struct scalar ]
 %       Optional
 %       .Order [ 0 | 1 | {2} | 3 ]
@@ -36,27 +20,36 @@ function m = symbolic2PseudoKronecker(SymModel, yNames, yMembers, yValues, opts)
 %           parameters or converted to immutable constants
 %       .Verbose [ nonnegative integer scalar {1} ]
 %           Bigger number displays more progress information
+%       .NewJacobianMethod [ true | {false} ]
+%           Determines whether to use the more memory-efficient Jacobian
+%           method or the original method. For smaller models ( < 100
+%           reactions or species), there is little difference between the
+%           methods.
+%       .UseMEX [ true | {false} ]
+%           Set to true to write MEX functions in C that calculate f, r,
+%           and their derivatives with respect to x, u, and k. For larger
+%           models, this will speed up most of Kronecker's functionality.
+%           Following building the model, the .mex files will need to be
+%           compiled using the compileMEXFunctions function. Currently
+%           requires gcc, a C compiler, to be configured to be used by
+%           MATLAB. Following compilation, the .mex files must be in the
+%           current path for the model to work.
+%       .MEXDirectory [ string {['mexfuns_' dateandtimestring]} ]
+%           If .UseMEX is set to TRUE, the string provided here sets the
+%           directory to which the .mex files will be written. If .UseMEX
+%           is FALSE, this option is ignored.
 %
 %   Outputs
 %   m: [ psuedo-kronecker model scalar ]
 %       The useable form of the model
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David Flowers, David R Hagen, & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
 % Clean up inputs
-if nargin < 5
+if nargin < 2
     opts = [];
-    if nargin < 4
-        yValues = [];
-        if nargin < 3
-            yMembers = [];
-            if nargin < 2
-                yNames = [];
-            end
-        end
-    end
 end
 
 % Set up default directory name, based on the clock
@@ -69,9 +62,9 @@ defaultMEXdirectory = ['mexfuns_' regexprep(thistime,'\.','_') filesep];
 defaultOpts.Order             = 2;
 defaultOpts.VolumeToParameter = false;
 defaultOpts.Verbose           = 0;
-defaultOpts.MultipleyMembers  = false; % added by David Flowers
-defaultOpts.NewJacobianMethod = false; % added by David Flowers
-defaultOpts.UseMEX            = false; % added by David Flowers
+defaultOpts.MultipleyMembers  = false;
+defaultOpts.NewJacobianMethod = false;
+defaultOpts.UseMEX            = false;
 defaultOpts.MEXDirectory      = defaultMEXdirectory;
 
 opts = mergestruct(defaultOpts, opts);
@@ -86,47 +79,161 @@ if opts.UseMEX && exist(opts.MEXDirectory,'dir') ~= 7
 end
 
 %% Extract symbolic values
-name    = SymModel.Name;
-
-nv      = SymModel.nv;
-nk      = SymModel.nk;
-ns      = SymModel.ns;
-nq      = SymModel.nq;
-nu      = SymModel.nu;
-nx      = SymModel.nx;
-nr      = SymModel.nr;
-
-vSyms   = SymModel.vSyms;
-vNames  = SymModel.vNames;
-dv      = SymModel.dv;
-v       = SymModel.v;
+if isfield(SymModel, 'Name')
+    name = SymModel.Name;
+else
+    name = '';
+end
 
 kSyms   = SymModel.kSyms;
-kNames  = SymModel.kNames;
 k       = SymModel.k;
+nk      = numel(k);
+
+if isfield(SymModel, 'kNames')
+    kNames = SymModel.kNames;
+else
+    kNames = cell(nk,1);
+    for ik = 1:nk
+        kNames{ik} = char(kSyms(ik));
+    end
+end
 
 sSyms   = SymModel.sSyms;
-sNames  = SymModel.sNames;
 s       = SymModel.s;
+ns      = numel(s);
 
-qSyms   = SymModel.qSyms;
-qNames  = SymModel.qNames;
-q       = SymModel.q;
+if isfield(SymModel, 'sNames')
+    sNames = SymModel.sNames;
+else
+    sNames = cell(ns,1);
+    for is = 1:ns
+        sNames{is} = char(sSyms(is));
+    end
+end
 
 uSyms   = SymModel.uSyms;
-uNames  = SymModel.uNames;
-vuInd   = SymModel.vuInd;
 u       = SymModel.u;
+nu      = numel(u);
+
+if isfield(SymModel, 'uNames')
+    uNames = SymModel.uNames;
+else
+    uNames = cell(nu,1);
+    for iu = 1:nu
+        uNames{iu} = char(uSyms(iu));
+    end
+end
 
 xSyms   = SymModel.xSyms;
-xNames  = SymModel.xNames;
-vxInd   = SymModel.vxInd;
 x0      = SymModel.x0;
+nx      = numel(x0);
 
-rNames  = SymModel.rNames;
-r       = SymModel.r;
-S       = SymModel.S;
+if isfield(SymModel, 'xNames')
+    xNames = SymModel.xNames;
+else
+    xNames = cell(nx,1);
+    for ix = 1:nx
+        xNames{ix} = char(xSyms(ix));
+    end
+end
 
+if isfield(SymModel, 'v')
+    vSyms   = SymModel.vSyms;
+    vNames  = SymModel.vNames;
+    dv      = SymModel.dv;
+    v       = SymModel.v;
+    nv      = numel(v);
+    vuInd   = SymModel.vuInd;
+    vxInd   = SymModel.vxInd;
+else
+    vSyms   = sym('co1x');
+    vNames  = {'v'};
+    dv      = zeros(3,1);
+    v       = zeros(1,1);
+    nv      = 1;
+    vuInd   = ones(nu,1);
+    vxInd   = ones(nx,1);
+end
+
+if isfield(SymModel, 'f')
+    f = SymModel.f;
+    if isfield(SymModel, 'r')
+        r = SymModel.r;
+        S = SymModel.S;
+        nr = numel(r);
+        
+        if isfield(SymModel, 'rNames')
+            rNames = SymModel.rNames;
+        else
+            rNames = repmat({''}, [nr,1]);
+        end
+    else
+        r = sym(zeros(0,1));
+        S = zeros(nx,0);
+        nr = 0;
+        rNames = cell(0,1);
+    end
+else
+    % If there is no f, then r and S must be supplied
+    r = SymModel.r;
+    S = SymModel.S;
+    nr = numel(r);
+    
+    if isfield(SymModel, 'rNames')
+        rNames = SymModel.rNames;
+    else
+        rNames = repmat({''}, [nr,1]);
+    end
+
+    f = S*r;
+end
+
+y       = SymModel.y;
+ny      = numel(y);
+
+if isfield(SymModel, 'yNames')
+    yNames = SymModel.yNames;
+elseif isfield(SymModel, 'ySyms')
+    yNames = cell(ny,1);
+    for iy = 1:ny
+        yNames{iy} = char(SymModel.ySyms(iy));
+    end
+else
+    % A reasonable name for each y is not strictly necessary
+    yNames = cell(ny,1);
+    for iy = 1:ny
+        yNames{iy} = char(y(iy));
+    end
+end
+
+% Convert compartment volumes to parameters or constants
+if opts.VolumeToParameter
+    nk = nk + nv;
+    kNames = [kNames; vNames];
+    k = [k; v];
+    kSyms = [kSyms; vSyms];
+else% ~VolumeToParameter
+    r = subs(r, vSyms, v);
+    f = subs(f, vSyms, v);
+end
+
+% Sanitize symbols
+old_symbols = [kSyms; sSyms; xSyms; uSyms];
+new_symbols = sym(zeros(nk+ns+nx+nu,1));
+for i = 1:nk+ns+nx+nu
+    new_symbols(i) = sym(sprintf('sy%dx', i));
+end
+
+kSyms = subs(kSyms, old_symbols, new_symbols);
+sSyms = subs(sSyms, old_symbols, new_symbols);
+xSyms = subs(xSyms, old_symbols, new_symbols);
+uSyms = subs(uSyms, old_symbols, new_symbols);
+f = subs(f, old_symbols, new_symbols);
+r = subs(r, old_symbols, new_symbols);
+x0 = subs(x0, old_symbols, new_symbols);
+y =  subs(y, old_symbols, new_symbols);
+
+% String representations that will be useful
 vStrs = cell(nv,1);
 for iv = 1:nv
     vStrs{iv} = char(vSyms(iv));
@@ -168,8 +275,12 @@ end
 
 f = S*r;
 
-% Standardize names of input parameters
+q = SymModel.q;
+nq = SymModel.nq;
 qStrs = cell(nq,1);
+qSyms = SymModel.qSyms;
+
+% Standardize names of input parameters
 for iq = 1:nq
     newqSym = sym(['q' num2str(iq) 'x']);
     u = subs(u, qSyms(iq), newqSym);
@@ -208,7 +319,6 @@ if verbose; fprintf('\n'); end
 rstatesi = false(nr,nx);
 rinputsi = false(nr,nu);
 rparamsi = false(nr,nk);
-uqi = false(nu,nq);
 if verbose; fprintf('Determining approximate sparsity patterns for derivative matrices...\n'); end
 ndigitstoprint = 4;
 strtoprint = ['Reaction %' num2str(ndigitstoprint) 'g'];
@@ -226,23 +336,37 @@ for ri = 1:nr
         rparamsi(ri,:) = rparamsi(ri,:) + logical(rparams{ri}(ki) == kSyms)';
     end
 end
+
+uqi = false(nu,nq);
 for ui = 1:nu
     qsinui = symvar(u(ui));
     for qi = 1:length(qsinui)
         uqi(ui,:) = uqi(ui,:) + logical(qsinui(qi) == qSyms)';
     end
 end
+
+yxi = false(ny,nx);
+yui = false(ny,nu);
+for yi = 1:ny
+    xsandusinyi = symvar(y(yi));
+    for ii = 1:length(xsandusinyi)
+        yxi(yi,:) = yxi(yi,:) + logical(xsandusinyi(ii) == xSyms)';
+        yui(yi,:) = yui(yi,:) + logical(xsandusinyi(ii) == uSyms)';
+    end
+end
 % The above logical arrays are the nonzero elements of the first derivative
-% matrix for r. Record these in a struct, and construct a function that can
-% calculate whether higher-order derivatives contain a given parameter,
-% input, or state.
+% matrix for r, u, and y. Record these in a struct, and construct a
+% function that can calculate whether higher-order derivatives contain a
+% given parameter, input, or state.
 nz.r.x = rstatesi;
 nz.r.u = rinputsi;
 nz.r.k = rparamsi;
-nz.f.x = logical(abs(S)*rstatesi);
+nz.f.x = logical(abs(S)*rstatesi); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
 nz.f.u = logical(abs(S)*rinputsi);
 nz.f.k = logical(abs(S)*rparamsi);
 nz.u.q = uqi;
+nz.y.x = yxi;
+nz.y.u = yui;
 
 % Set up sizes struct
 sizes.f = nx;
@@ -251,18 +375,20 @@ sizes.k = nk;
 sizes.x = nx;
 sizes.u = nu;
 sizes.q = nq;
+sizes.y = ny;
 
     function nzout = getNonZeroEntries(num,dens)
         % Inputs:
-        %   num: "numerator" of derivative, either 'r' or 'f'
+        %   num: "numerator" of derivative, either 'r', 'f', 'u', or 'y'
         %   dens: "denominator" terms of derivative, any combination of 'x',
-        %   'u', and 'k' in a cell array
+        %   'u', and 'k' in a cell array for 'r' and 'f' numerators, 'q'
+        %   for 'u' numerators, and 'x' and 'u' for 'y' numerators
         % Outputs:
-        %   nzout: a logical array of size n(r or f)-by-n(x or u or
+        %   nzout: a logical array of size n(r, f, u, or y)-by-n(x or u or
         %   k)-by-n(x or u or k)-by-..., where nzout(i,j,k,...) is true if
         %   d(r or f)/d(x or u or k)(x or u or k)... is potentially
         %   nonzero, based on what terms are present in each of the
-        %   reaction or state derivative terms. Note that the first term
+        %   reaction or state first derivative terms. Note that the first term
         %   appearing in the "denominator" string of the derivative is the
         %   last dimension, since it is the derivative taken last. I.E.,
         %   dr/dxdk has dimensions nr-by-nk-by-nx.
@@ -360,12 +486,24 @@ if order >= 1
     if verbose; fprintf('Calculating dfdk...'); end
     dfdk = S*drdk;
     if verbose; fprintf('Done.\n'); end
+    
+    % Gradient of y with respect to x
+    if verbose; fprintf('Calculating dydx...'); end
+    dydx = jacobianfun(y, xSyms);
+    if verbose; fprintf('Done.\n'); end
+    
+    % Gradient of y with respect to u
+    if verbose; fprintf('Calculating dydu...'); end
+    dydu = jacobian(y, uSyms);
+    if verbose; fprintf('Done.\n'); end
+
 else
-    dudq = '';
     drdx = '';
     drdk = '';
     dfdx = '';
     dfdk = '';
+    dydx = '';
+    dydu = '';
 end
 
 if order >= 2
@@ -379,7 +517,7 @@ if order >= 2
     d2rdu2 = jacobianfun(drdu, uSyms);
     if verbose; fprintf('\n'); end
     
-    % Gradient of drdu with respect to u
+    % Gradient of drdu with respect to x
     if verbose; fprintf('Calculating d2rdxdu...'); end
     d2rdxdu = jacobianfun(drdu, xSyms);
     if verbose; fprintf('\n'); end
@@ -468,6 +606,23 @@ if order >= 2
     d2fdudk = reshapefun(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
     if verbose; fprintf('\n'); end
     
+    % Output second derivatives
+    if verbose; fprintf('Calculating d2ydx2...'); end
+    d2ydx2 = jacobianfun(dydx, xSyms);
+    if verbose; fprintf('\n'); end
+    
+    if verbose; fprintf('Calculating d2ydu2...'); end
+    d2ydu2 = jacobianfun(dydu, uSyms);
+    if verbose; fprintf('\n'); end
+    
+    if verbose; fprintf('Calculating d2ydxdu...'); end
+    d2ydxdu = jacobianfun(dydu, xSyms);
+    if verbose; fprintf('\n'); end
+    
+    if verbose; fprintf('Calculating d2ydudx...'); end
+    d2ydudx = jacobianfun(dydx, uSyms);
+    if verbose; fprintf('\n'); end
+    
 else
     d2rdx2  = '';
     d2rdu2  = '';
@@ -487,6 +642,10 @@ else
     d2fdkdu = '';
     d2fdxdk = '';
     d2fdudk = '';
+    d2ydx2 = '';
+    d2ydu2 = '';
+    d2ydxdu = '';
+    d2ydudx = '';
 end
 
 if order >= 3
@@ -510,161 +669,6 @@ else
     d3fdkdx2 = '';
 end
 
-%% Standardize the output
-% Standardize yNames as a cell vector of strings
-% and yMembers as a cell array of cell arrays of strings
-if isempty(yMembers)
-    % yNames are the yMembers
-    if isempty(yNames)
-        % All species are outputs
-        yNames = 1:nx;
-    end
-    
-    if isa(yNames, 'char')
-        ny = 1;
-        yNames = {yNames};
-        yMembers = {yNames};
-    elseif isa(yNames, 'sym')
-        ny = length(yNames);
-        temp = yNames;
-        yNames = cell(ny,1);
-        yMembers = cell(ny,1);
-        for iy = 1:ny
-            yNames{iy} = char(temp(iy));
-            yMembers{iy} = yNames(iy);
-        end
-    elseif isa(yNames, 'numeric')
-        ny = length(yNames);
-        yMembers = cell(ny,1);
-        for iy = 1:ny
-            yMembers{iy} = strcat('^', xNamesFull(yNames(iy)), '$');
-        end
-        yNames = xNames(yNames);
-    elseif isa(yNames, 'cell')
-        ny = length(yNames);
-        yNames = vec(yNames);
-        yMembers = cell(ny,1);
-        for iy = 1:ny
-            yMembers{iy} = yNames(iy);
-        end
-    else
-        error('KroneckerBio:symbolic2PseudoKronecker', 'Invalid type supplied for yNames')
-    end
-    
-    yValues = repmat({1}, ny,1);
-else
-    % yMembers and yValues is provided
-    if isa(yNames, 'char')
-        ny = 1;
-        yNames = {yNames};
-    elseif isa(yNames, 'sym')
-        ny = length(yNames);
-        temp = yNames;
-        yNames = cell(ny,1);
-        for iy = 1:ny
-            yNames{iy} = char(temp(iy));
-        end
-    elseif isa(yNames, 'numeric')
-        ny = length(yNames);
-        yNames = xNames(yNames);
-    elseif isa(yNames, 'cell')
-        ny = length(yNames);
-        yNames = vec(yNames);
-    else
-        error('KroneckerBio:symbolic2PseudoKronecker', 'Invalid type supplied for yNames')
-    end
-    
-    yMembers = vec(yMembers);
-    yValues = vec(yValues);
-end
-
-%% Construct output matrices
-% Entries in each sparse matrix for compartment conversion
-nC1Entries = 0;
-nC2Entries = 0;
-ncEntries = 0;
-
-C1Entries = zeros(0,2);
-C1Values  = zeros(0,1);
-C2Entries = zeros(0,2);
-C2Values  = zeros(0,1);
-cEntries  = zeros(0,2);
-cValues   = zeros(0,1);
-
-for iy = 1:ny
-    nExpr = numel(yMembers{iy});
-    for iExpr = 1:nExpr
-        % Find states that match the expression
-        match = find(~cellfun(@isempty, regexp(xNamesFull, yMembers{iy}{iExpr}, 'once')));
-        nAdd = numel(match);
-        nC1Entries = nC1Entries + nAdd;
-        
-        % Add more room in vector if necessary
-        currentLength = size(C1Entries,1);
-        if nC1Entries > currentLength
-            addlength = max(currentLength, nAdd);
-            C1Entries = [C1Entries; zeros(addlength,2)];
-            C1Values  = [C1Values;  zeros(addlength,1)];
-        end
-        
-        % Add entries
-        C1Entries(nC1Entries-nAdd+1:nC1Entries,1) = iy;
-        C1Entries(nC1Entries-nAdd+1:nC1Entries,2) = match;
-        C1Values(nC1Entries-nAdd+1:nC1Entries) = yValues{iy}(iExpr);
-        
-        % Find inputs that match the expression
-        match = find(~cellfun(@isempty, regexp(uNamesFull, yMembers{iy}{iExpr}, 'once')));
-        nAdd = numel(match);
-        nC2Entries = nC2Entries + nAdd;
-        
-        % Add more room in vector if necessary
-        currentLength = size(C2Entries,1);
-        if nC2Entries > currentLength
-            addlength = max(currentLength, nAdd);
-            C2Entries = [C2Entries; zeros(addlength,2)];
-            C2Values  = [C2Values; zeros(addlength,1)];
-        end
-        
-        % Add entries
-        C2Entries(nC2Entries-nAdd+1:nC2Entries,1) = iy;
-        C2Entries(nC2Entries-nAdd+1:nC2Entries,2) = match;
-        C2Values(nC2Entries-nAdd+1:nC2Entries) = yValues{iy}(iExpr);
-        
-        % Find empty expressions, which are constants
-        if isempty(yMembers{iy}{iExpr})
-            ncEntries = ncEntries + 1;
-            
-            % Add more room in vector if necessary
-            currentLength = size(cEntries,1);
-            if ncEntries > currentLength
-                addlength = max(currentLength, 1);
-                cEntries = [cEntries; zeros(addlength,2)];
-                cValues = [cValues; zeros(addlength,1)];
-            end
-            
-            % Add entries
-            cEntries(ncEntries,1) = iy;
-            cEntries(ncEntries,2) = 1;
-            cValues(ncEntries) = yValues{iy}(iExpr);
-        end
-    end
-end
-
-% Remove duplicate entries
-[C1Entries, ind] = unique(C1Entries(1:nC1Entries,:), 'rows');
-C1Values = C1Values(ind);
-
-[C2Entries, ind] = unique(C2Entries(1:nC2Entries,:), 'rows');
-C2Values = C2Values(ind);
-
-[cEntries, ind] = unique(cEntries(1:ncEntries,:), 'rows');
-cValues = cValues(ind);
-
-% Construct matrices
-C1 = sparse(C1Entries(:,1), C1Entries(:,2), C1Values, ny, nx);
-C2 = sparse(C2Entries(:,1), C2Entries(:,2), C2Values, ny, nu);
-c  = sparse(cEntries(:,1),  cEntries(:,2),  cValues,  ny, 1);
-
 %% Extract seed information
 dx0ds = double(jacobianfun(x0, sSyms));
 x0c = double(x0 - dx0ds*sSyms);
@@ -675,12 +679,13 @@ for ix = 1:nx
     if x0c(ix)
         values_i = {'', x0c(ix)};
     else
-        values_i = cell(0,1);
+        values_i = cell(0,2);
     end
     
     % Append seed parameters
+    nonzero_seed_indexes = logical(dx0ds(ix,:));
     values_i = [values_i; 
-                sStrs(vec(logical(dx0ds(ix,:)))), dx0ds(ix,dx0ds(ix,:) ~= 0)];
+                vec(sStrs(nonzero_seed_indexes)), vec(num2cell(dx0ds(ix,nonzero_seed_indexes)))];
     
     % Store values
     initial_values{ix} = values_i;
@@ -701,6 +706,7 @@ dudq     = symbolic2function('dudq', 'u', 'q');
 
 f        = symbolic2function('f', 'f', {});
 r        = symbolic2function('r', 'r', {});
+y        = symbolic2function('y', 'y', {});
 
 if order >= 1
     dfdx     = symbolic2function('dfdx', 'f', 'x');
@@ -710,6 +716,9 @@ if order >= 1
     drdx     = symbolic2function('drdx', 'r', 'x');
     drdu     = symbolic2function('drdu', 'r', 'u');
     drdk     = symbolic2function('drdk', 'r', 'k');
+    
+    dydx     = symbolic2function('dydx', 'y', 'x');
+    dydu     = symbolic2function('dydu', 'y', 'u');
 end
 
 if order >= 2
@@ -730,6 +739,11 @@ if order >= 2
     d2rdkdu  = symbolic2function('d2rdkdu', 'r', {'u' 'k'});
     d2rdxdk  = symbolic2function('d2rdxdk', 'r', {'k' 'x'});
     d2rdudk  = symbolic2function('d2rdudk', 'r', {'k' 'u'});
+    
+    d2ydx2   = symbolic2function('d2ydx2',  'y', {'x' 'x'});
+    d2ydu2   = symbolic2function('d2ydu2',  'y', {'u' 'u'});
+    d2ydudx  = symbolic2function('d2ydudx', 'y', {'x' 'u'});
+    d2ydxdu  = symbolic2function('d2ydxdu', 'y', {'u' 'x'});
 end
 
 if order >= 3
@@ -766,17 +780,18 @@ m.Seeds        = struct('Name', sNames, 'Value', num2cell(s));
 m.Inputs       = struct('Name', uNames, 'Compartment', vNames(vuInd));
 m.States       = struct('Name', xNames, 'Compartment', vNames(vxInd), 'InitialValue', initial_values);
 m.Reactions    = struct('Name', rNames);
-if isempty(yMembers)
-    Expressions = [];
-else
-    Expressions = mat2cell([vertcat(yMembers{:}), num2cell(vertcat(yValues{:}))], cellfun(@length,yMembers), 2);
-end
-m.Outputs      = struct('Name', yNames, 'Expressions', Expressions );
+% Old code for when y values were not functions
+% if isempty(yMembers)
+%     Expressions = [];
+% else
+%     Expressions = mat2cell([vertcat(yMembers{:}), num2cell(vertcat(yValues{:}))], cellfun(@length,yMembers), 2);
+% end
+% m.Outputs      = struct('Name', yNames, 'Expressions', Expressions );
+m.Outputs      = struct('Name', yNames);
 
 m.nv = nv;
 m.nk = nk;
 m.ns = ns;
-m.nq = nq;
 m.nu = nu;
 m.nx = nx;
 m.nr = nr;
@@ -789,9 +804,10 @@ m.dx0ds = dx0ds;
 m.x0c = x0c;
 
 m.u    = setfun_u(u,q);
-m.q    = q;
-m.dudq = dudq;
-m.nqu  = zeros(nu,1);
+% Not sure if we still need the following values
+% m.q    = q;
+% m.dudq = dudq;
+% m.nqu  = zeros(nu,1);
 
 m.vxInd = vxInd;
 m.vuInd = vuInd;
@@ -800,9 +816,7 @@ m.vuInd = vuInd;
 
 %As
 %Bs
-m.C1 = C1;
-m.C2 = C2;
-m.c  = c;
+%Cs
 
 clear vNames kNames sNames uNames xNames rNames yNames yMembers yValues
 
@@ -852,6 +866,20 @@ if order >= 2
     m.d2rdudk   = setfun_rf(d2rdudk,k);
 end
 
+m.y = setfun_y(y,true,ny);
+
+if order >= 1
+    m.dydx      = setfun_y(dydx,false,ny);
+    m.dydu      = setfun_y(dydu,false,ny);
+end
+
+if order >= 2
+    m.d2ydx2    = setfun_y(d2ydx2,false,ny);
+    m.d2ydu2    = setfun_y(d2ydu2,false,ny);
+    m.d2ydudx   = setfun_y(d2ydudx,false,ny);
+    m.d2ydxdu   = setfun_y(d2ydxdu,false,ny);
+end
+
 m.Ready  = true;
 %m.add
 m.Update = @update;
@@ -874,6 +902,7 @@ if verbose; fprintf('done.\n'); end
         % Update function handles
         m.f             = setfun_rf(f,k);
         m.r             = setfun_rf(r,k);
+        m.y             = setfun_y(y,true,ny);
         
         if order >= 1
             m.dfdx      = setfun_rf(dfdx,k);
@@ -882,6 +911,8 @@ if verbose; fprintf('done.\n'); end
             m.drdx      = setfun_rf(drdx,k);
             m.drdk      = setfun_rf(drdk,k);
             m.drdu      = setfun_rf(drdu,k);
+            m.dydx      = setfun_y(dydx,false,ny);
+            m.dydu      = setfun_y(dydu,false,ny);
         end
         
         if order >= 2
@@ -903,6 +934,10 @@ if verbose; fprintf('done.\n'); end
             m.d2rdkdu   = setfun_rf(d2rdkdu,k);
             m.d2rdxdk   = setfun_rf(d2rdxdk,k);
             m.d2rdudk   = setfun_rf(d2rdudk,k);
+            m.d2ydx2    = setfun_y(d2ydx2,false,ny);
+            m.d2ydu2    = setfun_y(d2ydu2,false,ny);
+            m.d2ydxdu   = setfun_y(d2ydxdu,false,ny);
+            m.d2ydudx   = setfun_y(d2ydudx,false,ny);
         end
         
         if order >= 3
@@ -990,8 +1025,8 @@ if verbose; fprintf('done.\n'); end
             return
         end
         
-        % For f, r, and u, just use the old method, since they are not sparse
-        if any(strcmp(variable_name,{'f';'r';'u'}))
+        % For f, r, u, and y, just use the old method, since they are not sparse
+        if any(strcmp(variable_name,{'f';'r';'u';'y'}))
             string_rep = symbolic2string_old(variable_name, num, dens);
             return
         end
@@ -1042,7 +1077,7 @@ if verbose; fprintf('done.\n'); end
     end
 
     function string_rep = convertSymStrtoIndexedStr(string_rep, num)
-        if any(strcmp(num, {'f' 'r'}))
+        if any(strcmp(num, {'f' 'r' 'y'}))
             % Replace expressions for states, inputs, and parameters with
             % indexed calls to x, u, and k, respectively
             xindexstring = sprintf('x(%d)\n', 1:nx);
@@ -1075,11 +1110,11 @@ if verbose; fprintf('done.\n'); end
             
 
     function d2rdkdx_ = calcHigherOrderDerivative(drdx, kSyms)
-        % Note that in the variable names here, I use the prototypical example
-        % of taking the derivative of drdx with respect to k. This means "r"
-        % stands for the variable whose derivative is being taken, "x" stands
-        % for the first derivative variable, and "k" stands for the second
-        % derivative variable.
+        % Note that in the input argument names here, I use the
+        % prototypical example of taking the derivative of drdx with
+        % respect to k. This means "r" stands for the variable whose
+        % derivative is being taken, "x" stands for the first derivative
+        % variable, and "k" stands for the second derivative variable.
         nk_ = length(kSyms);
         nr_ = size(drdx,1);
         nxu_ = size(drdx,2);
@@ -1140,6 +1175,13 @@ elseif strcmp(num, 'u')
         fun = eval(['@(t,q) inf2big(nan2zero(sparse([' string_rep '])))']);
     end
     
+elseif strcmp(num, 'y')
+    
+    if isempty(dens)
+        fun = eval(['@(t,x,u) [' string_rep ']']);
+    else
+        fun = eval(['@(t,x,u) inf2big(nan2zero(sparse([' string_rep '])))']);
+    end
 end
 
 % Convert function to and from function handle to ensure that
@@ -1157,4 +1199,20 @@ end
 
 function fun = setfun_u(basefun, q)
     fun = @(t)basefun(t,q);
+end
+
+function fun = setfun_y(basefun,is0order,ny)
+    if is0order
+        fun = @(t,x,u) vectorize_y(basefun, t, x, u, ny);
+    else
+        fun = @(t,x,u) basefun(t,x,u);
+    end
+end
+
+function val = vectorize_y(y, t, x, u, ny)
+    nt = numel(t);
+    val = zeros(ny,nt);
+    for it = 1:nt
+        val(:,it) = y(t(it), x(:,it), u(:,it));
+    end
 end

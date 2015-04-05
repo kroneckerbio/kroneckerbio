@@ -19,7 +19,7 @@ m = AddReaction(m, '', '', 'A', 'B', 'C', '', 'kf', 'kr');
 m = FinalizeModel(m);
 
 %% Construct experiment
-con = Experiment(m, 1, m.s, false, false, [], [], [], [], 'EquilibriumExperiment');
+con = InitialValueExperiment(m, 1, [], [], [], 'InitialValueExperiment');
 
 %% Construct objective
 outputlist = [1;1;2;2;3;3];
@@ -33,4 +33,4 @@ obj = objectiveWeightedSumOfSquaresNonNeg(outputlist, timeslist, sd, measurement
 mfit = FitObjective(m, con, obj);
 
 %% Linearized parameter uncertainty
-F = ObjectiveInformation(mfit, con, obj);
+% F = ObjectiveInformation(mfit, con, obj);

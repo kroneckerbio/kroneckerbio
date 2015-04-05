@@ -1,4 +1,17 @@
-function [m, con, obj, opts] = simple_model()
+function [m, con, obj, opts] = simple_model(objectiveFun)
+% Build simple model, experiment, and fitting procedure.
+% Takes optional input objectiveFun, a string for the name of the objective
+%   function to test with.
+
+if nargin < 1
+    objectiveFun = [];
+end
+
+if isempty(objectiveFun)
+    objectiveFun = 'objectiveWeightedSumOfSquares';
+end
+
+% Build model
 m = LoadModelMassAction('Simple.txt');
 m = addStatesAsOutputs(m);
 m = FinalizeModel(m);
@@ -16,7 +29,7 @@ input = Input(m, @u, border1, q, @dudq, @d2udq2);
 h = [2;1;3];
 nh = numel(h);
 border2 = 3;
-dose = Dose(m, @d, border2, h, @dddh, @d2ddh2);
+% dose = Dose(m, @d, border2, h, @dddh, @d2ddh2);
 dose = doseConstant(m, 3:5, 1:6);
 
 % Experiment
@@ -35,7 +48,14 @@ values = [ % Picked a few values near a simulation
     2, 2, 16;
     3, 4, 8;
     ];
-obj = objectiveWeightedSumOfSquaresNonNeg(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
+switch objectiveFun
+    case 'objectiveWeightedSumOfSquares'
+        obj = objectiveWeightedSumOfSquares(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
+    case 'objectiveWeightedSumOfSquaresNonNeg'
+        obj = objectiveWeightedSumOfSquaresNonNeg(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
+    otherwise
+        error('Error:simple_model:Objective function %s not recognized.', objectiveFun)
+end
 
 % Options
 opts.RelTol = 1e-6;

@@ -36,10 +36,12 @@ end
 
 % Integrate [f; dfdT] over time
 sol = accumulateOdeFwd(der, jac, 0, con.tF, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), del);
+sol.nx = nx;
+sol.nT = nT;
 sol.u = con.u;
-sol.C1 = m.C1;
-sol.C2 = m.C2;
-sol.c  = m.c;
+sol.y_ = m.y;
+sol.dydx = m.dydx;
+sol.dydu = m.dydu;
 sol.k = m.k;
 sol.s = con.s;
 sol.q = con.q;

@@ -71,10 +71,11 @@ for iCon = 1:nCon
         [der, jac, del] = constructSystem();
         xSol = accumulateOdeFwd(der,jac, 0, con(iCon).tF, ic, con(iCon).Discontinuities, 1:nx, opts.RelTol, opts.AbsTol{iCon}(1:nx), del);
     end
+    xSol.nx = nx;
     xSol.u = con(iCon).u;
-    xSol.C1 = m.C1;
-    xSol.C2 = m.C2;
-    xSol.c  = m.c;
+    xSol.y_ = m.y;
+    xSol.dydx = m.dydx;
+    xSol.dydu = m.dydu;
     xSol.k = m.k;
     xSol.s = s;
     xSol.q = q;

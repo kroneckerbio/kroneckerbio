@@ -70,5 +70,86 @@ end
 % Use sbml2Symbolic to convert an SBML model to a symbolic model
 symModel = simbio2Symbolic(simbioModel, opts);
 
+%%%%%%%% Add specified outputs to the symbolic model %%%%%%%%%
+
+%%% First, standardize yNames, yMembers, and yValues to their fully expressed
+%%% forms, using indexes to refer to states and inputs.
+
+% If only yNames were provided, then each yName is a single species to be
+% added as an output. Copy the yNames over to the yMembers, encapsulating
+% them in cells.
+if ~isempty(yNames) && isempty(yMembers)
+    yMembers = num2cell(yNames);
+end
+
+ny = length(yNames);
+nmemberspery = cellfun(@length,yMembers);
+
+% If no yValues were provided, default the yValues to 1 for each yMember.
+if ~isempty(yNames) && isempty(yValues)
+    yValues = arrayfun(@(len)ones(len,1),nmemberspery,'UniformOutput',false);
+end
+
+% Check output specifiers
+assert(iscell(yMembers) && all(cellfun(@iscell,yMembers)), 'yMembers should be a cell vector of cell vectors of strings')
+
+% Set up output function
+symModel.y = sym(zeros(ny,1));
+xNames = symModel.xNames;
+uNames = symModel.uNames;
+xSyms = symModel.xSyms;
+uSyms = symModel.uSyms;
+nx = symModel.nx;
+nu = symModel.nu;
+C1 = zeros(ny,nx);
+C2 = zeros(ny,nu);
+c = zeros(ny,1);
+
+for yi = 1:ny
+    
+    thisyMembers = yMembers{yi};
+    thisnyMembers = length(thisyMembers);
+    
+    for ymi = 1:thisnyMembers
+
+        thisyMember = thisyMembers{ymi};
+        thisyValue = yValues{yi}(ymi);
+        
+        % Record constant value if member string is empty
+        if isempty(thisyMember)
+            c(yi) = thisyValue;
+        % Otherwise...
+        else
+            % Look for name among states
+            thisyMemberindex = find(strcmp(xNames,thisyMember));
+            % If not found there...
+            if isempty(thisyMemberindex)
+                % Look for name among inputs
+                thisyMemberindex = find(strcmp(uNames,thisyMember));
+                % If not found there...
+                if isempty(thisyMemberindex)
+                    % Name is invalid
+                    error(['Unrecognized state or input ' thisyMember])
+                % If found among inputs...
+                else
+                    % Record yValue in C2
+                    C2(yi,thisyMemberindex) = thisyValue;
+                end
+            % If found among states...
+            else
+                % Record yValue in C1
+                C1(yi,thisyMemberindex) = thisyValue;
+            end
+        end
+
+    end
+        
+    symModel.y(yi) = C1(yi,:)*xSyms + C2(yi,:)*uSyms + c(yi);
+        
+end
+
+symModel.yNames = yNames;
+
+
 % Use symbolic2Kronecker to convert a symbolic model to a psuedo kronecker model
-kronModel = symbolic2PseudoKronecker(symModel, yNames, yMembers, yValues, opts);
+kronModel = symbolic2PseudoKronecker(symModel, opts);

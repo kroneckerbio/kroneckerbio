@@ -120,10 +120,12 @@ end
 function val = evaluateOutputs(sol, t, ind)
 nt = numel(t);
 
+val = sol.y_(t, deval(sol, t), sol.u(t));
 if nargin < 3
-    val = sol.C1 * deval(sol, t) + sol.C2 * sol.u(t) + repmat(sol.c, 1,nt);
+    %val = sol.C1 * deval(sol, t) + sol.C2 * sol.u(t) + repmat(sol.c, 1,nt);
 else
-    val = sol.C1(ind,:) * deval(sol,t) + sol.C2(ind,:) * sol.u(t) + repmat(sol.c(ind,:), 1,nt);
+    val = val(ind,:);
+    %val = sol.C1(ind,:) * deval(sol,t) + sol.C2(ind,:) * sol.u(t) + repmat(sol.c(ind,:), 1,nt);
 end
 end
 

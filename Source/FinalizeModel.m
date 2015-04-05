@@ -524,9 +524,22 @@ C2Values = C2Values(ind);
 cValues = cValues(ind);
 
 % Construct matrices
-m.C1 = sparse(C1Entries(:,1), C1Entries(:,2), C1Values, m.ny, m.nx);
-m.C2 = sparse(C2Entries(:,1), C2Entries(:,2), C2Values, m.ny, m.nu);
-m.c  = sparse(cEntries(:,1),  cEntries(:,2),  cValues,  m.ny, 1);
+C1 = sparse(C1Entries(:,1), C1Entries(:,2), C1Values, m.ny, m.nx);
+C2 = sparse(C2Entries(:,1), C2Entries(:,2), C2Values, m.ny, m.nu);
+c  = sparse(cEntries(:,1),  cEntries(:,2),  cValues,  m.ny, 1);
+
+% Add to model
+m.C1 = C1;
+m.C2 = C2;
+m.c  = c;
+
+m.y       = @y;
+m.dydx    = @dydx;
+m.dydu    = @dydu;
+m.d2ydx2  = @d2ydx2;
+m.d2ydu2  = @d2ydu2;
+m.d2ydudx = @d2ydudx;
+m.d2ydxdu = @d2ydxdu;
 
 %% Process parameters
 % Put rate parameter into k vector
@@ -1077,6 +1090,33 @@ m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3Use
         val = zeros(nv*nu, nx);
     end
 
+    function val = y(t, x, u)
+        val = C1 * x + C2 * u + repmat(c, [1,numel(t)]);
+    end
+
+    function val = dydx(t, x, u)
+        val = C1;
+    end
+
+    function val = dydu(t, x, u)
+        val = C2;
+    end
+
+    function val = d2ydx2(t, x, u)
+        val = zeros(ny*nx, nx);
+    end
+
+    function val = d2ydu2(t, x, u)
+        val = zeros(ny*nu, nu);
+    end
+
+    function val = d2ydudx(t, x, u)
+        val = zeros(ny*nx, nu);
+    end
+
+    function val = d2ydxdu(t, x, u)
+        val = zeros(ny*nu, nx);
+    end
 end
 
 function m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2)

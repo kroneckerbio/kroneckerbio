@@ -79,7 +79,8 @@ ufun = @(t,q) repmat(u0,1,numel(t)); % Sets up a function that returns a matrix 
 dudqfun = @(t,q) zeros(m.nu,m.nq); % The derivatives of u wrt q are zero, since the values are constant. dudq is then a nu-by-nq matrix of zeros
 d2udq2fun = @(t,q) zeros(m.nu*m.nq,nq); % The second derivative of u wrt q is also zero.
 discontinuities = [];
-inp = Input(m,ufun,discontinuities,m.q,dudqfun,d2udq2fun); % Creates a struct containing the input functions
+q = zeros(m.nq,1);
+inp = Input(m,ufun,discontinuities,q,dudqfun,d2udq2fun); % Creates a struct containing the input functions
 
 % Change the initial concentrations of EGF and NGF
 s = m.s;

@@ -147,9 +147,9 @@ for iCon = 1:nCon
     sim(iCon).Type  = 'Simulation.Sensitivity.SelectPoints';
     sim(iCon).Name  = [m.Name ' in ' con(iCon).Name];
     sim(iCon).t     = sol.x;
-    sim(iCon).y     = bsxfun(@plus, sol.C1*sol.y(1:nx,:) + sol.C2*sol.u, sol.c);
+    sim(iCon).y     = m.y(sol.x, sol.y(1:nx,:), sol.u);
     sim(iCon).x     = sol.y(1:nx,:);
-    sim(iCon).dydT  = reshape(sol.C1*reshape(sol.y(nx+1:end,:), nx,inT*nt), ny*inT,nt);
+    sim(iCon).dydT  = reshape(m.dydx(sol.x, sol.y(1:nx,:), sol.u)*reshape(sol.y(nx+1:end,:), nx,inT*nt), ny*inT,nt);% + m.dydu(sol.x, sol.y(1:nx,:), sol.u)*reshape(sol.dudq, nu,inTq*nt);%reshape(sol.C1*reshape(sol.y(nx+1:end,:), nx,inT*nt), ny*inT,nt);
     sim(iCon).dxdT  = sol.y(nx+1:end,:);
     sim(iCon).sol   = sol;
 end

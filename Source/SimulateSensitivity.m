@@ -141,7 +141,7 @@ for iCon = 1:nCon
     inTh = nnz(intOpts.UseDoseControls);
     
     inT = nTk + inTs + inTq + inTh;
-
+    
     % Integrate [x; dx/dT] over time
     if verbose; fprintf(['Integrating sensitivities for ' con(iCon).Name '...']); end
     sol = integrateSens(m, con(iCon), intOpts);
@@ -169,61 +169,60 @@ else
     varargout{1} = sim;
 end
 
-end
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Evaluation functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function val = evaluateOutputs(sol, t, ind)
-nt = numel(t);
+    function val = evaluateOutputs(sol, t, ind)
+        nt = numel(t);
+        
+        if nargin < 3
+            val = sol.C1 * deval(sol, t) + sol.C2 * sol.u(t) + repmat(sol.c, 1,nt);
+        else
+            val = sol.C1(ind,:) * deval(sol,t) + sol.C2(ind,:) * sol.u(t) + repmat(sol.c(ind,:), 1,nt);
+        end
+    end
 
-if nargin < 3
-    val = sol.C1 * deval(sol, t) + sol.C2 * sol.u(t) + repmat(sol.c, 1,nt);
-else
-    val = sol.C1(ind,:) * deval(sol,t) + sol.C2(ind,:) * sol.u(t) + repmat(sol.c(ind,:), 1,nt);
-end
-end
+    function val = evaluateStates(sol, t, ind)
+        if nargin < 3
+            val = deval(sol, t);
+        else
+            val = deval(sol, t, ind);
+        end
+    end
 
-function val = evaluateStates(sol, t, ind)
-if nargin < 3
-    val = deval(sol, t);
-else
-    val = deval(sol, t, ind);
-end
-end
+    function val = evaluateOutputSensitivities(sol, t, ind)
+        nt = numel(t);
+        
+        val = zeros(ny*inT,nt);
+        for it = 1:nt
+            x = deval(sol, t(it), 1:nx);
+            u = sol.u(t(it));
+            dydx = sol.dydx(t,x,u);
+            if nargin >= 3;
+                dydx = dydx(ind,:);
+            end
+            
+            dxdT = reshape(deval(sol, t(it), nx+1:nx+nx*inT), nx,inT);
+            
+            val(:,it) = reshape(dydx*dxdT, nnz(ind)*inT,1);
+        end
+    end
 
-function val = evaluateOutputSensitivities(sol, t, ind)
-nx = size(sol.C1,2);
-ny = size(sol.C1,1);
-nT = (size(sol.y, 1) - nx) / nx;
-nt = numel(t);
-
-if nargin < 3
-    val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
-    val = reshape(val, nx,nT*nt); % x_Tt
-    val = sol.C1*val; % y_Tt
-    val = reshape(val, ny*nT,nt); % yT_t
-else
-    val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
-    val = reshape(val, nx,nT*nt); % x_Tt
-    val = sol.C1(ind,:)*val; % y_Tt
-    val = reshape(val, nnz(ind)*nT,nt); % yT_t
-end
-end
-
-function val = evaluateStateSensitivities(sol, t, ind)
-nx = size(sol.C1,2);
-nT = (size(sol.y, 1) - nx) / nx;
-nt = numel(t);
-
-if nargin < 3
-    val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
-else
-    val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
-    val = reshape(val, nx,nT*nt); % x_Tt
-    val = val(ind,:); % x_Tt chopped out rows
-    val = reshape(val, nnz(ind)*nT,nt); % xT_t
-end
+    function val = evaluateStateSensitivities(sol, t, ind)
+        nx = size(sol.C1,2);
+        nT = (size(sol.y, 1) - nx) / nx;
+        nt = numel(t);
+        
+        if nargin < 3
+            val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
+        else
+            val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
+            val = reshape(val, nx,nT*nt); % x_Tt
+            val = val(ind,:); % x_Tt chopped out rows
+            val = reshape(val, nnz(ind)*nT,nt); % xT_t
+        end
+    end
 end
