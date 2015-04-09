@@ -4,8 +4,7 @@ end
 
 function testInitialValueExperimentBlank(a)
 m = simple_model();
-con = InitialValueExperiment(m, 10);
-a.verifyEqual(con.tF, 10);
+con = InitialValueExperiment(m);
 a.verifyEqual(con.s, m.s);
 a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
@@ -16,7 +15,7 @@ end
 function testInitialValueExperimentSeed(a)
 m = simple_model();
 s = rand(m.ns,1);
-con = InitialValueExperiment(m, 10, s);
+con = InitialValueExperiment(m, s);
 a.verifyEqual(con.s, s);
 a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
@@ -25,7 +24,7 @@ end
 function testExperimentInputConstant(a)
 m = simple_model();
 u = rand(m.nu,1);
-con = InitialValueExperiment(m, 10, [], u);
+con = InitialValueExperiment(m, [], u);
 a.verifyEqual(con.s, m.s);
 a.verifyEqual(con.u(5), u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
@@ -35,7 +34,7 @@ function testExperimentDoseConstant(a)
 m = simple_model();
 d = rand(m.ns,1);
 dos = doseConstant(m, d, 1:10);
-con = InitialValueExperiment(m, 10, [], [], dos);
+con = InitialValueExperiment(m, [], [], dos);
 a.verifyEqual(con.s, m.s);
 a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), d)

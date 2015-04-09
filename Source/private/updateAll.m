@@ -48,7 +48,7 @@ m = m.Update(k);
 
 % Update experimental conditions
 if ~isnumeric(con)
-    conNew = Uzero(nCon);
+    conNew = experimentZero(nCon);
     for iCon = 1:nCon
         conNew(iCon) = con(iCon).Update(s(:,iCon), q{iCon}, h{iCon});
     end

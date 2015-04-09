@@ -1,4 +1,4 @@
-function [varargout] = FiniteSimulateSensitivitySelect(m, con, tGet, opts)
+function sim = FiniteSimulateSensitivity(m, con, obs, opts)
 %FiniteSimulateSensitivitySelect Approximate the sensitivities of every 
 %   species with respect to every parameter over all time returns the
 %   values at select time points
@@ -66,8 +66,8 @@ if nargin < 4
     opts = [];
 end
 
-assert(nargin >= 3, 'KroneckerBio:SimulateSensitivitySelect:TooFewInputs', 'SimulateSensitivitySelect requires at least 3 input arguments')
-assert(isscalar(m), 'KroneckerBio:SimulateSensitivitySelect:MoreThanOneModel', 'The model structure must be scalar')
+assert(nargin >= 2, 'KroneckerBio:SimulateSensitivity:TooFewInputs', 'SimulateSensitivity requires at least 2 input arguments')
+assert(isscalar(m), 'KroneckerBio:SimulateSensitivity:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
 defaultOpts.Verbose          = 1;
@@ -75,12 +75,11 @@ defaultOpts.Verbose          = 1;
 defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
+defaultOpts.Normalized       = true;
 defaultOpts.UseParams        = 1:m.nk;
 defaultOpts.UseSeeds         = [];
 defaultOpts.UseInputControls = [];
 defaultOpts.UseDoseControls  = [];
-
-defaultOpts.Normalized = true;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -89,25 +88,21 @@ opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
-ny = m.ny;
 nk = m.nk;
-nCon = numel(con);
-nt = numel(tGet);
+n_con = numel(con);
+n_obs = size(obs,1);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, nx, nCon);
+[opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, nx, n_con);
 
 % Ensure UseControls are cell vectors of logical vectors
-[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
-[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
 nT = nTk + nTx + nTq + nTh;
-
-% Store starting parameter sets
-T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 % Refresh conditions
 con = refreshCon(m, con);
@@ -116,77 +111,28 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 1, false(nCon,1), nx, nCon);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(n_con,1), nx, n_con, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+
+% Fix observations
+obs = fixObservation(con, obs);
 
 %% Run integration for each experiment
-sim = emptystruct(nCon, 'Type', 'Name', 't', 'y', 'x', 'dydT', 'dxdT');
+sim = emptystruct([n_obs,n_obs], 'Type', 'Name', 't', 'x', 'u', 'y', 'dxdT', 'dudT', 'dydT', 'ie', 'te', 'xe', 'ue', 'ye', 'dxedT', 'duedT', 'dyedT', 'int');
 
-for iCon = 1:nCon
+for i_con = 1:n_con
     % Modify opts structure
-    intOpts = opts;
-    intOpts.AbsTol = opts.AbsTol{iCon};
+    opts_i = opts;
+    opts_i.AbsTol = opts.AbsTol{i_con};
+    opts_i.UseSeeds = opts.UseSeeds(:,i_con);
+    opts_i.UseInputControls = opts.UseInputControls{i_con};
+    opts_i.UseDoseControls = opts.UseDoseControls{i_con};
     
-    UseSeeds_i = opts.UseSeeds(:,iCon);
-    intOpts.UseSeeds = UseSeeds_i;
-    inTs = nnz(UseSeeds_i);
-    
-    intOpts.UseInputControls = opts.UseInputControls{iCon};
-    inTq = nnz(intOpts.UseInputControls);
-    
-    intOpts.UseDoseControls = opts.UseDoseControls{iCon};
-    inTh = nnz(intOpts.UseDoseControls);
-    
-    inT = nTk + inTs + inTq + inTh;
-    
-    % Integrate system
-    if verbose; fprintf(['Integrating system for ' con(iCon).Name '...']); end
-    x_sol = integrateSysSelect(m, con(iCon), tGet, intOpts);
+    % Integrate [x; dx/dT] over time
+    if verbose; fprintf(['Integrating sensitivities for ' con(i_con).Name '...']); end
+    ints = integrateAllSens(m, con(i_con), obs(:,i_con), opts_i, true);
     if verbose; fprintf('done.\n'); end
     
-    dydT = zeros(ny*nT, nt);
-    dxdT = zeros(nx*nT, nt);
-    
-    for iT = 1:nT
-        % Set baseline parameters
-        Ti = T0(iT);
-        T_up = T0;
-        
-        % Change current parameter by finite amount
-        if opts.Normalized
-            diff = Ti * 1e-8;
-        else
-            diff = 1e-8;
-        end
-        
-        % Simulate difference
-        T_up(iT) = T_up(iT) + diff;
-        [m_up, con_up] = updateAll(m, con(iCon), T_up, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-        x_up = integrateSysSelect(m_up, con_up, tGet, intOpts);
-
-        % Difference
-        start_ind = (iT-1)*nx+1;
-        end_ind = (iT-1)*nx+nx;
-        dxdT(start_ind:end_ind,:) = (x_up.y - x_sol.y) ./ diff;
+    for i_obs = 1:n_obs
+        sim(i_obs,i_con) = pastestruct(sim(i_obs), obs(i_obs).Sensitivity(ints(i_obs)));
     end
-    
-    % Store results
-    sim(iCon).Type  = 'Simulation.Sensitivity.SelectPoints';
-    sim(iCon).Name  = [m.Name ' in ' con(iCon).Name];
-    sim(iCon).t     = x_sol.x;
-    sim(iCon).y     = m.y(x_sol.x, x_sol.y(1:nx,:), x_sol.u);%bsxfun(@plus, x_sol.C1*x_sol.y(1:nx,:) + x_sol.C2*x_sol.u, x_sol.c);
-    sim(iCon).x     = x_sol.y;
-    sim(iCon).dydT  = reshape(m.dydx(x_sol.x, x_sol.y(1:nx,:), x_sol.u)*reshape(dxdT, nx,inT*nt), ny*inT,nt);%reshape(x_sol.C1*reshape(dxdT, nx,inT*nt), ny*inT,nt);
-    sim(iCon).dxdT  = dxdT;
-    sim(iCon).sol   = x_sol;
-end
-
-%% Work-down
-if nargout == 0
-    % Draw each result
-    for iCon = 1:nCon
-        subplot(nCon,1,iCon)
-        plotSensitivityExperiment(m, sim(iCon), 'o-', 'Linewidth', 2);
-    end
-else
-    varargout{1} = sim;
 end

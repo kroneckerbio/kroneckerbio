@@ -151,7 +151,13 @@ obj.Name = 'UnamedObjective';
 % Objective function control parameters
 obj.Continuous = false; % Continuous g here is 0
 obj.Complex = false; % This objective function does not need it
-obj.DiscreteTimes = zeros(0,1); % Times at which discrete measurements are taken
+obj.tF = 0; % The latest time at which this objective needs to be run
+obj.DiscreteTimes = zeros(1,0); % Times at which discrete measurements are taken
+
+% Event handling
+obj.ne = 0;
+obj.Events = @empty_event;
+obj.IsFinished = @(sol)true;
 
 % Continuous objective function
 obj.g = @g;
@@ -199,6 +205,12 @@ obj.AddData = @AddData;
 % Copy the objective structure
 obj = repmat(obj, dims);
 
+end
+
+function [value, is_terminal, direction] = empty_event(t, y)
+value = zeros(0,1);
+is_terminal = false(0,1);
+direction = zeros(0,1);
 end
 
 function val = g(t,x,u)

@@ -56,52 +56,46 @@ function logp = ObjectiveLogLikelihood(m, con, obj, opts)
 
 %% Work-up
 % Clean up inputs
-assert(nargin >= 3, 'KroneckerBio:ObjectiveProbability:TooFewInputs', 'ObjectiveProbability requires at least 3 input arguments')
+assert(nargin >= 3, 'KroneckerBio:ObjectiveLogLikelihood:TooFewInputs', 'ObjectiveValue requires at least 3 input arguments')
 if nargin < 4
     opts = [];
 end
 
-assert(isscalar(m), 'KroneckerBio:ObjectiveProbability:MoreThanOneModel', 'The model structure must be scalar')
+assert(isscalar(m), 'KroneckerBio:ObjectiveLogLikelihood:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 defaultOpts.ObjWeights     = ones(size(obj));
 
-defaultOpts.Normalized     = true;
-defaultOpts.UseAdjoint     = false;
-
 opts = mergestruct(defaultOpts, opts);
-
-verbose = logical(opts.Verbose);
-opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-nCon = numel(con);
-nObj = size(obj,1);
+n_con = numel(con);
+n_obj = size(obj,1);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls, nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 % Refresh conditions and objectives
 con = refreshCon(m, con);
@@ -113,59 +107,31 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 1, opts.continuous, nx, nCon);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 1, opts.continuous, nx, n_con);
 
 %% Probability
 % Initialize variables
 logp = 0;
 
-for iCon = 1:nCon
+for i_con = 1:n_con
+    opts_i = opts;
+    opts_i.AbsTol = opts.AbsTol{i_con};
+    opts_i.UseSeeds = opts.UseSeeds(:,i_con);
+    opts_i.UseInputControls = opts.UseInputControls{i_con};
+    opts_i.UseDoseControls = opts.UseDoseControls{i_con};
+    opts_i.ObjWeights = opts.ObjWeights(:,i_con);
 
-    intOpts = opts;
-    
-    % If opts.UseModelSeeds is false, the number of variables can change
-    if opts.UseModelSeeds
-        UseSeeds_i = opts.UseSeeds;
-    else
-        UseSeeds_i = opts.UseSeeds(:,iCon);
-    end
-    intOpts.UseSeeds = UseSeeds_i;
-    inTs = nnz(UseSeeds_i);
-    
-    % If opts.UseModelInputs is false, the number of variables can change
-    if opts.UseModelInputs
-        UseControls_i = opts.UseControls{1};
-    else
-        UseControls_i = opts.UseControls{iCon};
-    end
-    intOpts.UseControls = UseControls_i;
-    inTq = nnz(UseControls_i);
-    
-    inT = nTk + inTs + inTq;
-
-    % Modify opts structure
-    intOpts.AbsTol = opts.AbsTol{iCon};
-    intOpts.ObjWeights = opts.ObjWeights(:,iCon);
-    tGet = opts.tGet{iCon};
-        
     % Integrate
-    if opts.continuous(iCon) && opts.complex(iCon)
-        sol = integrateObj(m, con(iCon), obj(:,iCon), intOpts);
-    elseif opts.complex(iCon)
-        sol = integrateSys(m, con(iCon), intOpts);
-    elseif opts.continuous(iCon)
-        sol = integrateObjSelect(m, con(iCon), obj(:,iCon), tGet, intOpts);
-    else
-        sol = integrateSysSelect(m, con(iCon), tGet, intOpts);
-    end
+    ints = integrateAllSys(m, con(i_con), obj(:,i_con), opts_i);
     
     % Add fields for prior objectives
-    sol.UseParams = opts.UseParams;
-    sol.UseSeeds = UseSeeds_i;
-    sol.UseControls = UseControls_i;
+    [ints.UseParams] = deal(opts.UseParams);
+    [ints.UseSeeds] = deal(opts_i.UseSeeds);
+    [ints.UseInputControls] = deal(opts_i.UseInputControls);
+    [ints.UseDoseControls] = deal(opts_i.UseDoseControls);
     
     % Probability
-    for iObj = 1:nObj
-        logp = logp + obj(iObj,iCon).logp(sol);
+    for i_obj = 1:n_obj
+        logp = logp + obj(i_obj,i_con).logp(ints(i_obj));
     end
 end

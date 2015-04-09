@@ -78,4 +78,10 @@ m.y = [S;P];
 
 m_kron = symbolic2PseudoKronecker(m);
 
+a.verifyEqual(m_kron.nv, 1)
+a.verifyEqual(m_kron.nk, 2)
+a.verifyEqual(m_kron.ns, 1)
+a.verifyEqual(m_kron.nu, 1)
+a.verifyEqual(m_kron.nx, 2)
+a.verifyEqual(m_kron.ny, 2)
 end

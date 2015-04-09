@@ -1,4 +1,4 @@
-function [F All] = ObjectiveInformation(m, con, obj, opts, dxdTSol)
+function [F, All] = ObjectiveInformation(m, con, obj, opts, dxdTSol)
 %ObjectiveInformation Compute the Fisher information matrix of a set of
 %   objective functions
 %
@@ -93,16 +93,15 @@ end
 assert(isscalar(m), 'KroneckerBio:ObjectiveInformation:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
-defaultOpts.Verbose        = 1;
+defaultOpts.Verbose          = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol           = [];
+defaultOpts.AbsTol           = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 defaultOpts.Normalized     = true;
 
@@ -115,19 +114,20 @@ opts.Verbose = max(opts.Verbose-1,0);
 nx = m.nx;
 nk = m.nk;
 ns = m.ns;
-nCon = numel(con);
-nObj = size(obj,1);
+n_con = numel(con);
+n_obj = size(obj,1);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
-% Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls, nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+% Ensure UseControls are cell vectors of logical vectors
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 % Refresh conditions and objectives
 con = refreshCon(m, con);
@@ -139,7 +139,7 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, nCon, false, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, n_con, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Loop through conditions
 F = zeros(nT,nT);
@@ -147,83 +147,54 @@ F = zeros(nT,nT);
 % Initialize All array if requested
 if nargout >= 2
     provide_all = true;
-    All = cell(nObj,nCon);
+    All = cell(n_obj,n_con);
 else
     provide_all = false;
 end
 
-parfor iCon = 1:nCon
+for i_con = 1:n_con
+    opts_i = opts;
+    opts_i.AbsTol = opts.AbsTol{i_con};
+    opts_i.UseSeeds = opts.UseSeeds(:,i_con);
+    opts_i.UseInputControls = opts.UseInputControls{i_con};
+    opts_i.UseDoseControls = opts.UseDoseControls{i_con};
 
-    intOpts = opts;
+    inTs = nnz(opts_i.UseSeeds);
+    inTq = nnz(opts_i.UseInputControls);
+    inTh = nnz(opts_i.UseDoseControls);
     
-    % If opts.UseModelSeeds is false, the number of variables can change
-    if opts.UseModelSeeds
-        UseSeeds_i = opts.UseSeeds;
-    else
-        UseSeeds_i = opts.UseSeeds(:,iCon);
-    end
-    intOpts.UseSeeds = UseSeeds_i;
-    inTs = nnz(UseSeeds_i);
-    
-    % If opts.UseModelInputs is false, the number of variables can change
-    if opts.UseModelInputs
-        UseControls_i = opts.UseControls{1};
-    else
-        UseControls_i = opts.UseControls{iCon};
-    end
-    intOpts.UseControls = UseControls_i;
-    inTq = nnz(UseControls_i);
-    
-    inT = nTk + inTs + inTq;
-    
-    % Modify opts structure
-    intOpts.AbsTol = opts.AbsTol{iCon};
-    tGet = opts.tGet{iCon};
+    inT = nTk + inTs + inTq + inTh;
     
     % Sensitivity integration if not provided
     if isempty(dxdTSol) || isempty(dxdTSol{iCon})
-        % Integrate
-        if opts.continuous(iCon) && opts.complex(iCon)
-            sol = integrateObjSens(m, con(iCon), obj(:,iCon), intOpts);
-        elseif opts.complex(iCon)
-            sol = integrateSens(m, con(iCon), intOpts);
-        elseif opts.continuous(iCon)
-            sol = integrateObjSensSelect(m, con(iCon), obj(:,iCon), tGet, intOpts);
-        else
-            sol = integrateSensSelect(m, con(iCon), tGet, intOpts);
-        end
+        ints = integrateAllSens(m, con(i_con), obj(:,i_con), opts_i);
     else
-        sol = dxdTSol{iCon};
+        ints = dxdTSol{iCon};
     end
-    
-    % Add fields for prior objectives
-    sol.UseParams = opts.UseParams;
-    sol.UseSeeds = UseSeeds_i;
-    sol.UseControls = UseControls_i;
     
     % Sum all FIMs as computed by each objective function
     Fi = zeros(inT,inT);
-    Allout = cell(nObj,1);
+    Allout = cell(n_obj,1);
     if opts.Normalized
         % Loop through each objective function in the current row
-        for iObj = 1:nObj
-            Fij = obj(iObj,iCon).Fn(sol);
+        for i_obj = 1:n_obj
+            Fij = obj(i_obj,i_con).Fn(ints(i_obj));
             Fi = Fi + Fij;
             
             % Store FIM if requested
             if provide_all
-                Allout{iObj} = Fij;
+                Allout{i_obj} = Fij;
             end
         end
     else%~opts.Normalized
         % Loop through each objective function in the current row
-        for iObj = 1:nObj
-            Fij = obj(iObj,iCon).F(sol);
+        for i_obj = 1:n_obj
+            Fij = obj(i_obj,experimentZero([nCon,nTop])).F(ints(i_obj));
             Fi = Fi + Fij;
             
             % Store FIM if requested
             if provide_all
-                Allout{iObj} = Fij;
+                Allout{i_obj} = Fij;
             end
         end
     end
@@ -238,22 +209,18 @@ parfor iCon = 1:nCon
     % Rate parameters are always the same
     linInd(1:nTk) = 1:nTk;
     
-    % Seed parameters might be different
-    if opts.UseModelSeeds
-        linInd(nTk+1:nTk+inTs) = nTk+1:nTk+nTs;
-    else
-        Tsind = nnz(opts.UseSeeds(:,1:iCon-1));
-        linInd(nTk+1:nTk+inTs) = nTk+Tsind+1:nTk+Tsind+inTs;
-    end
+    % s parameters are different
+    Tsind = nnz(opts_i.UseSeeds(:,1:i_con-1));
+    linInd(nTk+1:nTk+inTs) = nTk+Tsind+1:nTk+Tsind+inTs;
     
-    % Control parameters might be different
-    if opts.UseModelInputs
-        linInd(nTk1+inTs+1:nTk+inTs+inTq) = nTk+nTs+1:nTk+nTs+nTq;
-    else
-        Tqind = nnz(cat(1,opts.UseControls{1:iCon-1}));
-        linInd(nTk+inTs+1:nTk+inTs+inTq) = nTk+nTs+Tqind+1:nTk+nTs+Tqind+inTq;
-    end
+    % q parameters are different
+    Tqind = nnz(cat(1,opts.UseInputControls{1:i_con-1}));
+    linInd(nTk+inTs+1:nTk+inTs+inTq) = nTk+nTs+Tqind+1:nTk+nTs+Tqind+inTq;
     
+    % h parameters are different
+    Thind = nnz(cat(1,opts.UseDoseControls{1:i_con-1}));
+    linInd(nTk+inTs+inTq+1:nTk+inTs+inTq+inTh) = nTk+nTs+nTq+Thind+1:nTk+nTs+nTq+Thind+inTq;
+
     % Reshape Fi
     Fout = zeros(nT,nT);
     Fout(linInd,linInd) = Fi;

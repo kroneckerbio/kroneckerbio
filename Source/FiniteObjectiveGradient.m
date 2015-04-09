@@ -128,30 +128,25 @@ for iT = 1:nT
     if verbose; fprintf('Step %d of %d\n', iT, nT); end
     
     % Set baseline parameters
-    Ti = T0(iT);
-    Tup = T0;
-    Tdown = T0;
+    T_i = T0(iT);
+    T_up = T0;
     
     % Change current parameter by finite amount
     if opts.Normalized
-        diff = Ti * 1e-8;
+        diff = T_i * 1e-8;
     else
         diff = 1e-8;
     end
     
     % Compute objective values
-    Tup(iT) = Tup(iT) + diff;
-    [m, con] = updateAll(m, con, Tup, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-    Gup = computeObj(m, con, obj, opts);
-
-    Tdown(iT) = Tdown(iT) - diff;
-    [m, con] = updateAll(m, con, Tdown, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-    Gdown = computeObj(m, con, obj, opts);
+    T_up(iT) = T_up(iT) + diff;
+    [m, con] = updateAll(m, con, T_up, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+    G_up = computeObj(m, con, obj, opts);
 
     % Compute D
     if opts.Normalized
-        D(iT) = Ti * ( (Gup - G) / diff + (G - Gdown) / diff ) / 2;
+        D(iT) = T_i * (G_up - G) / diff;
     else
-        D(iT) = ( (Gup - G) / diff + (G - Gdown) / diff ) / 2;
+        D(iT) = (G_up - G) / diff ;
     end
 end

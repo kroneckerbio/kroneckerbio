@@ -75,7 +75,7 @@ function con = Uzero(m)
 
 % Special case of numeric inputs
 if isnumeric(m)
-    con = emptystruct(m, 'Type', 'Name', 'tF', 'nu', 'ns', 'nq', 'nh', 's', 'q', 'h', 'u', 'dudq', 'd2udq2', 'd', 'dddh', 'd2ddh2', 'inp', 'dos', 'SteadyState', 'Periodic', 'Discontinuities', 'Update');
+    con = emptystruct(m, 'Type', 'Name', 'nu', 'ns', 'nq', 'nh', 's', 'q', 'h', 'u', 'dudq', 'd2udq2', 'd', 'dddh', 'd2ddh2', 'inp', 'dos', 'SteadyState', 'Periodic', 'Discontinuities', 'Update', 'private');
     return
 end
 
