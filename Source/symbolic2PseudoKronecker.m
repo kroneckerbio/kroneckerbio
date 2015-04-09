@@ -116,8 +116,8 @@ if isfield(SymModel, 'v')
 else
     vSyms   = sym('co1x');
     vNames  = {'v'};
-    dv      = zeros(3,1);
-    v       = zeros(1,1);
+    dv      = 3;
+    v       = 1;
     nv      = 1;
     vuInd   = ones(nu,1);
     vxInd   = ones(nx,1);
