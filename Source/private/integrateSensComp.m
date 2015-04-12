@@ -91,9 +91,13 @@ int.dyedT = zeros(ny*nT,nte);
 for it = 1:nte
     duedq_i = dudq(int.te(it)); % u_q
     duedq_i = duedq_i(:,opts.UseInputControls); % u_Q
-    int.duedT(:,it) = vec([zeros(nu,nTk+nTs), reshape(duedq_i, nu,nTq), zeros(nu,nTh)]); % u_Q -> u_T -> uT_
+    duedT_i = [zeros(nu,nTk+nTs), reshape(duedq_i, nu,nTq), zeros(nu,nTh)]; % u_Q -> u_T
+    int.duedT(:,it) = vec(duedT_i); % u_T -> uT_
+
+    dyedx_i = dydx(int.te(it), int.xe(:,it), int.ue(:,it)); % y_x
+    dyedu_i = dydu(int.te(it), int.xe(:,it), int.ue(:,it)); % y_u
     dxedT_i = reshape(int.dxedT(:,it), nx,nT); % xT_ -> x_T
-    int.dyedT(:,it) = vec(dydx(int.te(it), int.xe(:,it), int.ue(:,it)) * dxedT_i); % y_x * x_T -> y_T -> yT_
+    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
 end
 
 int.sol = sol;

@@ -86,8 +86,8 @@ for it = 1:nt
     dudT_i = [zeros(nu,nTk+nTs), reshape(dudq_i, nu,nTq), zeros(nu,nTh)]; % u_Q -> u_T
     int.dudT(:,it) = vec(dudT_i); % u_T -> uT_
     
-    dydx_i = m.dydx(int.t(it), int.x(:,it), int.u(:,it));
-    dydu_i = m.dydu(int.t(it), int.x(:,it), int.u(:,it));
+    dydx_i = dydx(int.t(it), int.x(:,it), int.u(:,it)); % y_x
+    dydu_i = dydu(int.t(it), int.x(:,it), int.u(:,it)); % y_u
     dxdT_i = reshape(int.dxdT(:,it), nx,nT); % xT_ -> x_T
     int.dydT(:,it) = vec(dydx_i * dxdT_i + dydu_i * dudT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
 end
@@ -105,9 +105,13 @@ int.dyedT = zeros(ny*nT,nte);
 for it = 1:nte
     duedq_i = dudq(int.te(it)); % u_q
     duedq_i = duedq_i(:,opts.UseInputControls); % u_Q
-    int.duedT(:,it) = vec([zeros(nu,nTk+nTs), reshape(duedq_i, nu,nTq), zeros(nu,nTh)]); % u_Q -> u_T -> uT_
+    duedT_i = [zeros(nu,nTk+nTs), reshape(duedq_i, nu,nTq), zeros(nu,nTh)]; % u_Q -> u_T
+    int.duedT(:,it) = vec(duedT_i); % u_T -> uT_
+
+    dyedx_i = dydx(int.te(it), int.xe(:,it), int.ue(:,it)); % y_x
+    dyedu_i = dydu(int.te(it), int.xe(:,it), int.ue(:,it)); % y_u
     dxedT_i = reshape(int.dxedT(:,it), nx,nT); % xT_ -> x_T
-    int.dyedT(:,it) = vec(dydx(int.te(it), int.xe(:,it), int.ue(:,it)) * dxedT_i); % y_x * x_T -> y_T -> yT_
+    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
 end
 
 int.sol = sol;
