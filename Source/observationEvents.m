@@ -10,11 +10,12 @@ obs.Events = @event_stitcher;
 
 obs.Simulation = @simulation;
 obs.Sensitivity = @sensitivity;
+obs.Curvature = @curvature;
 
 obs = pastestruct(observationZero(), obs);
 
     function sim = simulation(int)
-        sim.Type = 'Simulation.Events';
+        sim.Type = 'Simulation.System.Events';
         sim.Name = int.Name;
         sim.ie   = int.ie;
         sim.te   = int.te;
@@ -26,9 +27,18 @@ obs = pastestruct(observationZero(), obs);
 
     function sim = sensitivity(int)
         sim = simulation(int);
+        sim.Type = 'Simulation.Sensitivity.Events';
         sim.dxedT = int.dxedT;
         sim.duedT = int.duedT;
         sim.dyedT = int.dyedT;
+    end
+
+    function sim = curvature(int)
+        sim = simulation(int);
+        sim.Type = 'Simulation.Curvature.Events';
+        sim.d2xedT2 = int.d2xedT2;
+        sim.d2uedT2 = int.d2uedT2;
+        sim.d2yedT2 = int.d2yedT2;
     end
 
     function [value, isterminal, direction] = event_stitcher(t,y)

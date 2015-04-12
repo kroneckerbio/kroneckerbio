@@ -8,6 +8,7 @@ obs.DiscreteTimes = row(tGet);
 
 obs.Simulation = @simulation;
 obs.Sensitivity = @sensitivity;
+obs.Curvature = @curvature;
 
 obs = pastestruct(observationZero(), obs);
 
@@ -26,5 +27,12 @@ obs = pastestruct(observationZero(), obs);
         sim.dxdT = int.dxdT;
         sim.dudT = int.dudT;
         sim.dydT = int.dydT;
+    end
+
+    function sim = curvature(int)
+        sim = sensitivity(int);
+        sim.d2xdT2 = int.d2xdT2;
+        sim.d2udT2 = int.d2udT2;
+        sim.d2ydT2 = int.d2ydT2;
     end
 end
