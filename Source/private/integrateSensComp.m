@@ -1,5 +1,4 @@
 function int = integrateSensComp(m, con, tF, eve, fin, opts)
-
 % Constants
 nx = m.nx;
 nu = m.nu;
@@ -10,10 +9,14 @@ nTq = sum(opts.UseInputControls);
 nTh = sum(opts.UseDoseControls);
 nT  = nTk + nTs + nTq + nTh;
 
+dxdTStart = nx+1;
+dxdTEnd   = nx+nx*nT;
+
 y = m.y;
 u = con.u;
 dudq = con.dudq;
 dydx = m.dydx;
+dydu = m.dydu;
 
 % Construct system
 [der, jac, del] = constructSystem();
@@ -60,14 +63,14 @@ int.s = con.s;
 int.q = con.q;
 int.h = con.h;
 
+int.dydx = m.dydx;
+int.dydu = m.dydu;
+
 int.nT = nT;
 int.UseParams = opts.UseParams;
 int.UseSeeds = opts.UseSeeds;
 int.UseInputControls = opts.UseInputControls;
 int.UseDoseControls = opts.UseDoseControls;
-
-int.dydx = m.dydx;
-int.dydu = m.dydu;
 
 int.t = sol.x;
 int.x = @(t)evaluate_state(sol, t);
@@ -85,13 +88,13 @@ int.xe = sol.ye(1:nx,:);
 int.ue = u(int.te);
 int.ye = y(int.te, int.xe, int.ue);
 
-int.dxedT = sol.ye(nx+1:end,:);
+int.dxedT = sol.ye(dxdTStart:dxdTEnd,:);
 int.duedT = zeros(nu*nT,nte);
 int.dyedT = zeros(ny*nT,nte);
 for it = 1:nte
     duedq_i = dudq(int.te(it)); % u_q
     duedq_i = duedq_i(:,opts.UseInputControls); % u_Q
-    duedT_i = [zeros(nu,nTk+nTs), reshape(duedq_i, nu,nTq), zeros(nu,nTh)]; % u_Q -> u_T
+    duedT_i = [sparse(nu,nTk+nTs), reshape(duedq_i, nu,nTq), sparse(nu,nTh)]; % u_Q -> u_T
     int.duedT(:,it) = vec(duedT_i); % u_T -> uT_
 
     dyedx_i = dydx(int.te(it), int.xe(:,it), int.ue(:,it)); % y_x
@@ -112,9 +115,6 @@ int.sol = sol;
         
         IT = speye(nT);
 
-        dxdTStart = nx+1;
-        dxdTEnd   = nx+nx*nT;
-        
         f       = m.f;
         dfdx    = m.dfdx;
         dfdu    = m.dfdu;
@@ -201,9 +201,8 @@ int.sol = sol;
     end
 
     function val = evaluate_state_sensitivity(sol, t)
-        % Deval croaks on empty t
         if ~isempty(t)
-            val = deval(sol, t, nx+1:nx+nx*nT);
+            val = deval(sol, t, dxdTStart:dxdTEnd);
         else
             val = zeros(nx*nT,0);
         end
@@ -216,7 +215,7 @@ int.sol = sol;
         for i = 1:nt
             dudq_i = dudq(t(i)); % u_q
             dudq_i = dudq_i(:,opts.UseInputControls); % u_Q
-            val(:,i) = vec([zeros(nu,nTk+nTs), reshape(dudq_i, nu,nTq), zeros(nu,nTh)]); % u_Q -> u_T -> uT_
+            val(:,i) = vec([sparse(nu,nTk+nTs), reshape(dudq_i, nu,nTq), sparse(nu,nTh)]); % u_Q -> u_T -> uT_
         end
     end
 
@@ -227,8 +226,9 @@ int.sol = sol;
         for i = 1:nt
             x_i = deval(sol, t(i), 1:nx); % x_
             u_i =  u(t(i)); % u_
-            dxdT_i = reshape(deval(sol, t(i), nx+1:nx+nx*nT), nx,nT); % xT_ -> x_T
-            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i); % y_x * x_T -> y_T -> yT_
+            dxdT_i = reshape(deval(sol, t(i), dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
+            dudT_i = reshape(evaluate_input_sensitivity(t(i)), nu,nT); % uT_ -> u_T
+            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
         end
     end
 end

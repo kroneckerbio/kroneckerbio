@@ -15,7 +15,7 @@ if any([obs.Complex])
     if ~use_finite
         ints = integrateSensComp(m, con, tF, eve, fin, opts);
     else
-        ints = integrateSensCompFinite(m, con, tF, eve, fin, t_get, opts);
+        ints = integrateSensCompFinite(m, con, tF, eve, fin, opts);
     end
     
     % Distribute times for each observation
