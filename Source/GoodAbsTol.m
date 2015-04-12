@@ -92,7 +92,7 @@ yRatio = yFloor ./ yStandard;
 % Transfer the floor back to the species
 % Out of all the outputs that a species affects, we should take the most
 % conservative floor.
-xRatio = bsxfun(@rdivide, yRatio, m.C1); % Propogation of floors
+xRatio = bsxfun(@rdivide, yRatio, m.dydx(0, ones(m.nx,1), ones(m.nu,1))); % Propogation of floors
 xRatio = min(xRatio, [], 1); % Keep most conservative
 xRatio = vec(xRatio); % Straighten it
 

@@ -23,7 +23,7 @@ obs.Name = name;
 obs.Complex = false;
 
 obs.tF = max(timelist);
-obs.DiscreteTimes = row(unique(timelist));
+obs.DiscreteTimes = discrete_times;
 
 obs.Simulation = @simulation;
 obs.Objective  = @objective;
@@ -59,13 +59,11 @@ function obj = objectiveLinearWeightedSumOfSquares(outputlist, timelist, measure
 n = numel(outputlist);
 discrete_times = row(unique(timelist));
 
-obj.Type = 'Objective.Data.WeightedSumOfSquares';
-obj.Name = name;
-obj.DiscreteTimes = discrete_times;
-obj.Continuous = false;
-obj.Complex = false;
+% Inherit observation
+obj = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, name);
 
-obj.tF = max(discrete_times);
+obj.Type = 'Objective.Data.WeightedSumOfSquares';
+obj.Continuous = false;
 
 obj.G = @G;
 obj.dGdx = @dGdx;
@@ -75,8 +73,6 @@ obj.p = @p;
 obj.logp = @logp;
 obj.F = @F;
 obj.Fn = @Fn;
-
-obj.AddData = @AddData;
 
 obj = pastestruct(objectiveZero(), obj);
 
@@ -152,8 +148,10 @@ obj = pastestruct(objectiveZero(), obj);
         
         if n_current > 0
             % Extract integration for this time point
+            xt = int.x(:,int.t == t);
+            ut = int.u(:,int.t == t);
             yt = int.y(:,int.t == t);
-            dydxt = reshape(int.dydx(:,int.t == t), ny,nx);
+            dydxt = reshape(int.dydx(t, xt, ut), ny,nx);
             
             % Extract the data points with time t
             timelist_t = timelist(ind_t);
@@ -270,5 +268,4 @@ obj = pastestruct(objectiveZero(), obj);
         val = dydT_normalized.' * (V \ dydT_normalized);
         val = symmat(val);
     end
-
 end
