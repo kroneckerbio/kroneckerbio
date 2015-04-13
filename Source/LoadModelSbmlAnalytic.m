@@ -62,6 +62,9 @@ if nargin < 5
     end
 end
 
+% Load sbml model directly to symbolic model
+symModelDirect = sbml2Symbolic(simbioModel);
+
 % Load sbml if file is provided
 if ischar(simbioModel)
     simbioModel = sbmlimport(simbioModel);
