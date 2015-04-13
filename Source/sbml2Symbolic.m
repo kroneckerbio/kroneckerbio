@@ -251,7 +251,7 @@ for i = 1:nr
     % Build stoichiometry matrix
     for j = 1:nReactants
         reactant = reaction.reactant(j).species;
-        stoich = reaction.reactant(j).stoichiometry;
+        stoich = -reaction.reactant(j).stoichiometry;
         ind = find(strcmp(xuNames, reactant));
         
         nSEntries = nSEntries + 1;
