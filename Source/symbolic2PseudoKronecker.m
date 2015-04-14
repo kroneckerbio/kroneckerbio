@@ -1320,12 +1320,6 @@ if verbose; fprintf('done.\n'); end
         fstr = eval(fstr);
     end
 
-    function out = getsymelements(s,indices)
-        filename = which('getsymelements.mu');
-        read(symengine, filename);
-        out = feval(symengine,'getsymelements',s(:),indices);
-    end
-
     function matout = initializeMatrixMupad(i,j,s,m,n)
         % More efficient method for initializing sparse symbolic matrices.
         % Utilizes a MuPAD function that generates a MuPAD table,
@@ -1339,14 +1333,6 @@ if verbose; fprintf('done.\n'); end
         filename = which('diff_vectorized.mu');
         read(symengine, filename);
         D = feval(symengine,'diff_vectorized',nums,dens);
-    end
-
-    function nzstring = generateNonZeroElementCCode(mat,num,dens)
-        nze = getNonZeroEntries(num,dens);
-        [i,j] = find(reshape(nze,size(mat)));
-        filename = which('generateNonZeroElementCCode.mu');
-        read(symengine, filename);
-        nzstring = char(feval(symengine,'generateNonZeroElementCCode',i,j,mat,xSyms,uSyms,kSyms));
     end
 
 end

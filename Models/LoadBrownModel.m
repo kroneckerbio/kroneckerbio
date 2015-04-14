@@ -11,7 +11,7 @@ nV = nTk + nTs;
 opts.RelTol = 1e-6;
 opts.AbsTol = 1e-9;
 opts.NewJacobianMethod = true;
-opts.UseMEX = true;
+opts.UseMEX = false;
 opts.MEXDirectory = 'mexfuns';
 
 % Generate data
