@@ -6,7 +6,7 @@ if opts.UseAdjoint
 end
 
 % Continue with forward method
-verboseAll = max(opts.Verbose-1,0);
+verbose_all = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
@@ -15,139 +15,111 @@ nTs = nnz(opts.UseSeeds);
 nTq = nnz(cat(1,opts.UseInputControls{:}));
 nTh = nnz(cat(1,opts.UseDoseControls{:}));
 nT  = nTk + nTs + nTq + nTh;
-nCon = numel(con);
-nObj = size(obj,1);
+n_con = numel(con);
+n_obj = size(obj,1);
 
 % Initialize variables
 G = 0;
 D = zeros(nT,1);
 
 if opts.Verbose; fprintf('Integrating sensitivities:\n'); end
-for iCon = 1:nCon
-    if verboseAll; tic; end
+for i_con = 1:n_con
+    if verbose_all; tic; end
     
     % Modify opts structure
-    intOpts = opts;
-    intOpts.AbsTol = opts.AbsTol{iCon};
-    intOpts.ObjWeights = opts.ObjWeights(:,iCon);
+    opts_i = opts;
+    opts_i.AbsTol = opts.AbsTol{i_con};
+    opts_i.ObjWeights = opts.ObjWeights(:,i_con);
     
-    UseSeeds_i = opts.UseSeeds(:,iCon);
-    intOpts.UseSeeds = UseSeeds_i;
+    UseSeeds_i = opts.UseSeeds(:,i_con);
+    opts_i.UseSeeds = UseSeeds_i;
     inTs = nnz(UseSeeds_i);
     
-    UseInputControls_i = opts.UseInputControls{iCon};
-    intOpts.UseInputControls = UseInputControls_i;
+    UseInputControls_i = opts.UseInputControls{i_con};
+    opts_i.UseInputControls = UseInputControls_i;
     inTq = nnz(UseInputControls_i);
     
-    UseDoseControls_i = opts.UseDoseControls{iCon};
-    intOpts.UseDoseControls = UseDoseControls_i;
+    UseDoseControls_i = opts.UseDoseControls{i_con};
+    opts_i.UseDoseControls = UseDoseControls_i;
     inTh = nnz(UseDoseControls_i);
     
     inT = nTk + inTs + inTq + inTh;
 
-    tGet = opts.tGet{iCon};
-    
     % Integrate
-    if opts.continuous(iCon) && opts.complex(iCon)
-        sol = integrateObjSens(m, con(iCon), obj(:,iCon), intOpts);
-    elseif opts.complex(iCon)
-        sol = integrateSens(m, con(iCon), intOpts);
-    elseif opts.continuous(iCon)
-        sol = integrateObjSensSelect(m, con(iCon), obj(:,iCon), tGet, intOpts);
-    else
-        sol = integrateSensSelect(m, con(iCon), tGet, intOpts);
-    end
-    
-    % Add fields for prior objectives
-    sol.UseParams = opts.UseParams;
-    sol.UseSeeds = UseSeeds_i;
-    sol.UseInputControls = UseInputControls_i;
-    sol.UseDoseControls = UseDoseControls_i;
+    ints = integrateAllSens(m, con(i_con), obj(:,i_con), opts_i);
     
     % *Compute G*
     % Extract continuous term
-    if opts.continuous(iCon)
-        contG = sol.y(nx+1,end);
+    if opts.continuous(i_con)
+        G_cont = ints(1).sol.y(nx+1,end);
     else
-        contG = 0;
+        G_cont = 0;
     end
     
     % Compute discrete term
-    discG = 0;
-    discreteTimes = zeros(0,1);
-    for iObj = 1:nObj
-        [iDiscG, temp] = obj(iObj,iCon).G(sol);
-        discreteTimes = [discreteTimes; vec(temp)];
-        discG = discG + opts.ObjWeights(iObj,iCon) * iDiscG;
+    G_disc = 0;
+    discrete_times_all = cell(n_obj,1);
+    for i_obj = 1:n_obj
+        [iDiscG, temp] = obj(i_obj,i_con).G(ints(i_obj));
+        discrete_times_all{i_obj} = row(unique(temp));
+        G_disc = G_disc + opts.ObjWeights(i_obj,i_con) * iDiscG;
     end
-
-    % Remove repetitive discreteTimes
-    discreteTimes = unique(discreteTimes);
-    nDisc = numel(discreteTimes);
-
+    
     % Add to cumulative goal value
-    G = G + contG + discG;
+    G = G + G_cont + G_disc;
     
     % *Compute D*
     % Extract continuous term
-    if opts.continuous(iCon)
+    if opts.continuous(i_con)
         dGdTStart = nx+1+nx*inT+1;
         dGdTEnd   = nx+1+nx*inT+inT;
-        contD = sol.y(dGdTStart:dGdTEnd,end);
+        D_cont = ints(1).sol.y(dGdTStart:dGdTEnd,end);
     else
-        contD = zeros(nT,1);
+        D_cont = zeros(nT,1);
     end
     
     % Compute discrete term
-    dxdTStart = nx+opts.continuous(iCon)+1;
-    dxdTEnd   = nx+opts.continuous(iCon)+nx*inT;
-    if ~isempty(discreteTimes) % deval crashes on empty t
-        dxdT = deval(sol, discreteTimes, dxdTStart:dxdTEnd); % xT_t
-    else
-        dxdT = zeros(nx*nT,0);
-    end
-    discD = zeros(inT,nObj*nDisc); % T_ot
-    for iObj = 1:nObj
-        for iDisc = 1:nDisc
-            objDiscD = vec(vec(obj(iObj,iCon).dGdx(discreteTimes(iDisc), sol)).' * reshape(dxdT(:,iDisc), nx, inT)); % _x * x_T --> _T --> T_
-            dGdk = obj(iObj,iCon).dGdk(discreteTimes(iDisc), sol); % k_ % partial dGdk(i)
-            dGds = obj(iObj,iCon).dGds(discreteTimes(iDisc), sol); % s_ % partial dGds(i)
-            dGdq = obj(iObj,iCon).dGdq(discreteTimes(iDisc), sol); % q_ % partial dGdq(i)
-            dGdh = obj(iObj,iCon).dGdh(discreteTimes(iDisc), sol); % h_ % partial dGdh(i)
-            objDiscD = objDiscD + [dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseInputControls_i); dGdh(UseDoseControls_i)]; % T_
-            discD(:,(iObj-1)*nDisc + iDisc) = opts.ObjWeights(iObj,iCon) * objDiscD; % T_ as a row in T_ot
+    D_disc = zeros(inT,1); % T_t
+    for i_obj = 1:n_obj
+        n_disc = numel(discrete_times_all{i_obj});
+        D_disc_i = zeros(nT,1);
+        for i_disc = 1:n_disc
+            ti = discrete_times_all{i_obj}(i_disc);
+            if obj(i_obj).Complex
+                dGdx_i = row(obj(i_obj,i_con).dGdx(ti, ints(i_obj)));
+                dxdT_i = reshape(ints(i_obj).dxdT(ti), nx,nT);
+            else
+                dGdx_i = row(obj(i_obj,i_con).dGdx(ti, ints(i_obj)));
+                dxdT_i = reshape(ints(i_obj).dxdT(:,i_disc), nx,nT);
+            end
+            D_disc_i = D_disc_i + vec(dGdx_i * dxdT_i);
         end
+        
+        D_disc = D_disc + opts.ObjWeights(i_obj,i_con) * D_disc_i;
     end
-    
-    % Sorting by abs value to minimize numerical error
-    [unused, I] = sort(abs(discD),2);
-    for iT = 1:inT
-        discD(iT,:) = discD(iT,I(iT,:));
-    end
-    discD = sum(discD,2);
     
     % Sum discrete and continuous terms
     Di = zeros(nT,1);
     
     % Rate parameters are the same
-    Di(1:nTk) = Di(1:nTk) + contD(1:nTk) + discD(1:nTk);
+    Di(1:nTk) = Di(1:nTk) + D_cont(1:nTk) + D_disc(1:nTk);
     
     % s parameters are different
-    Tsind = nTk + sum(sum(opts.UseSeeds(:,1:iCon-1)));
-    Di(Tsind+1:Tsind+inTs) = contD(nTk+1:nTk+inTs) + discD(nTk+1:nTk+inTs);
+    Tsind = nTk + sum(sum(opts.UseSeeds(:,1:i_con-1)));
+    Di(Tsind+1:Tsind+inTs) = D_cont(nTk+1:nTk+inTs) + D_disc(nTk+1:nTk+inTs);
     
     % q parameters are different
-    Tqind = nTk + nTs + sum(cellfun(@sum, opts.UseInputControls(1:iCon-1)));
-    Di(Tqind+1:Tqind+inTq) = contD(nTk+inTs+1:nTk+inTs+inTq) + discD(nTk+inTs+1:nTk+inTs+inTq);
+    Tqind = nTk + nTs + sum(cellfun(@sum, opts.UseInputControls(1:i_con-1)));
+    Di(Tqind+1:Tqind+inTq) = D_cont(nTk+inTs+1:nTk+inTs+inTq) + D_disc(nTk+inTs+1:nTk+inTs+inTq);
     
     % h parameters are different
-    Thind = nTk + nTs + nTq + sum(cellfun(@sum, opts.UseDoseControls(1:iCon-1)));
-    Di(Thind+1:Thind+inTh) = contD(nTk+inTs+inTq+1:end) + discD(nTk+inTs+inTq+1:end);
+    Thind = nTk + nTs + nTq + sum(cellfun(@sum, opts.UseDoseControls(1:i_con-1)));
+    Di(Thind+1:Thind+inTh) = D_cont(nTk+inTs+inTq+1:end) + D_disc(nTk+inTs+inTq+1:end);
     
     % Update sum
     D = D + Di;
     
-    if verboseAll; fprintf('iCon = %d\t|dGdT| = %g\tTime = %0.2f\n', iCon, norm(contD + discD), toc); end
+    if verbose_all; fprintf('iCon = %d\t|dGdT| = %g\tTime = %0.2f\n', i_con, norm(D_cont + D_disc), toc); end
 end
 
 if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end

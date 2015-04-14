@@ -94,8 +94,6 @@ function m = InitializeModel(name)
 %           The number of kinetic parameters
 %       .ns [ whole scalar ]
 %           The number of seed parameters
-%       .nq [ whole scalar ]
-%           The number of input control parameters
 %       .nu [ whole scalar ]
 %           The number of input species
 %       .nx [ whole scalar ]
@@ -334,7 +332,6 @@ m.Outputs      = emptyOutputs(0);
 m.nv = 0;
 m.nk = 0;
 m.ns = 0;
-m.nq = 0;
 m.nu = 0;
 m.nx = 0;
 m.nr = 0;
@@ -446,6 +443,14 @@ m.d2vdx2  = @(t,x,u)(zeros(0,0));
 m.d2vdu2  = @(t,x,u)(zeros(0,0));
 m.d2vdudx = @(t,x,u)(zeros(0,0));
 m.d2vdxdu = @(t,x,u)(zeros(0,0));
+
+m.y       = @(t,x,u)(zeros(0,1));
+m.dydx    = @(t,x,u)(zeros(0,0));
+m.dydu    = @(t,x,u)(zeros(0,0));
+m.d2ydx2  = @(t,x,u)(zeros(0,0));
+m.d2ydu2  = @(t,x,u)(zeros(0,0));
+m.d2ydudx = @(t,x,u)(zeros(0,0));
+m.d2ydxdu = @(t,x,u)(zeros(0,0));
 
 m.Ready  = true;
 m.add    = struct;

@@ -1,46 +1,59 @@
-function con = SteadyStateExperiment(m, tF, s, inp, dos, name)
-%SteadyStateExperiment constructs a KroneckerBio experimental conditions structure
-%   describing a steady state problem
+function con = SteadyStateExperiment(m, s, inp, dos, time_scale, name)
+%SteadyStateExperiment Construct a KroneckerBio experimental conditions
+%   structure describing a initial value problem first run to steady state
 %
 %   con = SteadyStateExperiment(m, tF, s, inp, dos, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]
 %       The KroneckerBio model for which these experiments will be run
-%   tF: [ nonnegative scalar ]
-%       The time at which this experiment ends
-%   s: [ nonnegative vector ns {m.s} ]
+%   s: [ nonnegative vector ns ]
+%       Default = m.s
 %       The values of the seed parameters
 %   inp: [ input struct scalar | handle @(t) returns nonegative vector nu |
-%          nonnegative vector nu {m.u} ]
+%          nonnegative vector nu ]
+%       Default = m.u
 %       The definition of the input species values
-%   dos: [ dose struct scalar {doseZero(m)} ]
+%   dos: [ dose struct scalar ]
+%       Default = doseZero(m)
 %       The definition of the dose amounts and schedule
-%   name: [ string {''} ]
+%   time_scale: [ nonnegative scalar ]
+%       Default = 10
+%       The typical time scale for an observation. The steady state is
+%       determined to be reached when the states are expected to change
+%       less than the tolerance over this time scale.
+%   name: [ string ]
+%       Default = ''
 %       An arbitrary name for the experiment
 %
 %   Outputs
 %   con: [ experiment struct scalar ]
 %       The KroneckerBio experimental conditions structure
 %
-%   For the meanings of the fields of con see "help Uzero"
-
-% (c) 2015 David R Hagen, David Flowers, & Bruce Tidor
+%   For the meanings of the fields of con see "help experimentZero"
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
+% Clean-up inputs
 if nargin < 6
     name = [];
     if nargin < 5
-        dos = [];
+        time_scale = [];
         if nargin < 4
-            inp = [];
+            dos = [];
             if nargin < 3
-                s = [];                
+                inp = [];
+                if nargin < 2
+                    s = [];
+                end
             end
         end
     end
 end
 
+if isempty(time_scale)
+    time_scale = 10;
+end
 if isempty(s)
     s = m.s;
 end
@@ -58,9 +71,6 @@ end
 assert(isscalar(m) && is(m, 'Model'), 'KroneckerBio:Experiment:m', 'm must be a Model')
 m = keepfields(m, {'Type', 's', 'u', 'ns', 'nu'});
 nu = m.nu;
-
-% tF
-assert(isscalar(tF) && isreal(tF) && tF >= 0, 'KroneckerBio:Experiment:tF', 'tF must be a scalar real number greater than or equal to zero')
 
 % s
 assert(numel(s) == m.ns, 'KroneckerBio:Experiment:s', 's must a vector with length equal to m.ns')
@@ -83,7 +93,6 @@ assert(ischar(name), 'KroneckerBio:Experiment:name', 'name must be a string')
 % Build experiment
 con.Type = 'Experiment:SteadyState';
 con.Name = name;
-con.tF = tF;
 con.nu = m.nu;
 con.ns = m.ns;
 con.nq = numel(inp.q);
@@ -95,13 +104,16 @@ con.h  = dos.h;
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
+con.inp = inp;
+con.dos = dos;
 con.SteadyState = true;
 con.Periodic = false;
 con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
+con.private.TimeScale = time_scale;
 
     function con_out = update(s, q, h)
-        con_out = SteadyStateExperiment(m, tF, s, inp.Update(q), dos.Update(h), name);
+        con_out = SteadyStateExperiment(m, s, inp.Update(q), dos.Update(h), time_scale, name);
     end
 
 end

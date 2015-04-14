@@ -51,7 +51,7 @@ function G = ObjectiveValue(m, con, obj, opts)
 %       G: [ real scalar ]
 %           The sum of all objective function values
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
@@ -70,9 +70,9 @@ defaultOpts.RelTol         = [];
 defaultOpts.AbsTol         = [];
 
 defaultOpts.UseParams        = 1:m.nk;
-defaultOpts.UseSeeds         = nan;
-defaultOpts.UseInputControls = nan;
-defaultOpts.UseDoseControls  = nan;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 defaultOpts.ObjWeights     = ones(size(obj));
 
@@ -82,17 +82,17 @@ opts = mergestruct(defaultOpts, opts);
 nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-nCon = numel(con);
+n_con = numel(con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
-[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
 nT = nTk + nTs + nTq + nTh;
 
@@ -106,7 +106,7 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 1, opts.continuous, nx, nCon);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 1, opts.continuous, nx, n_con);
 
 %% Run appropriate objective evaluation
 G = computeObj(m, con, obj, opts);

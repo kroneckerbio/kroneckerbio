@@ -1,4 +1,4 @@
-function [varargout] = SimulateSensitivity(m, con, opts)
+function sim = SimulateSensitivity(m, con, obs, opts)
 %SimulateSensitivity Integrate the sensitivities of every species with
 %   respect to every parameter over all time
 %
@@ -72,11 +72,11 @@ function [varargout] = SimulateSensitivity(m, con, opts)
 
 %% Work-up
 % Clean up inputs
-if nargin < 3
+if nargin < 4
     opts = [];
 end
 
-assert(nargin >= 2, 'KroneckerBio:SimulateSensitivity:TooFewInputs', 'SimulateSensitivity requires at least 2 input arguments')
+assert(nargin >= 3, 'KroneckerBio:SimulateSensitivity:TooFewInputs', 'SimulateSensitivity requires at least 2 input arguments')
 assert(isscalar(m), 'KroneckerBio:SimulateSensitivity:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
@@ -97,19 +97,19 @@ opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
-ny = m.ny;
 nk = m.nk;
-nCon = numel(con);
+n_con = numel(con);
+n_obs = size(obs,1);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, nx, nCon);
+[opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, nx, n_con);
 
 % Ensure UseControls are cell vectors of logical vectors
-[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
-[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
 nT = nTk + nTx + nTq + nTh;
 
@@ -120,109 +120,28 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(nCon,1), nx, nCon, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(n_con,1), nx, n_con, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+
+% Fix observations
+obs = fixObservation(con, obs);
 
 %% Run integration for each experiment
-sim = emptystruct(nCon, 'Type', 'Name', 't', 'y', 'x', 'dydT', 'dxdT', 'sol');
+sim = emptystruct([n_obs,n_obs], 'Type', 'Name', 't', 'x', 'u', 'y', 'dxdT', 'dudT', 'dydT', 'ie', 'te', 'xe', 'ue', 'ye', 'dxedT', 'duedT', 'dyedT', 'int');
 
-for iCon = 1:nCon
+for i_con = 1:n_con
     % Modify opts structure
-    intOpts = opts;
-    intOpts.AbsTol = opts.AbsTol{iCon};
-    
-    UseSeeds_i = opts.UseSeeds(:,iCon);
-    intOpts.UseSeeds = UseSeeds_i;
-    inTs = nnz(UseSeeds_i);
-    
-    intOpts.UseInputControls = opts.UseInputControls{iCon};
-    inTq = nnz(intOpts.UseInputControls);
-    
-    intOpts.UseDoseControls = opts.UseDoseControls{iCon};
-    inTh = nnz(intOpts.UseDoseControls);
-    
-    inT = nTk + inTs + inTq + inTh;
+    opts_i = opts;
+    opts_i.AbsTol = opts.AbsTol{i_con};
+    opts_i.UseSeeds = opts.UseSeeds(:,i_con);
+    opts_i.UseInputControls = opts.UseInputControls{i_con};
+    opts_i.UseDoseControls = opts.UseDoseControls{i_con};
     
     % Integrate [x; dx/dT] over time
-    if verbose; fprintf(['Integrating sensitivities for ' con(iCon).Name '...']); end
-    sol = integrateSens(m, con(iCon), intOpts);
+    if verbose; fprintf(['Integrating sensitivities for ' con(i_con).Name '...']); end
+    ints = integrateAllSens(m, con(i_con), obs(:,i_con), opts_i);
     if verbose; fprintf('done.\n'); end
     
-    % Store results
-    sim(iCon).Type  = 'Simulation.Sensitivity';
-    sim(iCon).Name  = [m.Name ' in ' con(iCon).Name];
-    sim(iCon).t     = sol.x;
-    sim(iCon).y     = @(t, varargin)evaluateOutputs(sol, t, varargin{:});
-    sim(iCon).x     = @(t, varargin)evaluateStates(sol, t, varargin{:});
-    sim(iCon).dydT  = @(t, varargin)evaluateOutputSensitivities(sol, t, varargin{:});
-    sim(iCon).dxdT  = @(t, varargin)evaluateStateSensitivities(sol, t, varargin{:});
-    sim(iCon).sol   = sol;
-end
-
-%% Work-down
-if nargout == 0
-    % Draw each result
-    for iCon = 1:nCon
-        subplot(nCon,1,iCon)
-        plotSensitivityExperiment(m, sim(iCon), 'Linewidth', 2);
-    end
-else
-    varargout{1} = sim;
-end
-
-% End of function
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% Evaluation functions %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function val = evaluateOutputs(sol, t, ind)
-        nt = numel(t);
-        
-        if nargin < 3
-            val = sol.C1 * deval(sol, t) + sol.C2 * sol.u(t) + repmat(sol.c, 1,nt);
-        else
-            val = sol.C1(ind,:) * deval(sol,t) + sol.C2(ind,:) * sol.u(t) + repmat(sol.c(ind,:), 1,nt);
-        end
-    end
-
-    function val = evaluateStates(sol, t, ind)
-        if nargin < 3
-            val = deval(sol, t);
-        else
-            val = deval(sol, t, ind);
-        end
-    end
-
-    function val = evaluateOutputSensitivities(sol, t, ind)
-        nt = numel(t);
-        
-        val = zeros(ny*inT,nt);
-        for it = 1:nt
-            x = deval(sol, t(it), 1:nx);
-            u = sol.u(t(it));
-            dydx = sol.dydx(t,x,u);
-            if nargin >= 3;
-                dydx = dydx(ind,:);
-            end
-            
-            dxdT = reshape(deval(sol, t(it), nx+1:nx+nx*inT), nx,inT);
-            
-            val(:,it) = reshape(dydx*dxdT, nnz(ind)*inT,1);
-        end
-    end
-
-    function val = evaluateStateSensitivities(sol, t, ind)
-        nx = size(sol.C1,2);
-        nT = (size(sol.y, 1) - nx) / nx;
-        nt = numel(t);
-        
-        if nargin < 3
-            val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
-        else
-            val = deval(sol, t, nx+1:nx+nx*nT); % xT_t
-            val = reshape(val, nx,nT*nt); % x_Tt
-            val = val(ind,:); % x_Tt chopped out rows
-            val = reshape(val, nnz(ind)*nT,nt); % xT_t
-        end
+    for i_obs = 1:n_obs
+        sim(i_obs,i_con) = pastestruct(sim(i_obs), obs(i_obs).Sensitivity(ints(i_obs)));
     end
 end

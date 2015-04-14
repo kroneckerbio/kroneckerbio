@@ -11,7 +11,7 @@ function newCon = refreshCon(m, con)
 
 nTop = numel(m);
 nCon = size(con,1);
-newCon = Uzero([nCon,nTop]);
+newCon = experimentZero([nCon,nTop]);
 for iTop = 1:nTop
     for iCon = 1:nCon
         newCon(iCon,iTop) = con(iCon,iTop).Update(con(iCon,iTop).s, con(iCon,iTop).q, con(iCon,iTop).h);

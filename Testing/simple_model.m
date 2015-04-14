@@ -34,7 +34,7 @@ dose = doseConstant(m, 3:5, 1:6);
 
 % Experiment
 tF = 6;
-con = InitialValueExperiment(m, tF, [], input, dose, 'SimpleExperiment');
+con = InitialValueExperiment(m, [], input, dose, 'SimpleExperiment');
 
 % Objective
 sd = sdLinear(0.1, 1);
@@ -48,9 +48,12 @@ values = [ % Picked a few values near a simulation
     2, 2, 16;
     3, 4, 8;
     ];
+
 switch objectiveFun
     case 'objectiveWeightedSumOfSquares'
-        obj = objectiveWeightedSumOfSquares(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
+%       obj = objectiveWeightedSumOfSquares(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
+        obs = observationLinearWeightedSumOfSquares(values(:,1), values(:,2), sd, 'SimpleData');
+        obj = obs.Objective(values(:,3));
     case 'objectiveWeightedSumOfSquaresNonNeg'
         obj = objectiveWeightedSumOfSquaresNonNeg(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
     otherwise

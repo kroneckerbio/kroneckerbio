@@ -3,71 +3,63 @@ function G = computeObj(m, con, obj, opts)
 % This function computes the total objective function value for a vector of
 % con and a matrix of obj.
 verbose = logical(opts.Verbose);
-verboseAll = max(verbose-1,0);
+verbose_all = max(verbose-1,0);
 
 % Constants
 nx = m.nx;
-nCon = numel(con);
-nObj = size(obj,1);
+n_con = numel(con);
+n_obj = size(obj,1);
 
 % Initialize variables
 G = 0;
 
 if verbose; disp('Integrating forward...'); end
-for iCon = 1:nCon
-    if verboseAll; tic; end
+for i_con = 1:n_con
+    if verbose_all; tic; end
     
     % Modify opts structure
-    intOpts = opts;
+    opts_i = opts;
     
-    UseSeeds_i = opts.UseSeeds(:,iCon);
-    intOpts.UseSeeds = UseSeeds_i;
+    UseSeeds_i = opts.UseSeeds(:,i_con);
+    opts_i.UseSeeds = UseSeeds_i;
     
-    UseInputControls_i = opts.UseInputControls{iCon};
-    intOpts.UseInputControls = UseInputControls_i;
+    UseInputControls_i = opts.UseInputControls{i_con};
+    opts_i.UseInputControls = UseInputControls_i;
     
-    UseDoseControls_i = opts.UseDoseControls{iCon};
-    intOpts.UseDoseControls = UseDoseControls_i;
+    UseDoseControls_i = opts.UseDoseControls{i_con};
+    opts_i.UseDoseControls = UseDoseControls_i;
     
-    intOpts.AbsTol = opts.AbsTol{iCon};
-    intOpts.ObjWeights = opts.ObjWeights(:,iCon);
-    tGet = opts.tGet{iCon};
+    opts_i.AbsTol = opts.AbsTol{i_con};
+    opts_i.ObjWeights = opts.ObjWeights(:,i_con);
     
     % Integrate
-    if opts.continuous(iCon) && opts.complex(iCon)
-        sol = integrateObj(m, con(iCon), obj(:,iCon), intOpts);
-    elseif opts.complex(iCon)
-        sol = integrateSys(m, con(iCon), intOpts);
-    elseif opts.continuous(iCon)
-        sol = integrateObjSelect(m, con(iCon), obj(:,iCon), tGet, intOpts);
-    else
-        sol = integrateSysSelect(m, con(iCon), tGet, intOpts);
-    end
+    ints = integrateAllSys(m, con(i_con), obj(:,i_con), opts_i);
     
     % Add fields for prior objectives
-    sol.UseParams = opts.UseParams;
-    sol.UseSeeds = UseSeeds_i;
-    sol.UseInputControls = UseInputControls_i;
-    sol.UseDoseControls = UseDoseControls_i;
+    [ints.UseParams] = deal(opts.UseParams);
+    [ints.UseSeeds] = deal(UseSeeds_i);
+    [ints.UseInputControls] = deal(UseInputControls_i);
+    [ints.UseDoseControls] = deal(UseDoseControls_i);
     
     % Extract continuous term
-    if opts.continuous(iCon)
-        contG = sol.y(nx+1,end);
+    if opts.continuous(i_con)
+        error('Continuous objective functions have not been updated')
+        G_cont = ints.y(nx+1,end);
     else
-        contG = 0;
+        G_cont = 0;
     end
     
     % Compute discrete term
-    discG = 0;
-    for iObj = 1:nObj
-        iDiscG = obj(iObj,iCon).G(sol);
-        discG = discG + opts.ObjWeights(iObj,iCon) * iDiscG;
+    G_disc = 0;
+    for i_obj = 1:n_obj
+        G_disc_i = obj(i_obj,i_con).G(ints(i_obj));
+        G_disc = G_disc + opts.ObjWeights(i_obj,i_con) * G_disc_i;
     end
     
     % Add to cumulative goal value
-    G = G + contG + discG;
+    G = G + G_cont + G_disc;
     
-    if verboseAll; fprintf('iCon = %d\tG = %g\tTime = %0.2f\n', iCon, contG + discG, toc); end
+    if verbose_all; fprintf('iCon = %d\tG = %g\tTime = %0.2f\n', i_con, G_cont + G_disc, toc); end
 end
 
 if verbose; fprintf('Summary: G = %g\n', G); end

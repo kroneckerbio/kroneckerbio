@@ -46,7 +46,7 @@ ic = sol.ye;
             u = uf(-1);
 
             % Absolute change
-            absDiff = con.tF * f(-1,x,u); % Change over an entire simulation
+            absDiff = con.private.TimeScale * f(-1,x,u); % Change over an entire simulation
             
             % Relative change
             relDiff = absDiff ./ x;

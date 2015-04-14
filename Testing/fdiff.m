@@ -15,5 +15,5 @@ for i = 1:nx
     dfdx_finite(:,i) = (vec(f(x)) - f0) ./ diff;
 end
 
-dfdx_finite = sparse(dfdx_finite);
+dfdx_finite = dfdx_finite;
 ratio = dfdx_finite ./ dfdx_analytic;

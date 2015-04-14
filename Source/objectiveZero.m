@@ -1,7 +1,7 @@
-function obj = Gzero(dims)
-%Gzero Default structure for Kronecker Bio objective functions
+function obj = objectiveZero(dims)
+%objectiveZero Default structure for Kronecker Bio objective functions
 % 
-%   obj = Gzero(size)
+%   obj = objectiveZero(size)
 %
 %   This function is a blank objective function. It is used to fill in the
 %   fields with appropriately zero defaults when they are not provided.
@@ -131,7 +131,7 @@ function obj = Gzero(dims)
 %       .AddData [ handle @(sol) returns objective struct scalar ]
 %           Use the simulation to sample data and add it to the objective
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 if nargin < 1
@@ -144,14 +144,15 @@ if isscalar(dims)
     dims = [dims, 1];
 end
 
+% Inherit observation
+obj = observationZero();
+
 % Objective structure
 obj.Type = 'Objective.Data';
 obj.Name = 'UnamedObjective';
 
 % Objective function control parameters
 obj.Continuous = false; % Continuous g here is 0
-obj.Complex = false; % This objective function does not need it
-obj.DiscreteTimes = zeros(0,1); % Times at which discrete measurements are taken
 
 % Continuous objective function
 obj.g = @g;
@@ -192,9 +193,6 @@ obj.p = @p;
 obj.logp = @logp;
 obj.F = @F;
 obj.Fn = @Fn;
-
-% Data manipulation
-obj.AddData = @AddData;
 
 % Copy the objective structure
 obj = repmat(obj, dims);
@@ -380,9 +378,4 @@ nTq = sum(sol.UseInputControls);
 nTh = sum(sol.UseDoseControls);
 nT  = nTk + nTs + nTq + nTh;
 val = zeros(nT,nT);
-end
-
-% For Objective.Data
-function obj = AddData(sol)
-obj = Gzero();
 end

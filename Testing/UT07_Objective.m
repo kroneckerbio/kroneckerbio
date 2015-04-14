@@ -11,34 +11,44 @@ end
 function testObjectiveWeightedSumOfSquares(a)
 [m, con, obj, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
-sim = SimulateSelect(m, con, 1:6, opts);
+obs = observationSelect(1:6);
+sim = SimulateSystem(m, con, obs, opts);
 
-verifyDerivatives(a, obj, sim.sol, 1)
-
+int = sim.int;
+t = 1;
+verifyDerivatives(a, m, obj, int, t)
 end
 
 function testObjectiveWeightedSumOfSquaresNonNeg(a)
 [m, con, obj, opts] = simple_model('objectiveWeightedSumOfSquaresNonNeg');
 
-sim = SimulateSelect(m, con, 1:6, opts);
+obs = observationSelect(1:6);
+sim = SimulateSystem(m, con, obs, opts);
 
-verifyDerivatives(a, obj, sim.sol, 1)
-
+int = sim.int;
+t = 1;
+verifyDerivatives(a, m, obj, int, t)
 end
 
-function verifyDerivatives(a, obj, sol, t)
-x0 = sol.y(:,sol.x == t);
-rat=1; fin=1; ana=1;
-verifyClose(a, x0, @(x)G_wrapper(sol, x), @(x)dGdx_wrapper(sol, x))
+function verifyDerivatives(a, m, obj, int, t)
+x0 = int.y(:,int.t == t);
 
-    function val = G_wrapper(sol_i, x)
-        sol_i.y(:,sol_i.x == t) = x;
-        val = obj.G(sol_i);
+f = @(x)G_wrapper(int, x);
+dfdx = @(x)dGdx_wrapper(int, x);
+verifyClose(a, x0, f, dfdx)
+
+    function val = G_wrapper(int_i, x)
+        u = int_i.u(:,int_i.t == t);
+        int_i.x(:,int_i.t == t) = x;
+        int_i.y(:,int_i.t == t) = m.y(t, x, u);
+        val = obj.G(int_i);
     end
 
-    function val = dGdx_wrapper(sol_i, x)
-        sol_i.y(:,sol_i.x == t) = x;
-        val = obj.dGdx(t, sol_i);
+    function val = dGdx_wrapper(int_i, x)
+        u = int_i.u(:,int_i.t == t);
+        int_i.x(:,int_i.t == t) = x;
+        int_i.y(:,int_i.t == t) = m.y(t, x, u);
+        val = obj.dGdx(t, int_i);
     end
 end
 

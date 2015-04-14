@@ -75,13 +75,13 @@ tF = 120;
 
 % Set up the input functions
 u0 = m.u(0); % Input values at t=0. The input is a constant value for all time.
-nq = m.nq; % Number of input parameters
+nq = 0; % Number of input parameters
 nu = m.nu; % Number of inputs
 ufun = @(t,q) repmat(u0,1,numel(t)); % Sets up a function that returns a matrix consisting of u0 repeated numel(t) times
-dudqfun = @(t,q) zeros(m.nu,m.nq); % The derivatives of u wrt q are zero, since the values are constant. dudq is then a nu-by-nq matrix of zeros
-d2udq2fun = @(t,q) zeros(m.nu*m.nq,nq); % The second derivative of u wrt q is also zero.
+dudqfun = @(t,q) zeros(nu, nq); % The derivatives of u wrt q are zero, since the values are constant. dudq is then a nu-by-nq matrix of zeros
+d2udq2fun = @(t,q) zeros(nu*nq,nq); % The second derivative of u wrt q is also zero.
 discontinuities = [];
-q = zeros(m.nq,1);
+q = zeros(nq,1);
 inp = Input(m,ufun,discontinuities,q,dudqfun,d2udq2fun); % Creates a struct containing the input functions
 
 % Change the initial concentrations of EGF and NGF
@@ -91,12 +91,12 @@ s(2) = 4560; % NGF
 
 % Create the experiment
 d = []; % Dosing
-con = InitialValueExperiment(m, tF, s, inp, d, 'nominal');
+con = InitialValueExperiment(m, s, inp, d, 'nominal');
 
 %% Simulate nominal experiment and plot states
 
 % Simulate the model under the experiment
-sim = Simulate(m,con);
+sim = SimulateSystem(m,con,tF);
 
 %%%%% Plot all the states %%%%%%
 t = 0:0.1:tF; % Choose which times to plot
