@@ -38,10 +38,10 @@ function compileMEXFunctions(mexdir,useparallel,glibcpath)
         switch glibcpath
             case 'default'
                 disp('Linking to most recent version of glibc available')
-                compilecommand = @(dfun)(['mex -largeArrayDims CFLAGS="\$CFLAGS -std=c99" -outdir ' mexdir ' ' dfun]);
+                compilecommand = @(dfun)(['mex -largeArrayDims CFLAGS="\$CFLAGS -std=c99" -outdir "' mexdir '" "' dfun '"']);
             otherwise
                 disp('Linking to user-provided glibc')
-                compilecommand = @(dfun)(['mex -L' glibcpath ' -lc -largeArrayDims CFLAGS="\$CFLAGS -std=c99" -outdir ' mexdir ' ' dfun]);
+                compilecommand = @(dfun)(['mex -L' glibcpath ' -lc -largeArrayDims CFLAGS="\$CFLAGS -std=c99" -outdir "' mexdir '" "' dfun '"']);
         end
         compile = @(dfun) eval(compilecommand(dfun));
 

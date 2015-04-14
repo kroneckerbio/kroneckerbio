@@ -370,26 +370,137 @@ nRules = numel(rules);
 % Initialize empty symbolic vector
 targetStrs = cell(nRules,1);
 valueStrs  = cell(nRules,1);
+targetStrs_nocomp = cell(nRules,1);
+valueStrs_nocomp = cell(nRules,1);
+targetSyms = sym(zeros(nRules,1));
+valueSyms  = sym(zeros(nRules,1));
+valueSymVars = cell(nRules,1);
+
+% Assemble table indicating which values are constant
+spn = get(SimbioModel.Species,'Name'); if ~iscell(spn); spn = {spn}; end;
+spc = get(SimbioModel.Species,'Constant'); if ~iscell(spc); spc = {spc}; end;
+pn = get(SimbioModel.Parameters,'Name'); if ~iscell(pn); pn = {pn}; end;
+pc = get(SimbioModel.Parameters,'Constant'); if ~iscell(pc); pc = {pc}; end;
+cn = get(SimbioModel.Compartment,'Name'); if ~iscell(cn); cn = {cn}; end;
+cc = get(SimbioModel.Compartment,'Constant'); if ~iscell(cc); cc = {cc}; end;
+constanttable = [...
+    spn spc
+    pn  pc
+    cn  cc
+    ];
+isConstant = @(var) constanttable{strcmp(var,constanttable(:,1)),2};
+
+substitute = false(nRules,1);
+makeoutput = false(nRules,1);
+setseedvalue = false(nRules,1);
+setparametervalue = false(nRules,1);
+setcompartmentvalue = false(nRules,1);
+addcompartmentexpr = false(nRules,1);
 
 for iRule = 1:nRules
     rule = rules(iRule);
     
-    if strcmpi(rule.RuleType, 'repeatedAssignment')
-        % Split string rule into target and value
-        splits = regexp(rule.Rule, '=', 'split');
-        assert(numel(splits) == 2, 'KroneckerBio:simbio2Symbolic:InvalidRepeatedAssignment', 'Rule %i had an unparsible repeated assignment rule', iRule)
-        targetStrs{iRule} = splits{1};
-        valueStrs{iRule}  = splits{2};
-    elseif strcmpi(rule.RuleType, 'initialAssignment')
-        % Split string rule into target and value
-        splits = regexp(rule.Rule, '=', 'split');
-        assert(numel(splits) == 2, 'KroneckerBio:simbio2Symbolic:InvalidInitialAssignment', 'Rule %i had an unparsible repeated assignment rule', iRule)
-        targetStrs{iRule} = splits{1};
-        valueStrs{iRule}  = splits{2};
+    if ~any(strcmpi(rule.RuleType, {'repeatedAssignment';'initialAssignment'}))
         
+        warning('KroneckerBio does not currently support algebraic or rate rules. These rules will be ignored.\n');
+        continue
         
     else
-        error('KroneckerBio:simbio2Symbolic:UnsupportedRuleType', 'Kronecker only supports repeatedAssignment rules, rule %i has type %s', iRule, rule.RuleType)
+
+        % Split rule into lhs and rhs
+        splits = regexp(rule.Rule, '=', 'split');
+        assert(numel(splits) == 2, 'KroneckerBio:simbio2Symbolic:InvalidRepeatedAssignment', 'Rule %i had an unparsible assignment rule', iRule)
+        
+        % Get lhs (target) strings and rhs (value) strings
+        targetStrs{iRule} = strtrim(splits{1});
+        valueStrs{iRule}  = strtrim(splits{2});
+        
+        % Generate versions of strings with compartments removed from
+        % species names
+        targetStrs_nocomp{iRule} = regexprep(targetStrs{iRule},'co\d+x\.','');
+        valueStrs_nocomp{iRule} = regexprep(valueStrs{iRule},'co\d+x\.','');
+        
+        % Get symbolic representations of target and value 
+        targetSyms(iRule) = sym(targetStrs_nocomp{iRule});
+        valueSyms(iRule)  = sym(valueStrs_nocomp{iRule});
+        
+    end
+    
+    if strcmpi(rule.RuleType, 'repeatedAssignment')
+
+        % Repeated assignment rules can be handled through substitution
+        substitute(iRule) = true;
+        makeoutput(iRule) = true;
+        
+    elseif strcmpi(rule.RuleType, 'initialAssignment')
+
+        % Get strings of all variables in valueSyms
+        thisvalueStrs = arrayfun(@char,symvar(valueSyms(iRule)),'UniformOutput',false);
+        thisvalueStrs_nocomp = regexprep(thisvalueStrs,'\wco\d+x\w',''); % Remove compartments from expression
+        
+        % Check whether initialAssignment is from constants to constants.
+        % Initial assignment to constants from constants can be treated the
+        % same as repeatedAssignment, since neither the assignees or
+        % assigners change with time. Initial assignments to species from
+        % constants can be treated as seed parameters if the assigner (1)
+        % only assigns to species and (2) only appears with other seed
+        % parameters. Any other case will not work quite the same as it
+        % does in SimBiology, since there is currently no way in
+        % KroneckerBio to enforce the rule's constraint after the model is
+        % built.
+        
+        % Determine whether target and values are constants
+        targetIsConstant = isConstant(targetStrs_nocomp{iRule});
+        valueIsConstant = arrayfun(isConstant,thisvalueStrs);
+        
+        % Determine variable types of target and values
+        targetIsSpecies = any(strcmp(targetStrs_nocomp{iRule},xuNicestrs));
+        targetIsParameter = any(strcmp(targetStrs{iRule},kNicestrs));
+        targetIsCompartment = any(strcmp(targetStrs{iRule},vNicestrs));
+        valuesAreParameters = cellfun(@strcmp,...
+            repmat(thisvalueStrs(:),1,nk),...
+            repmat(kNicestrs(:)',length(thisvalueStrs),1)...
+            );
+        valuesAreParameters = any(valuesAreParameters,2);
+        valuesAreSpecies = cellfun(@strcmp,...
+            repmat(thisvalueStrs_nocomp(:),1,nxu),...
+            repmat(xuNicestrs(:)',length(thisvalueStrs_nocomp),1)...
+            );
+        valuesAreSpecies = any(valuesAreSpecies,2);
+        valuesAreCompartments = cellfun(@strcmp,...
+            repmat(thisvalueStrs(:),1,nv),...
+            repmat(vNicestrs(:)',length(thisvalueStrs),1)...
+            );
+        valuesAreCompartments = any(valuesAreCompartments,2);
+        
+        % If all the associated values are constants...
+        if targetIsConstant && all(valueIsConstant)
+            
+            % Perform substitution to enforce the rule
+            substitute(iRule) = true;
+            
+            % If the target is a species, set up an output. Otherwise
+            % don't.
+            if targetIsSpecies
+                makeoutput(iRule) = true;
+            end
+            
+        else % If some values are not constant...
+            
+            warning([targetStrs{iRule} ' will be set to ' valueStrs{iRule} ' initially, but if ' strjoin(thisvalueStrs,',') ' is/are changed following model initialization, ' targetStrs{iRule} ' must be updated manually to comply with the rule.'])
+            
+            if targetIsSpecies
+                setseedvalue(iRule) = true;
+            elseif targetIsParameter
+                setparametervalue(iRule) = true;
+            elseif targetIsCompartment
+                setcompartmentvalue(iRule) = true;
+            end
+            
+        end
+        
+    else
+        error('KroneckerBio:simbio2Symbolic:UnsupportedRuleType', 'Kronecker only supports repeatedAssignment and (to a limited extent) initialAssignment rules. rule %i has type %s', iRule, rule.RuleType)
     end
 end
 
@@ -497,6 +608,7 @@ if opts.EvaluateExternalFunctions
     % Initialize symbolic variables
     syms(kNicestrs{:})
     syms(xuNicestrs{:})
+    
     % Evaluate the expressions to remove function calls
     r = eval(r);
     % Clear the symbolic variables
@@ -540,33 +652,63 @@ S = S(~isu,:);
 % end
 
 % Create symbolic rules
-targetSyms = sym(zeros(nRules,1));
-valueSyms  = sym(zeros(nRules,1));
-for iRule = 1:nRules
-    targetSyms(iRule) = sym(targetStrs{iRule});
-    valueSyms(iRule)  = eval(valueStrs{iRule});
-end
+% targetSyms = sym(zeros(nRules,1));
+% valueSyms  = sym(zeros(nRules,1));
+% for iRule = 1:nRules
+%     targetSyms(iRule) = sym(targetStrs{iRule});
+%     valueSyms(iRule)  = eval(valueStrs{iRule});
+% end
 
 %% Replace reaction rates with symbolics
-% This may require up to nRules iterations of substitution
-for iRule = 1:nRules
-    r = subs(r, targetSyms, valueSyms, 0);
+
+%%%% Substitute for rules requiring substitution. %%%%
+% This may require up to nRules iterations of substitution, if targetSyms
+% are defined according to one another (such as a = b, b = c, c = d, etc.)
+subsrules = find(substitute);
+for iRule = subsrules(:)'
+    r = subs(r, targetSyms(subsrules), valueSyms(subsrules));
 end
 
 % Delete rule parameters
-found = lookup(targetSyms, kSyms);
-kSyms(found(found ~= 0)) = [];
-kNames(found(found ~= 0)) = [];
-k(found(found ~= 0)) = [];
-nk = numel(kSyms);
+[kSyms,kNames,k,nk] = deleteRuleParameters(kSyms,kNames,k,targetSyms,substitute);
+[xSyms,xNames,s,nx,found] = deleteRuleParameters(xSyms,xNames,s,targetSyms,substitute);
+sSyms(found(found ~= 0)) = [];
+sNames(found(found ~= 0)) = [];
+[uSyms,uNames,u,nu] = deleteRuleParameters(uSyms,uNames,u,targetSyms,substitute);
 
-% Convert all rule species to inputs
-found = lookup(targetSyms, xuSyms);
+% Convert rule terms to outputs
+y = valueSyms(makeoutput);
+yNames = arrayfun(@char,targetSyms,'UniformOutput',false);
+
+%%%% Substitute values for initial assignments %%%%
+
+for ri = 1:nRules
+    % If this is an initial assignment rule...
+    if setseedvalue(ri) || setparametervalue(ri) || setcompartmentvalue(ri)
+        target = targetSyms(ri);
+        valuestoassign = valueSyms(ri);
+        valuestoassign = subs(valuestoassign,[xSyms;uSyms;kSyms;vSyms],[s;u;k;v]);
+        if setseedvalue(ri)
+            seedtargets_i = find(logical(target == xSyms));
+            if isempty(seedtargets_i)
+                inputtargets_i = find(logical(target == uSyms));
+                u(inputtargets_i) = double(valuestoassign);
+            else
+                s(seedtargets_i) = double(valuestoassign);
+            end
+        elseif setparametervalue(ri)
+            paramtargets_i = find(logical(target == kSyms));
+            k(paramtargets_i) = double(valuestoassign);
+        elseif setcompartmentvalue(ri)
+            compartmenttargets_i = find(logical(target == vSyms));
+            v(compartmenttargets_i) = double(valuestoassign);
+        end
+    end
+end
 
 if verbose; fprintf('done.\n'); end
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 4: Build Symbolic Model %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -612,3 +754,24 @@ SymModel.rNames     = rNames;
 SymModel.r          = r;
 SymModel.S          = S;
 SymModel.Su         = Su;
+
+SymModel.y          = y;
+SymModel.yNames     = yNames;
+
+end
+
+function [kSyms,kNames,k,nk,found] = deleteRuleParameters(kSyms,kNames,k,targetSyms,substitute)
+
+if isempty(kSyms)
+    nk = numel(kSyms);
+    found = [];
+    return
+end
+
+found = lookup(targetSyms(substitute), kSyms);
+kSyms(found(found ~= 0)) = [];
+kNames(found(found ~= 0)) = [];
+k(found(found ~= 0)) = [];
+nk = numel(kSyms);
+
+end

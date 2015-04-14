@@ -94,7 +94,15 @@ end
 assert(iscell(yMembers) && all(cellfun(@iscell,yMembers)), 'yMembers should be a cell vector of cell vectors of strings')
 
 % Set up output function
-symModel.y = sym(zeros(ny,1));
+% Ensure that symModel has y and yNames fields
+if isfield(symModel,'y')
+    oldny = length(symModel.y);
+else
+    symModel.y = sym([]);
+    symModel.yNames = {};
+    oldny = 0;
+end
+symModel.y = [symModel.y; sym(zeros(ny,1))];
 xNames = symModel.xNames;
 uNames = symModel.uNames;
 xSyms = symModel.xSyms;
@@ -117,7 +125,7 @@ for yi = 1:ny
         
         % Record constant value if member string is empty
         if isempty(thisyMember)
-            c(yi) = thisyValue;
+            c(oldny+yi) = thisyValue;
         % Otherwise...
         else
             % Look for name among states
@@ -133,22 +141,22 @@ for yi = 1:ny
                 % If found among inputs...
                 else
                     % Record yValue in C2
-                    C2(yi,thisyMemberindex) = thisyValue;
+                    C2(oldny+yi,thisyMemberindex) = thisyValue;
                 end
             % If found among states...
             else
                 % Record yValue in C1
-                C1(yi,thisyMemberindex) = thisyValue;
+                C1(oldny+yi,thisyMemberindex) = thisyValue;
             end
         end
 
     end
         
-    symModel.y(yi) = C1(yi,:)*xSyms + C2(yi,:)*uSyms + c(yi);
+    symModel.y(oldny+yi) = C1(oldny+yi,:)*xSyms + C2(oldny+yi,:)*uSyms + c(oldny+yi);
         
 end
 
-symModel.yNames = yNames;
+symModel.yNames = [symModel.yNames; yNames];
 
 
 % Use symbolic2Kronecker to convert a symbolic model to a psuedo kronecker model

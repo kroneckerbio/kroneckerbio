@@ -11,6 +11,22 @@
 #define UROWS %UROWS%
 #define KROWS %KROWS%
 
+#if (defined(__GNUC__)) && !(defined(__clang__) || defined(__INTEL_COMPILER))
+    #define inline __inline__
+#elif defined(__clang__)
+    #define inline inline
+#elif defined(_MSC_VER)
+    #define inline __inline
+#else
+    #define inline inline
+#endif
+
+/*
+#ifndef __GNUC__
+#define __inline__ __inline
+#endif
+ */
+
 /*
  * Auto-generated derivative code for KroneckerBio
  * Auto code generator based originally on the timestwo.c file provided by Mathworks
@@ -30,8 +46,11 @@ void mexFunction( int nlhs, mxArray *plhs[],
 {
   double *t,*x,*u,*k,dsym[NZMAX];
   size_t trows,tcols,xrows,xcols,urows,ucols,krows,kcols;
-  
-  /*dsym = (double*)mxCalloc((mwSize)NZMAX,(mwSize)sizeof(double));*/
+  double *prptr;
+  mwIndex *irptr, *jcptr;
+  /* Initialize sparse matrix indexing */
+  static const mwIndex ir[] = {%IRSTR%};
+  static const mwIndex jc[] = {%JCSTR%};
   
   /* Check for proper number of arguments. */
   if(nrhs!=4) {
@@ -81,17 +100,11 @@ void mexFunction( int nlhs, mxArray *plhs[],
   
   /* Call the %FUN% subroutine to calculate pr, called dsym. */
   %FUN%(dsym,t,x,u,k);
-  
-  /* Initialize sparse matrix indexing */
-  static const mwIndex ir[] = {%IRSTR%};
-  static const mwIndex jc[] = {%JCSTR%};
       
   /* Initialize an empty sparse matrix */
   plhs[0] = mxCreateSparse((mwSize)ROWS, (mwSize)COLS, (mwSize)NZMAX, mxREAL);
   
   /* Get pointers to relevant arrays of the output */
-  double *prptr;
-  mwIndex *irptr, *jcptr;
   prptr = mxGetPr(plhs[0]);
   irptr = mxGetIr(plhs[0]);
   jcptr = mxGetJc(plhs[0]);

@@ -11,7 +11,8 @@ nV = nTk + nTs;
 opts.RelTol = 1e-6;
 opts.AbsTol = 1e-9;
 opts.NewJacobianMethod = true;
-opts.UseMEX = false;
+opts.UseMEX = true;
+opts.MEXDirectory = 'mexfuns';
 
 % Generate data
 opts.useSeed = true;
@@ -28,6 +29,7 @@ opts.MaxIter = 300;
 opts.MaxFunEvals = 5000;
 opts.Restart = 0;
 opts.RestartNoise = 0.001;
+opts.GlobalOptimization = false;
 
 %% Load model
 yNames = {

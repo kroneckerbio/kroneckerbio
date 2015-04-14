@@ -92,9 +92,9 @@ for i = 1:m.nk
     fprintf('%s\tActual: %5.3f\tFit: %5.3f\n', m.Parameters(i).Name, m.Parameters(i).Value, mfitGlobal.Parameters(i).Value)
 end
 
-simGlobal = Simulate(mfitGlobal, con);
+simGlobalFit = Simulate(mfitGlobal, con);
 figure
-plot(sim.sol.x', sim.sol.y', times', data', '+', simLocalFit.sol.x', simLocalFit.sol.y', '--')
+plot(sim.sol.x', sim.sol.y', times', data', '+', simGlobalFit.sol.x', simGlobalFit.sol.y', '--')
 legend('A','B','C', ...
     'AGen','BGen','CGen', ...
     'AFit','BFit','CFit','Location','best')
