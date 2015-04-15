@@ -1,3 +1,3 @@
 function val = isoctave()
 
-val = (exist('OCTAVE_VERSION', 'built-in') == 5);
+val = (exist('OCTAVE_VERSION', 'builtin') == 5);
