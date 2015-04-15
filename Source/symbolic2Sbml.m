@@ -36,8 +36,8 @@ emptyStruct = struct('typecode', {}, 'metaid', {}, 'notes', {}, 'annotation', {}
 %% IDs of all compartments (v), species (x, u), parameters (k, s, q)
 % For comparisons when finding reaction modifier species
 compartmentIds = arrayfun(@char, symModel.vSyms, 'UniformOutput', false);
-speciesIDs = [arrayfun(@char, symModel.xSyms, 'UniformOutput', false); ...
-    arrayfun(@char, symModel.uSyms, 'UniformOutput', false)];
+% speciesIDs = [arrayfun(@char, symModel.xSyms, 'UniformOutput', false); ...
+%     arrayfun(@char, symModel.uSyms, 'UniformOutput', false)];
 parameterIDs = [arrayfun(@char, symModel.kSyms, 'UniformOutput', false); ...
     arrayfun(@char, symModel.sSyms, 'UniformOutput', false); ...
     arrayfun(@char, symModel.qSyms, 'UniformOutput', false)];
@@ -52,9 +52,14 @@ modelName = symModel.Name;
 
 sbmlModel = baseStruct;
 sbmlModel.typecode = 'SBML_MODEL';
-sbmlModel.notes    = 'Converted from kroneckerbio symbolic model.';
+% sbmlModel.notes    = 'Converted from kroneckerbio symbolic model.';
 sbmlModel.id       = modelID;
 sbmlModel.name     = modelName;
+
+namespaces = [];
+namespaces.prefix = '';
+namespaces.uri = 'http://www.sbml.org/sbml/level2'; % fix this for now
+sbmlModel.namespaces = namespaces;
 
 %% Misc fields
 % kroneckerbio doesn't use these
@@ -72,8 +77,8 @@ sbmlModel.delay_symbol = '';
 %% Compartments
 compartmentStruct = baseStruct;
 compartmentStruct.typecode = 'SBML_COMPARTMENT';
-compartmentStruct.units = [];
-compartmentStruct.outside = [];
+compartmentStruct.units = '';
+compartmentStruct.outside = '';
 compartmentStruct.constant = 1;
 compartmentStruct.isSetSize = 1;
 compartmentStruct.isSetVolume = 1;
@@ -103,8 +108,8 @@ speciesStruct = baseStruct;
 speciesStruct.typecode = 'SBML_SPECIES';
 speciesStruct.isSetCharge = 0;
 speciesStruct.charge = 0;
-speciesStruct.substanceUnits = [];
-speciesStruct.spatialSizeUnits = [];
+speciesStruct.substanceUnits = '';
+speciesStruct.spatialSizeUnits = '';
 
 nx = symModel.nx;
 nu = symModel.nu;
@@ -173,14 +178,17 @@ sbmlModel.species = allSpecies;
 % Assume all parameters are constant
 parameterStruct = baseStruct;
 parameterStruct.typecode = 'SBML_PARAMETER';
-parameterStruct.units = [];
+parameterStruct.units = '';
 parameterStruct.constant = 1;
 parameterStruct.isSetValue = 1;
 
-emptyParameterStruct = parameterStruct; % For unused empty parameter struct in reactions
+emptyParameterStruct = emptyStruct; % For unused empty parameter struct in reactions
 emptyParameterStruct().id = [];
 emptyParameterStruct().name = [];
 emptyParameterStruct().value = [];
+emptyParameterStruct().units = [];
+emptyParameterStruct().constant = [];
+emptyParameterStruct().isSetValue = [];
 
 nk = symModel.nk;
 ns = symModel.ns;
@@ -241,7 +249,7 @@ reactionStruct.fast = 0;
 reactantStruct = baseStruct;
 reactantStruct.typecode = 'SBML_SPECIES_REFERENCE';
 reactantStruct.denominator = 1;
-reactantStruct.stoichiometryMath = [];
+reactantStruct.stoichiometryMath = '';
 
 productStruct = reactantStruct;
 
@@ -253,6 +261,8 @@ modifierStruct.notes = '';
 modifierStruct.annotation = '';
 modifierStruct.level = opts.SBML_level;
 modifierStruct.version = opts.SBML_version;
+
+emptyModifierStruct = struct('typecode', {}, 'metaid', {}, 'notes', {}, 'annotation', {}, 'species', {}, 'level', {}, 'version', {});
 
 kineticLawStruct = baseStruct;
 kineticLawStruct.typecode = 'SBML_KINETIC_LAW';
@@ -367,11 +377,16 @@ for i = 1:nr
     modifierIDs = setdiff(varIDs, [compartmentIds; parameterIDs; reactantAndProductIDs]); % exclude compartment, param, and participating species
     
     nModifiers = length(modifierIDs);
+    
     allModifiers = [];
-    for j = 1:nModifiers
-        modifier = modifierStruct;
-        modifier.species = modifierIDs{j};
-        allModifiers = [allModifiers, modifier];
+    if nModifiers == 0
+        allModifiers = emptyModifierStruct;
+    else
+        for j = 1:nModifiers
+            modifier = modifierStruct;
+            modifier.species = modifierIDs{j};
+            allModifiers = [allModifiers, modifier];
+        end
     end
     reaction.modifier = allModifiers;
     
