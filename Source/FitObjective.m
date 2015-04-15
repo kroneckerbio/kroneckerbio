@@ -105,6 +105,10 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 %           provided, a different AbsTol will be used for each experiment.
 %       .Verbose [ nonnegative integer scalar {1} ]
 %           Bigger number displays more progress information
+%       .GlobalOptimization [ logical scalar {false} ]
+%           Use global optimization in addition to fmincon
+%       .GlobalOpts [ options struct scalar {} ]
+%           TODO: API in progress
 %
 %   Outputs
 %       m: [ model scalar ]
@@ -160,7 +164,19 @@ defaultOpts.Algorithm      = 'active-set';
 defaultOpts.MaxIter        = 1000;
 defaultOpts.MaxFunEvals    = 5000;
 
+defaultOpts.GlobalOptimization = false;
+defaultOpts.GlobalOpts         = [];
+
+% Global fit default options
+defaultGlobalOpts.Algorithm = 'globalsearch';
+defaultGlobalOpts.StartPointsToRun = 'bounds-ineqs';
+defaultGlobalOpts.nStartPoints = 10;
+defaultGlobalOpts.UseParallel = false;
+defaultGlobalOpts.MaxIter = 1000; % for pattern search; fix to better default
+
+% Assign default values and make final options structs
 opts = mergestruct(defaultOpts, opts);
+opts.GlobalOpts = mergestruct(defaultGlobalOpts, opts.GlobalOpts);
 
 verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
@@ -222,24 +238,33 @@ opts.UpperBound = fixBounds(opts.UpperBound, opts.UseParams, opts.UseSeeds, opts
 %% Options structure for integration
 intOpts = opts;
 
-%% Minimization options
-minOpts.Algorithm               = opts.Algorithm;
-minOpts.TolFun                  = opts.TolOptim;
-minOpts.TolX                    = 0;
-minOpts.OutputFcn               = @isTerminalObj;
-minOpts.GradObj                 = 'on';
-minOpts.Hessian                 = 'off'; % unused
-minOpts.HessMult                = []; % unused
-minOpts.MaxFunEvals             = opts.MaxFunEvals;
-minOpts.MaxIter                 = opts.MaxIter;
-minOpts.RelLineSrchBnd          = opts.MaxStepSize;
-minOpts.RelLineSrchBndDuration  = inf;
-minOpts.TolCon                  = 1e-6;
+%% Local optimization options
+localOpts = optimoptions('fmincon');
+localOpts.Algorithm               = opts.Algorithm;
+localOpts.TolFun                  = opts.TolOptim;
+localOpts.TolX                    = 0;
+localOpts.OutputFcn               = @isTerminalObj;
+localOpts.GradObj                 = 'on';
+localOpts.Hessian                 = 'off'; % unused
+localOpts.MaxFunEvals             = opts.MaxFunEvals;
+localOpts.MaxIter                 = opts.MaxIter;
+localOpts.RelLineSrchBnd          = opts.MaxStepSize;
+localOpts.RelLineSrchBndDuration  = Inf;
+localOpts.TolCon                  = 1e-6;
 
 if verbose
-    minOpts.Display = 'iter';
+    localOpts.Display = 'iter';
 else
-    minOpts.Display = 'off';
+    localOpts.Display = 'off';
+end
+
+%% Global optimization options
+% TODO: make sure options are relevant for solver
+globalOpts = opts.GlobalOpts;
+
+% Sanity checking
+if strcmpi(globalOpts.Algorithm, 'multistart') && globalOpts.UseParallel
+    warning('KroneckerBio:FitObjective', 'Using multistart with UseParallel is not supported at this time (due to global variable in obj fun usage).')
 end
 
 %% Normalize parameters
@@ -251,8 +276,8 @@ if opts.Normalized
     
     % Change relative line search bound to an absolute scale in log space
     % Because fmincon lacks an absolute option, this hack circumvents that
-    minOpts.TypicalX = zeros(nT,1) + log(1 + opts.MaxStepSize)*log(realmax);
-    minOpts.RelLineSrchBnd = 1 / log(realmax);
+    localOpts.TypicalX = zeros(nT,1) + log(1 + opts.MaxStepSize)*log(realmax);
+    localOpts.RelLineSrchBnd = 1 / log(realmax);
 end
 
 %% Apply bounds to starting parameters before optimizing
@@ -277,8 +302,44 @@ for iRestart = 1:opts.Restart+1
     aborted = false;
     Tabort = That;
     
-    if opts.Verbose; fprintf('Beginning gradient descent...\n'); end
-    [That, G, unused, unused, unused, D] = fmincon(@objective, That, [], [], opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], minOpts);
+    % Create local optimization problem
+    %   Always needed - used as a subset/refinement of global optimization
+    localProblem = createOptimProblem('fmincon', 'objective', @objective, ...
+        'x0', That, 'Aeq', opts.Aeq, 'beq', opts.beq, ...
+        'lb', opts.LowerBound, 'ub', opts.UpperBound, ...
+        'options', localOpts);
+    
+    % Run specified optimization
+    if opts.GlobalOptimization
+        
+        if opts.Verbose
+            fprintf('Beginning global optimization with %s...\n', globalOpts.Algorithm)
+        end
+        
+        switch globalOpts.Algorithm
+            case 'globalsearch'
+                gs = GlobalSearch('StartPointsToRun', globalOpts.StartPointsToRun);
+                [That, G, exitflag] = run(gs, localProblem);
+            case 'multistart'
+                ms = MultiStart('StartPointsToRun', globalOpts.StartPointsToRun, ...
+                    'UseParallel', globalOpts.UseParallel);
+                [That, G, exitflag] = run(ms, localProblem, globalOpts.nStartPoints);
+            case 'patternsearch'
+                psOpts = psoptimset('MaxIter', globalOpts.MaxIter, 'UseParallel', globalOpts.UseParallel);
+                [That, G, exitflag] = patternsearch(@objective, That, [], [], ...
+                    opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], psOpts);
+            otherwise
+                error('Error:KroneckerBio:FitObjective: %s global optimization algorithm not recognized.', globalOpts.Algorithm)
+        end
+        
+        [~, D] = objective(That); % since global solvers don't return gradient at endpoint
+        
+    else
+        
+        if opts.Verbose; fprintf('Beginning gradient descent...\n'); end
+        [That, G, exitflag, ~, ~, D] = fmincon(localProblem);
+        
+    end
     
     % Check abortion status
     % Abortion values are not returned by fmincon and must be retrieved

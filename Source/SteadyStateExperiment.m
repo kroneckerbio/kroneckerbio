@@ -2,11 +2,7 @@ function con = SteadyStateExperiment(m, s, inp, dos, time_scale, name)
 %SteadyStateExperiment Construct a KroneckerBio experimental conditions
 %   structure describing a initial value problem first run to steady state
 %
-%   con = Experiment(m, tF, s, steadyState, periodic, u, d,
-%                    discontinuities, q, dudq, dddq, name)
-%
-%   The inputs to this function allow one to set all the variables that are
-%   permitted on a KroneckerBio experimental conditions structure.
+%   con = SteadyStateExperiment(m, tF, s, inp, dos, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -35,28 +31,47 @@ function con = SteadyStateExperiment(m, s, inp, dos, time_scale, name)
 %       The KroneckerBio experimental conditions structure
 %
 %   For the meanings of the fields of con see "help experimentZero"
-
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 % Clean-up inputs
-if nargin < 5
+if nargin < 6
     name = [];
-    if nargin < 4
-        dos = [];
-        if nargin < 3
-            inp = [];
-            if nargin < 2
-                s = [];
+    if nargin < 5
+        time_scale = [];
+        if nargin < 4
+            dos = [];
+            if nargin < 3
+                inp = [];
+                if nargin < 2
+                    s = [];
+                end
             end
         end
     end
+end
+
+if isempty(time_scale)
+    time_scale = 10;
+end
+if isempty(s)
+    s = m.s;
+end
+if isempty(inp)
+    inp = inputConstant(m, m.u);
+end
+if isempty(dos)
+    dos = doseZero(m);
+end
+if isempty(name)
+    name = '';
 end
 
 % m
 assert(isscalar(m) && is(m, 'Model'), 'KroneckerBio:Experiment:m', 'm must be a Model')
 m = keepfields(m, {'Type', 's', 'u', 'ns', 'nu'});
 nu = m.nu;
+
 % s
 assert(numel(s) == m.ns, 'KroneckerBio:Experiment:s', 's must a vector with length equal to m.ns')
 s = vec(s);
@@ -76,7 +91,7 @@ assert(is(dos, 'Dose'), 'KroneckerBio:Experiment:dos', 'dos must be a Dose')
 assert(ischar(name), 'KroneckerBio:Experiment:name', 'name must be a string')
 
 % Build experiment
-con.Type = 'Experiment:InitialValue';
+con.Type = 'Experiment:SteadyState';
 con.Name = name;
 con.nu = m.nu;
 con.ns = m.ns;
@@ -85,17 +100,7 @@ con.nh = numel(dos.h);
 con.s  = s;
 con.q  = inp.q;
 con.h  = dos.h;
-con.u  = @(t)inp.u(t,inp.q);
-try
-    % See if u is vectorized
-    test = con.u([1,2]);
-    assert(size(test) == [nu,2])
-catch
-    % Nope, vectorize it
-    con.u = @(t)vectorize_u(t, @(ti)inp.u(ti,inp.q));
-end
-con.dudq = @(t)inp.dudq(t,inp.q);
-con.d2udq2 = @(t)inp.d2udq2(t,inp.q);
+[con.u,con.dudq,con.d2udq2] = getU(inp,m.nu);
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
@@ -107,15 +112,38 @@ con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
 con.private.TimeScale = time_scale;
 
-    function val = vectorize_u(t, f_u)
+    function con_out = update(s, q, h)
+        con_out = SteadyStateExperiment(m, s, inp.Update(q), dos.Update(h), time_scale, name);
+    end
+
+end
+
+function [u_t,dudq_t,d2udq2_t] = getU(inp,nu)
+
+u_tq = inp.u;
+dudq_tq = inp.dudq;
+d2udq2_tq = inp.d2udq2;
+q = inp.q;
+clear inp
+u_t = @(t) u_tq(t,q);
+
+% Determine if u is vectorized, and fix if not
+testut = u_t([1 2]);
+if size(testut,2) == 1
+    u_t = @ut_vectorized;
+elseif size(testut,2) ~= 2
+    error('u should return an nu-by-1 or nu-by-nt vector of input values')
+end
+
+dudq_t = @(t) dudq_tq(t,q);
+d2udq2_t = @(t) d2udq2_tq(t,q);
+
+    function u = ut_vectorized(t)
         nt = numel(t);
-        val = zeros(nu,nt);
-        for i = 1:nt
-            val(:,i) = f_u(t(i));
+        u = zeros(nu,nt);
+        for ti = 1:nt
+            u(:,ti) = u_tq(t(ti),q);
         end
     end
 
-    function con_out = update(s, q, h)
-        con_out = InitialValueExperiment(m, s, inp.Update(q), dos.Update(h), name);
-    end
 end

@@ -27,7 +27,7 @@ dxdTq = zeros(nx, nTq);
 ic = [x0; vec([dxdTk, dxdTs, dxdTq])];
 
 % Integrate [f; dfdT] over time
-sol = accumulateOde(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], 1, eve, [], 1, 0);
+sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, [], 1);
 
 % Return steady-state value
 ic = sol.ye;
@@ -103,7 +103,7 @@ ic = sol.ye;
         
         % Steady-state event
         function [value, isTerminal, direction] = events(t, joint)
-            u = u(-1);
+            u = uf(-1);
             x = joint(1:nx); % x_
 
             % Absolute change

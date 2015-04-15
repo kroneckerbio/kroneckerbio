@@ -39,7 +39,8 @@ if populate
     end
     
     % Generate simulation
-    sim = SimulateSelect(m,con,lintimes,opts);
+    obs = observationSelect(lintimes);
+    sim = SimulateSystem(m,con,obs,opts);
     
     % Extract outputs
     measurements = vec(sim.y(lookup(outputs,1:size(sim.y,1)),:));

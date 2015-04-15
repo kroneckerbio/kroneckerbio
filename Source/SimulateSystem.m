@@ -1,4 +1,4 @@
-function sim = Simulate(m, con, obs, opts)
+function sim = SimulateSystem(m, con, obs, opts)
 %Simulate Integrate a model under specified experimental conditions and
 % according to specified observation schemes
 %
@@ -97,7 +97,7 @@ for i_con = 1:n_con
     opts_i = opts;
     opts_i.AbsTol = opts.AbsTol{i_con};
     
-    if verbose; fprintf(['Integrating system for ' con(iCon).Name '...']); end
+    if verbose; fprintf(['Integrating system for ' con(i_con).Name '...']); end
     ints = integrateAllSys(m, con(i_con), obs(:,i_con), opts_i);
     if verbose; fprintf('done.\n'); end
     
