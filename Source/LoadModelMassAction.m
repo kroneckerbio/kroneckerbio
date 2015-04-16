@@ -208,6 +208,12 @@ for iFile = 1:nFiles
                 % States
                 tokens = vec(regexp(line, '".*"|[^\s,]*','match'));
                 
+                % Strip inline comment; ignores #'s inside quotes
+                commentPos = find(~cellfun(@isempty, regexp(tokens, '^#')));
+                if ~isempty(commentPos)
+                    tokens = tokens(1:commentPos-1);
+                end
+                
                 % Strip quotes
                 for iTok = 1:numel(tokens)
                     tokens{iTok} = regexp(tokens{iTok}, '[^"]*', 'match', 'once');
