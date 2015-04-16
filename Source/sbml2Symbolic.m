@@ -33,7 +33,7 @@ sbml = TranslateSBML(sbmlModel, double(opts.Validate), opts.Verbose);
 
 if verbose; fprintf('done.\n'); end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 1: Extracting the Model Variables %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Note: In SBML, `id` is a required globally scoped reference while `name`
@@ -56,20 +56,23 @@ end
 %% Compartments
 nv = length(sbml.compartment);
 vIDs   = cell(nv,1);
-vNames = cell(nv, 1);
+vNames = cell(nv,1);
 v      = zeros(nv,1);
+dv     = zeros(nv,1);
 
-for iv = 1:nv
-    vIDs{iv}   = sbml.compartment(iv).id;
-    vNames{iv} = sbml.compartment(iv).name;
+for i = 1:nv
+    vIDs{i}   = sbml.compartment(i).id;
+    vNames{i} = sbml.compartment(i).name;
     
-    if sbml.compartment(iv).isSetSize
-        v(iv) = sbml.compartment(iv).size;
+    if sbml.compartment(i).isSetSize
+        v(i) = sbml.compartment(i).size;
     else
         % TODO: Consider variable compartment size by assignment or fitting
         warning('Warning:sbml2Symbolic:CompartmetSizeNotSet: Compartment size not set, setting default size = 1.')
-        v(iv) = 1;
+        v(i) = 1;
     end
+    
+    dv(i) = sbml.compartment(i).spatialDimensions;
     
 end
 
@@ -82,29 +85,29 @@ vxuInd  = zeros(nxu,1);
 isu     = false(nxu,1);
 xuSubstanceUnits = false(nxu,1);
 
-for ixu = 1:nxu
-    species = sbml.species(ixu);
+for i = 1:nxu
+    species = sbml.species(i);
     
-    xuIDs{ixu}   = species.id;
-    xuNames{ixu} = species.name;
+    xuIDs{i}   = species.id;
+    xuNames{i} = species.name;
     
     if species.isSetInitialAmount
-        xu0(ixu) = species.initialAmount;
+        xu0(i) = species.initialAmount;
     elseif species.isSetInitialConcentration
-        xu0(ixu) = species.initialConcentration;
+        xu0(i) = species.initialConcentration;
     else
-        warning('sbml2Symbolic:InitialConcentrationNotSet: Initial species conc. not set for %s, setting default conc. = 0.', xuIDs{ixu})
-        xu0(ixu) = 0;
+        warning('sbml2Symbolic:InitialConcentrationNotSet: Initial species conc. not set for %s, setting default conc. = 0.', xuIDs{i})
+        xu0(i) = 0;
     end
     
     % Get species compartment by id
-    vxuInd(ixu) = find(strcmp(species.compartment, vIDs));
+    vxuInd(i) = find(strcmp(species.compartment, vIDs));
     
     % Species is input/conc. doesn't change due to reactions, etc.
-    isu(ixu) = species.boundaryCondition || species.constant;
+    isu(i) = species.boundaryCondition || species.constant;
     
     % Species substance units in amount/true or conc./false
-    xuSubstanceUnits(ixu) = logical(species.hasOnlySubstanceUnits);
+    xuSubstanceUnits(i) = logical(species.hasOnlySubstanceUnits);
 end
 
 %% Parameters
@@ -125,8 +128,8 @@ end
 nr = length(sbml.reaction);
 
 % Local parameters
-for ir = 1:nr
-    kineticLaw = sbml.reaction(ir).kineticLaw; % Will be empty if no kinetic law parameters exist
+for i = 1:nr
+    kineticLaw = sbml.reaction(i).kineticLaw; % Will be empty if no kinetic law parameters exist
     if ~isempty(kineticLaw)
         constantskl = kineticLaw.parameter; % Will only fetch parameters unique to this kinetic law
         nkkl = length(constantskl);
@@ -142,73 +145,126 @@ end
 %% Done extracting model variables
 if verbose; fprintf('done.\n'); end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 2: Convert to symbolics %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if verbose; fprintf('Converting to symbolics...'); end
 
 %% Compartments
-vSyms = sym(zeros(nv,1));
-for i = 1:nv
-    vSyms(i) = sym(vIDs{i});
-end
+vSyms = sym(vIDs);
 
 %% Species
-xuSyms = sym(zeros(nxu,1));
-for i = 1:nxu
-    xuSyms(i) = sym(xuIDs{i});
-end
+xuSyms = sym(xuIDs);
 
 %% Parameters
-kSyms = sym(zeros(nk,1));
-for i = 1:nk
-    kSyms(i) = sym(kIDs{i});
-end
+kSyms = sym(kIDs);
+
 %% Done converting to symbolics
 if verbose; fprintf('done.\n'); end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 3: Building the Diff Eqs %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if verbose; fprintf('Building diff eqs...'); end
 
-%% Rules
-% Assume s.rule field contains repeated assignments - why?
-% s.rule field always exists, but can be empty
+%% Assemble rules expressions
+% Orders ruls by repeated, then initial assignments
+% Note: libSBML breaks original ordering?
 nRules = length(sbml.rule);
 
-if nRules > 0
-    warning('sbml2Symbolic: Only repeated assignment and initial assignment rules are supported at this time.')
-end
-
-% Initialize empty symbolic vector
-targetStrs = cell(nRules,1);
-valueStrs  = cell(nRules,1);
-
-% Assign repeated ruels
-for iRule = 1:nRules
-    targetStrs{iRule} = sbml.rule(iRule).variable;
-    valueStrs{iRule}  = sbml.rule(iRule).formula;
-end
-
-% s.initialAssignment field is separate if it exists - why?
+% Rule types:
+%   0 = repeated assignment
+%   1 = initial assignment
+assignmentTypes = zeros(nRules,1);
 if isfield(sbml, 'initialAssignment')
-    warning('sbml2Symbolic:TODO: Initial assignment rules enforced only at model initialization, not after modifying model.')
-    
     nInitialAssignments = length(sbml.initialAssignment);
+    nRules = nRules + nInitialAssignments;
+    assignmentTypes = [assignmentTypes; ones(nInitialAssignments,1)];
+end
+
+% Store targets and values
+targetStrs = [{sbml.rule.variable}'; {sbml.initialAssignment.symbol}'];
+valueStrs  = [{sbml.rule.formula}';  {sbml.initialAssignment.math}'];
+
+% Turn into symbolics
+targetSyms = sym(targetStrs);
+valueSyms  = sym(valueStrs);
+valueSymVars = cell(nRules,1);
+
+% Make lookup function indicating which values are constant
+allIDs = [xuIDs; kIDs; vIDs];
+allConstants = [isu; logical([sbml.parameter.constant]'); logical([sbml.compartment.constant]')];
+isConstant = @(var) allConstants(strcmp(var, allIDs));
+
+substitute = false(nRules,1);
+makeoutput = false(nRules,1);
+setseedvalue = false(nRules,1);
+setparametervalue = false(nRules,1);
+setcompartmentvalue = false(nRules,1);
+addcompartmentexpr = false(nRules,1);
+
+for i = 1:nRules
     
-    targetStrsInit = cell(nRules,1);
-    valueStrsInit  = cell(nRules,1);
-    
-    for i = 1:nInitialAssignments
-        targetStrsInit{i} = sbml.initialAssignment(i).symbol;
-        valueStrsInit{i}  = sbml.initialAssignment(i).math;
+    if assignmentTypes(i) == 0 % Repeated assignments
+        
+        substitute(i) = true;
+        makeoutput(i) = true;
+        
+    elseif assignmentTypes(i) == 1 % Initial assignments
+        
+        % Get strings of all variables in valueSyms
+        thisvalueStrs = arrayfun(@char, symvar(valueSyms(i)), 'UniformOutput', false);
+        
+        % Check whether initialAssignment is from constants to constants.
+        % Initial assignment to constants from constants can be treated the
+        % same as repeatedAssignment, since neither the assignees or
+        % assigners change with time. Initial assignments to species from
+        % constants can be treated as seed parameters if the assigner (1)
+        % only assigns to species and (2) only appears with other seed
+        % parameters. Any other case will not work quite the same as it
+        % does in SimBiology, since there is currently no way in
+        % KroneckerBio to enforce the rule's constraint after the model is
+        % built.
+        
+        % Determine whether target and values are constants
+        targetIsConstant = isConstant(targetStrs{i});
+        valueIsConstant = arrayfun(isConstant, thisvalueStrs);
+        
+        % Determine variable types of target and values
+        targetIsSpecies       = any(strcmp(targetStrs{i}, xuIDs));
+        targetIsParameter     = any(strcmp(targetStrs{i}, kIDs));
+        targetIsCompartment   = any(strcmp(targetStrs{i}, vIDs));
+        valuesAreParameters   = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nk), repmat(kIDs(:)', length(thisvalueStrs), 1)), 2);
+        valuesAreSpecies      = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nxu), repmat(xuIDs(:)', length(thisvalueStrs), 1)), 2);
+        valuesAreCompartments = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nv), repmat(vIDs(:)', length(thisvalueStrs), 1)), 2);
+        
+        % If all the associated values are constants...
+        if targetIsConstant && all(valueIsConstant)
+            
+            % Perform substitution to enforce the rule
+            substitute(i) = true;
+            
+            % If the target is a species, set up an output. Otherwise
+            % don't.
+            if targetIsSpecies
+                makeoutput(i) = true;
+            end
+            
+        else % If some values are not constant...
+            
+            warning([targetStrs{i} ' will be set to ' valueStrs{i} ' initially, but if ' strjoin(thisvalueStrs, ',') ' is/are changed following model initialization, ' targetStrs{i} ' must be updated manually to comply with the rule.'])
+            
+            if targetIsSpecies
+                setseedvalue(i) = true;
+            elseif targetIsParameter
+                setparametervalue(i) = true;
+            elseif targetIsCompartment
+                setcompartmentvalue(i) = true;
+            end
+            
+        end
     end
     
-    targetStrs = [targetStrs; targetStrsInit];
-    valueStrs  = [valueStrs;  valueStrsInit ];
-    
-    nRules = nRules + nInitialAssignments;
 end
 
 %% States and Outputs
@@ -216,21 +272,24 @@ nx = nnz(~isu);
 xIDs   = xuIDs(~isu);
 xNames = xuNames(~isu);
 xSyms  = xuSyms(~isu);
-x0     = sym(xu0(~isu)); % Default is no seed
+x0     = sym(xu0(~isu));
 vxInd  = vxuInd(~isu);
 
-ns = 0;
-sSyms = sym(zeros(0,1));
-sIDs   = cell(0,1);
-sNames = cell(0,1);
-s = zeros(0,1);
+% Represent every state's initial condition with a seed
+ns = nx;
+sNames = xIDs;
+sIDs = sprintf('seed%dx\n',(1:ns)');
+sIDs = textscan(sIDs,'%s','Delimiter','\n');
+sIDs   = sIDs{1};
+sSyms  = sym(sIDs);
+s      = xu0(~isu);
 
 nu = nnz(isu);
 uIDs   = xuIDs(isu);
 uNames = xuNames(isu);
 uSyms  = xuSyms(isu);
-u = sym(xu0(isu)); % Default is no time varying inputs
-vuInd   = vxuInd(isu);
+u      = sym(xu0(isu));
+vuInd  = vxuInd(isu);
 
 % Input parameters don't have an analog in SBML
 nq = 0;
@@ -240,6 +299,7 @@ qNames = cell(0,1);
 q = zeros(0,1);
 
 %% Reactions
+% Need to apply assignment rules to rate forms
 nSEntries = 0;
 SEntries  = zeros(0,3);
 rIDs   = cell(nr,1);
@@ -312,37 +372,56 @@ S = sparse(SEntries(1:nSEntries,1), SEntries(1:nSEntries,2), SEntries(1:nSEntrie
 Su = S(isu,:);
 S = S(~isu,:);
 
-%% Convert reactions and rules to symbolics
-% TODO: Currently doesn't work in simbio2Symbolic
-%   Need to put contents of rules in scope
-% Create symbolic rules
-targetSyms = sym(zeros(nRules,1));
-valueSyms  = sym(zeros(nRules,1));
-for iRule = 1:nRules
-    targetSyms(iRule) = sym(targetStrs{iRule});
-    valueSyms(iRule)  = eval(valueStrs{iRule});
-end
-
-%% Replace reaction rates with symbolics
+%% Substitute assignment rules into reaction rates
 % This may require up to nRules iterations of substitution
-for iRule = 1:nRules
-    r = subs(r, targetSyms, valueSyms, 0);
+% nRules^2 time complexity overall
+subsRules = find(substitute);
+for i = subsRules(:)'
+    r = subs(r, targetSyms(subsRules), valueSyms(subsRules));
 end
 
 % Delete rule parameters
-found = lookup(targetSyms, kSyms);
-kSyms(found(found ~= 0)) = [];
-kIDs(found(found ~= 0)) = [];
-k(found(found ~= 0)) = [];
-nk = numel(kSyms);
+[kSyms, kNames, k, nk] = deleteRuleParameters(kSyms, kNames, k, targetSyms, substitute);
+[xSyms, xNames, s, nx, found] = deleteRuleParameters(xSyms, xNames, s, targetSyms, substitute);
+sSyms(found(found ~= 0)) = [];
+sNames(found(found ~= 0)) = [];
+[uSyms, uNames, u, nu] = deleteRuleParameters(uSyms, uNames, u, targetSyms, substitute);
 
-% Convert all rule species to inputs
-found = lookup(targetSyms, xuSyms);
+% Convert rule terms to outputs
+%   This is optional but convenient
+%   Make sure to add additional outputs as desired when building model
+y = valueSyms(makeoutput);
+yNames = arrayfun(@char, targetSyms, 'UniformOutput', false);
+
+% Substitute values for initial assignments
+for i = 1:nRules
+    % If this is an initial assignment rule...
+    if setseedvalue(i) || setparametervalue(i) || setcompartmentvalue(i)
+        target = targetSyms(i);
+        valuestoassign = valueSyms(i);
+        valuestoassign = subs(valuestoassign, [xSyms; uSyms; kSyms; vSyms], [s; u; k; v]);
+        if setseedvalue(i)
+            seedtargets_i = find(logical(target == xSyms));
+            if isempty(seedtargets_i)
+                inputtargets_i = find(logical(target == uSyms));
+                u(inputtargets_i) = double(valuestoassign);
+            else
+                s(seedtargets_i) = double(valuestoassign);
+            end
+        elseif setparametervalue(i)
+            paramtargets_i = find(logical(target == kSyms));
+            k(paramtargets_i) = double(valuestoassign);
+        elseif setcompartmentvalue(i)
+            compartmenttargets_i = find(logical(target == vSyms));
+            v(compartmenttargets_i) = double(valuestoassign);
+        end
+    end
+end
 
 %% Done building diff eqs
 if verbose; fprintf('done.\n'); end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 5: Use human readable names instead of IDs if desired %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if opts.UseNames
@@ -357,7 +436,7 @@ if opts.UseNames
     if verbose; fprintf('done.\n'); end
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 6: Build Symbolic Model %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 symModel.Type       = 'Model.SymbolicReactions';
@@ -373,7 +452,7 @@ symModel.nr         = nr;
 
 symModel.vSyms      = vSyms;
 symModel.vNames     = vIDs;
-symModel.dv         = zeros(nv,1) + 3; % TODO: from units
+symModel.dv         = dv;
 symModel.v          = v;
 
 symModel.kSyms      = kSyms;
@@ -402,3 +481,27 @@ symModel.rNames     = rIDs;
 symModel.r          = r;
 symModel.S          = S;
 symModel.Su         = Su;
+
+symModel.y          = y;
+symModel.yNames     = yNames;
+
+end
+
+%% %%%%%%%%%%%%%%%%%
+% Helper Functions %
+%%%%%%%%%%%%%%%%%%%%
+function [kSyms, kNames, k, nk, found] = deleteRuleParameters(kSyms, kNames, k, targetSyms, substitute)
+
+if isempty(kSyms)
+    nk = numel(kSyms);
+    found = [];
+    return
+end
+
+found = lookup(targetSyms(substitute), kSyms);
+kSyms(found(found ~= 0)) = [];
+kNames(found(found ~= 0)) = [];
+k(found(found ~= 0)) = [];
+nk = numel(kSyms);
+
+end
