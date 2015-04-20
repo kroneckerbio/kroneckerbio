@@ -52,7 +52,7 @@ modelName = symModel.Name;
 
 sbmlModel = baseStruct;
 sbmlModel.typecode = 'SBML_MODEL';
-% sbmlModel.notes    = 'Converted from kroneckerbio symbolic model.';
+sbmlModel.notes    = 'Converted from kroneckerbio symbolic model.';
 sbmlModel.id       = modelID;
 sbmlModel.name     = modelName;
 
@@ -306,7 +306,7 @@ for i = 1:nr
     end
     
     % Get products from states positive row indices
-    productIdxs    = find(species < 0);
+    productIdxs    = find(species > 0);
     productStoichs = species(productIdxs);
     nProducts = length(productIdxs);
     for j = 1:nProducts
@@ -343,7 +343,7 @@ for i = 1:nr
     end
     
     % Get products from inputs positive row indices
-    productIdxs    = find(species < 0);
+    productIdxs    = find(species > 0);
     productStoichs = species(productIdxs);
     nProducts = length(productIdxs);
     for j = 1:nProducts

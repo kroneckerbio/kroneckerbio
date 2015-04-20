@@ -183,8 +183,13 @@ if isfield(sbml, 'initialAssignment')
 end
 
 % Store targets and values
-targetStrs = [{sbml.rule.variable}'; {sbml.initialAssignment.symbol}'];
-valueStrs  = [{sbml.rule.formula}';  {sbml.initialAssignment.math}'];
+targetStrs = [{sbml.rule.variable}'];
+valueStrs  = [{sbml.rule.formula}' ];
+
+if isfield(sbml, 'initialAssignment')
+    targetStrs = [targetStrs; {sbml.initialAssignment.symbol}'];
+    valueStrs  = [valueStrs;  {sbml.initialAssignment.math}'];
+end
 
 % Turn into symbolics
 targetSyms = sym(targetStrs);
