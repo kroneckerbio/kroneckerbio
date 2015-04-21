@@ -158,8 +158,8 @@ if isfield(SymModel, 'f')
     f = SymModel.f;
     if isfield(SymModel, 'r')
         r = SymModel.r;
-        S = SymModel.S;
-        Ssym = initSsym(S);
+        StoichiometricMatrix = SymModel.S;
+        StoichiometricSym = initSsym(StoichiometricMatrix);
         nr = numel(r);
         
         if isfield(SymModel, 'rNames')
@@ -169,16 +169,16 @@ if isfield(SymModel, 'f')
         end
     else
         r = sym(zeros(0,1));
-        S = zeros(nx,0);
-        Ssym = initSsym(S);
+        StoichiometricMatrix = zeros(nx,0);
+        StoichiometricSym = initSsym(StoichiometricMatrix);
         nr = 0;
         rNames = cell(0,1);
     end
 else
     % If there is no f, then r and S must be supplied
     r = SymModel.r;
-    S = SymModel.S;
-    Ssym = initSsym(S);
+    StoichiometricMatrix = SymModel.S;
+    StoichiometricSym = initSsym(StoichiometricMatrix);
     nr = numel(r);
     
     if isfield(SymModel, 'rNames')
@@ -187,14 +187,14 @@ else
         rNames = repmat({''}, [nr,1]);
     end
     
-    f = Ssym*r;
+    f = StoichiometricSym*r;
 end
 
-    function Ssym = initSsym(S)
-        Sind = find(S ~= 0);
-        [Si,Sj] = ind2sub(size(S),Sind);
-        Ssize = size(S);
-        Ssym = initializeMatrixMupad(Si,Sj,S(Sind),Ssize(1),Ssize(2));
+    function StoichiometricSym = initSsym(StoichiometricMatrix)
+        Sind = find(StoichiometricMatrix ~= 0);
+        [Si,Sj] = ind2sub(size(StoichiometricMatrix),Sind);
+        Ssize = size(StoichiometricMatrix);
+        StoichiometricSym = initializeMatrixMupad(Si,Sj,StoichiometricMatrix(Sind),Ssize(1),Ssize(2));
     end
 
 y       = SymModel.y;
@@ -367,9 +367,9 @@ nz('u') = true(nu,1);
 nz('rx') = rhasx;
 nz('ru') = rhasu;
 nz('rk') = rhask;
-nz('fx') = logical(abs(S)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
-nz('fu') = logical(abs(S)*rhasu);
-nz('fk') = logical(abs(S)*rhask);
+nz('fx') = logical(abs(StoichiometricMatrix)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
+nz('fu') = logical(abs(StoichiometricMatrix)*rhasu);
+nz('fk') = logical(abs(StoichiometricMatrix)*rhask);
 nz('uq') = uhasq;
 nz('yx') = yhasx;
 nz('yu') = yhasu;
@@ -533,17 +533,17 @@ if order >= 1
     
     % Gradient of f with respect to x
     if verbose; fprintf('Calculating dfdx...'); end
-    dfdx = Ssym*drdx;
+    dfdx = StoichiometricSym*drdx;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to u
     if verbose; fprintf('Calculating dfdu...'); end
-    dfdu = Ssym*drdu;
+    dfdu = StoichiometricSym*drdu;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to k
     if verbose; fprintf('Calculating dfdk...'); end
-    dfdk = Ssym*drdk;
+    dfdk = StoichiometricSym*drdk;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to x
@@ -613,55 +613,55 @@ if order >= 2
     
     % Gradient of dfdx with respect to x
     if verbose; fprintf('Calculating d2fdx2...'); end
-    d2fdx2 = Ssym*reshapefun(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
+    d2fdx2 = StoichiometricSym*reshapefun(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
     d2fdx2 = reshapefun(d2fdx2, [nx*nx nx], 'f', {'x' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to u
     if verbose; fprintf('Calculating d2fdu2...'); end
-    d2fdu2 = Ssym*reshapefun(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
+    d2fdu2 = StoichiometricSym*reshapefun(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
     d2fdu2 = reshapefun(d2fdu2, [nx*nu,nu], 'f', {'u' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to x
     if verbose; fprintf('Calculating d2fdxdu...'); end
-    d2fdxdu = Ssym*reshapefun(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
+    d2fdxdu = StoichiometricSym*reshapefun(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
     d2fdxdu = reshapefun(d2fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to u
     if verbose; fprintf('Calculating d2fdudx...'); end
-    d2fdudx = Ssym*reshapefun(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
+    d2fdudx = StoichiometricSym*reshapefun(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
     d2fdudx = reshapefun(d2fdudx, [nx*nx,nu], 'f', {'x' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to k
     if verbose; fprintf('Calculating d2fdk2...'); end
-    d2fdk2 = Ssym*reshapefun(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
+    d2fdk2 = StoichiometricSym*reshapefun(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
     d2fdk2 = reshapefun(d2fdk2, [nx*nk,nk], 'f', {'k' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to k
     if verbose; fprintf('Calculating d2fdkdx...'); end
-    d2fdkdx = Ssym*reshapefun(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
+    d2fdkdx = StoichiometricSym*reshapefun(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
     d2fdkdx = reshapefun(d2fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to k
     if verbose; fprintf('Calculating d2fdkdu...'); end
-    d2fdkdu = Ssym*reshapefun(d2rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
+    d2fdkdu = StoichiometricSym*reshapefun(d2rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
     d2fdkdu = reshapefun(d2fdkdu, [nx*nu,nk], 'f',{'u' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to x
     if verbose; fprintf('Calculating d2fdxdk...'); end
-    d2fdxdk = Ssym*reshapefun(d2rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
+    d2fdxdk = StoichiometricSym*reshapefun(d2rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
     d2fdxdk = reshapefun(d2fdxdk, [nx*nk,nx], 'f',{'k' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to u
     if verbose; fprintf('Calculating d2fdudk...'); end
-    d2fdudk = Ssym*reshapefun(d2rdudk, [nr,nk*nu], 'r',{'k' 'u'});
+    d2fdudk = StoichiometricSym*reshapefun(d2rdudk, [nr,nk*nu], 'r',{'k' 'u'});
     d2fdudk = reshapefun(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
     if verbose; fprintf('Done.\n'); end
     
@@ -715,11 +715,11 @@ if order >= 3
     d3rdkdx2 = jacobianfun(vec(d2rdx2), kSyms, 'r', {'x','x','k'});
     
     %Gradient of d2fdx2 with respect to x
-    d3fdx3 = Ssym*reshapefun(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
+    d3fdx3 = StoichiometricSym*reshapefun(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
     d3fdx3 = reshapefun(d3fdx3, [xn*nx*nx,nx], 'f',{'x' 'x' 'x'});
     
     %Gradient of d2fdx2 with respect to k
-    d3fdkdx2 = Ssym*reshapefun(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
+    d3fdkdx2 = StoichiometricSym*reshapefun(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
     d3fdkdx2 = reshapefun(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
 else
     d3rdx3   = '';
@@ -920,7 +920,7 @@ if order >= 3
     m.d3fdkdx2  = setfun_rf(d3fdkdx2,k);
 end
 
-m.S = S;
+m.S = StoichiometricMatrix;
 m.r = setfun_rf(r,k);
 
 if order >= 1
@@ -1250,7 +1250,7 @@ if verbose; fprintf('done.\n'); end
             % Check that we don't already know more about f than we can
             % gather from the current derivative
             if ~isKey(nz,nzkey_f)
-                nztemp = logical(abs(S)*reshape(nze,[nr_,nxu_*nk_]));
+                nztemp = logical(abs(StoichiometricMatrix)*reshape(nze,[nr_,nxu_*nk_]));
                 nz(nzkey_f) = reshape(nztemp,[nx,nxu_,nk_]);
             end
         end
