@@ -117,11 +117,11 @@ clear inp
 u_t = @(t) u_tq(t,q);
 
 % Determine if u is vectorized, and fix if not
-testut = u_t([1 2]);
-if size(testut,2) == 1
+try
+    testut = u_t([1 2]);
+    assert(size(testut) == [nu,2])
+catch
     u_t = @ut_vectorized;
-elseif size(testut,2) ~= 2
-    error('u should return an nu-by-1 or nu-by-nt vector of input values')
 end
 
 dudq_t = @(t) dudq_tq(t,q);

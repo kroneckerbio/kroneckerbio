@@ -74,7 +74,7 @@ m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', yNames, [], [], opts);
 tF = 120;
 
 % Set up the input functions
-u0 = m.u(0); % Input values at t=0. The input is a constant value for all time.
+u0 = m.u; % Default input values. The input is a constant value for all time.
 nq = 0; % Number of input parameters
 nu = m.nu; % Number of inputs
 ufun = @(t,q) repmat(u0,1,numel(t)); % Sets up a function that returns a matrix consisting of u0 repeated numel(t) times

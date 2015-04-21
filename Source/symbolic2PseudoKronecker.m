@@ -286,40 +286,40 @@ end
 
 %f = Ssym*r;
 
-q = SymModel.q;
-nq = SymModel.nq;
-qStrs = cell(nq,1);
-qSyms = SymModel.qSyms;
 
-% Standardize names of input parameters
-newqSyms = sym('q%dx',[nq,1]);
-u = fastsubs(u, qSyms, newqSyms);
-qSyms = newqSyms; clear newqSyms
-qStrs = fastchar(qSyms);
+%%% For now, models will only contain constant default values of inputs %%%
+% q = SymModel.q;
+% nq = SymModel.nq;
+% qStrs = cell(nq,1);
+% qSyms = SymModel.qSyms;
 % 
-% for iq = 1:nq
-%     u = subs(u, qSyms(iq), newqSym(iq));
-%     qSyms(iq) = newqSym;
-%     qStrs{iq} = char(qSyms(iq));
-% end
+% % Standardize names of input parameters
+% newqSyms = sym('q%dx',[nq,1]);
+% u = fastsubs(u, qSyms, newqSyms);
+% qSyms = newqSyms; clear newqSyms
+% qStrs = fastchar(qSyms);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Determine the species and parameters in each reaction
 
 rstr = fastchar(r);
 ystr = fastchar(y);
-ustr = fastchar(u);
+
 x0str = fastchar(x0);
 
 rhasx = exprhasvar(rstr,xStrs,nr,nx);
 rhasu = exprhasvar(rstr,uStrs,nr,nu);
 rhask = exprhasvar(rstr,kStrs,nr,nk);
 
-uhasq = exprhasvar(ustr,qStrs,nu,nq);
-
 yhasx = exprhasvar(ystr,xStrs,ny,nx);
 yhasu = exprhasvar(ystr,uStrs,ny,nu);
 
 x0hass = exprhasvar(x0str,sStrs,nx,ns);
+
+%%% For now, models will only contain constant default values of inputs %%%
+% ustr = fastchar(u);
+% uhasq = exprhasvar(ustr,qStrs,nu,nq);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     function out = exprhasvar(exprStrs,varStrs,nexprs,nvars)
         
@@ -350,7 +350,9 @@ sizes.r = nr;
 sizes.k = nk;
 sizes.x = nx;
 sizes.u = nu;
-sizes.q = nq;
+%%% For now, models will only contain constant default values of inputs %%%
+%sizes.q = nq;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 sizes.y = ny;
 
 % The above logical arrays are the nonzero elements of the first derivative
@@ -363,18 +365,20 @@ nz = containers.Map;
 nz('r') = true(nr,1);
 nz('f') = true(nx,1);
 nz('y') = true(ny,1);
-nz('u') = true(nu,1);
 nz('rx') = rhasx;
 nz('ru') = rhasu;
 nz('rk') = rhask;
 nz('fx') = logical(abs(StoichiometricMatrix)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
 nz('fu') = logical(abs(StoichiometricMatrix)*rhasu);
 nz('fk') = logical(abs(StoichiometricMatrix)*rhask);
-nz('uq') = uhasq;
 nz('yx') = yhasx;
 nz('yu') = yhasu;
 nz('xs') = x0hass;
 
+%%% For now, models will only contain constant default values of inputs %%%
+% nz('u') = true(nu,1);
+% nz('uq') = uhasq;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     function nzout = getNonZeroEntries(num,dens)
         % Inputs:
@@ -511,11 +515,13 @@ end
 
 if order >= 1
     
+%%% For now, models will only contain constant default values of inputs %%%
     % Gradient of u with respect to q
-    if verbose; fprintf('Calculating dudq...'); end
-    dudq = jacobianfun(u, qSyms);
-    if verbose; fprintf('Done.\n'); end
-    
+%     if verbose; fprintf('Calculating dudq...'); end
+%     dudq = jacobianfun(u, qSyms);
+%     if verbose; fprintf('Done.\n'); end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     % Gradient of r with respect to x
     if verbose; fprintf('Calculating drdx...'); end
     drdx = jacobianfun(r, xSyms);
@@ -776,14 +782,17 @@ end
 
 if verbose; fprintf('Converting symbolics to functions...\n'); end
 % Convert the symbolics into strings
-u        = symbolic2function('u', 'u', {});
+%%% For now, models will only contain constant default values of inputs %%%
+%u        = symbolic2function('u', 'u', {});
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 f        = symbolic2function('f', 'f', {});
 r        = symbolic2function('r', 'r', {});
 y        = symbolic2function('y', 'y', {});
 
 if order >= 1
-    dudq     = symbolic2function('dudq', 'u', 'q');
-    
+%%% For now, models will only contain constant default values of inputs %%%
+    %dudq     = symbolic2function('dudq', 'u', 'q');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dfdx     = symbolic2function('dfdx', 'f', 'x');
     dfdu     = symbolic2function('dfdu', 'f', 'u');
     dfdk     = symbolic2function('dfdk', 'f', 'k');
@@ -878,11 +887,13 @@ m.s  = s;
 m.dx0ds = dx0ds;
 m.x0c = x0c;
 
-m.u    = setfun_u(u,q);
-% Not sure if we still need the following values
+%%% For now, models will only contain constant default values of inputs %%%
+% m.u    = setfun_u(u,q);
 % m.q    = q;
 % m.dudq = dudq;
 % m.nqu  = zeros(nu,1);
+m.u     = u;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 m.vxInd = vxInd;
 m.vuInd = vuInd;
@@ -1048,16 +1059,18 @@ if verbose; fprintf('done.\n'); end
                 fun = string2fun(string_rep, num, dens);
             case 'mex'
                 
+%%% For now, models will only contain constant default values of inputs %%%
                 % Don't create MEX files for u and dudq. Use the
-                % 'efficient' method instead
-                if any(strcmp(variable_name,{'u';'dudq'}))
-                    string_rep = symbolic2string_new(variable_name, num, dens);
-                    string_rep = convertSymStrtoIndexedStr(string_rep, num);
-                    fun = string2fun(string_rep, num, dens);
-                    if verbose; fprintf('Done.\n'); end
-                    return
-                end
-                
+                % 'efficient' method instead.
+%                 if any(strcmp(variable_name,{'u';'dudq'}))
+%                     string_rep = symbolic2string_new(variable_name, num, dens);
+%                     string_rep = convertSymStrtoIndexedStr(string_rep, num);
+%                     fun = string2fun(string_rep, num, dens);
+%                     if verbose; fprintf('Done.\n'); end
+%                     return
+%                 end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
                 % Prepare inputs to C code generation function
                 dsym = eval(variable_name);
                 nzlogical = getNonZeroEntries(num, dens);
@@ -1124,7 +1137,7 @@ if verbose; fprintf('done.\n'); end
         % Find symbolic derivatives for nonzero elements. This outputs an
         % oddly-formatted string that needs to be stripped of some extra characters.
         nzindices = find(nzlogical(:));
-        strelements = fastchar(variable(nzindices)); % Don't replace indices with logicals here. The conversion of the logical to sym takes too long.
+        strelements = fastchar(variable(nzindices)); %#ok % Don't replace indices with logicals here. The conversion of the logical to sym takes too long.
         
 %         % Get string elements between square brackets, not including square
 %         % brackets
@@ -1183,13 +1196,17 @@ if verbose; fprintf('done.\n'); end
                 kindexstring = kindexstring{1};
             end
             string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs], [xindexstring; uindexstring; kindexstring], 0);
-        elseif strcmp(num, 'u')
-            % Replace expressions for input parameters with indexed calls to
-            % q
-            qindexstring = sprintf('q(%d)\n', 1:nq);
-            qindexstring = textscan(qindexstring,'%s','Delimiter','\n');
-            qindexstring = qindexstring{1};
-            string_rep = regexprep(string_rep, qStrs, qindexstring, 0);
+%%% For now, models will only contain constant default values of inputs %%%
+%         elseif strcmp(num, 'u')
+%             % Replace expressions for input parameters with indexed calls to
+%             % q
+%             qindexstring = sprintf('q(%d)\n', 1:nq);
+%             qindexstring = textscan(qindexstring,'%s','Delimiter','\n');
+%             qindexstring = qindexstring{1};
+%             string_rep = regexprep(string_rep, qStrs, qindexstring, 0);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        else
+            error('Unrecognized derivative numerator.')
         end
     end
 
@@ -1263,26 +1280,6 @@ if verbose; fprintf('done.\n'); end
         d2rdkdx_ = initializeMatrixMupad(nzterms, nzdens, nzders, nr_*nxu_, nk_);
         
     end
-    
-    function d2rdkdx_ = calcHigherOrderDerivative_old(drdx, kSyms)
-        
-        nk_ = length(kSyms);
-        nr_ = size(drdx,1);
-        nxu_ = size(drdx,2);
-        
-        d2rdkdxtemp = cell(nxu_,1);
-        if verbose; fprintf(repmat(' ',1,25)); end
-        for xi = 1:nxu_
-            if verbose; fprintf([repmat('\b',1,25) '%25s'],sprintf('%3g%% complete', 50*xi/nxu_)); end
-            d2rdkdxtemp{xi} = jacobian(drdx(:,xi), kSyms);
-        end
-        d2rdkdx_ = d2rdkdxtemp{1};
-        for xi = 1:nxu_-1
-            if verbose; fprintf([repmat('\b',1,25) '%25s'],sprintf('%3g%% complete', 50+50*xi/nxu_)); end
-            d2rdkdx_ = feval(symengine,'linalg::stackMatrix',d2rdkdx_,d2rdkdxtemp{xi+1});
-        end
-        
-    end
 
     function matout = reshape_extraarguments(mat, newsize, ~, ~)
         matout = reshape(mat,newsize);
@@ -1351,15 +1348,16 @@ if any(strcmp(num, {'f' 'r'}))
         fun = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' string_rep '])))']);
     end
     
-elseif strcmp(num, 'u')
-    
-    % Set up the function handle by evaluating the string
-    if isempty(dens) % u
-        fun = eval(['@(t,q) repmat([' string_rep '],1,numel(t))']);
-    else % dudq
-        fun = eval(['@(t,q) inf2big(nan2zero(sparse([' string_rep '])))']);
-    end
-    
+%%% For now, models will only contain constant default values of inputs %%%
+% elseif strcmp(num, 'u')
+%     
+%     % Set up the function handle by evaluating the string
+%     if isempty(dens) % u
+%         fun = eval(['@(t,q) repmat([' string_rep '],1,numel(t))']);
+%     else % dudq
+%         fun = eval(['@(t,q) inf2big(nan2zero(sparse([' string_rep '])))']);
+%     end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 elseif strcmp(num, 'y')
     
     if isempty(dens)
@@ -1382,9 +1380,11 @@ function fun = setfun_rf(basefun, k)
     fun = @(t,x,u)basefun(t,x,u,k);
 end
 
-function fun = setfun_u(basefun, q)
-    fun = @(t)basefun(t,q);
-end
+%%% For now, models will only contain constant default values of inputs %%%
+% function fun = setfun_u(basefun, q)
+%     fun = @(t)basefun(t,q);
+% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function fun = setfun_y(basefun,is0order,ny,nk)
 % nk is needed to initialize a dummy k vector, which is needed to avoid

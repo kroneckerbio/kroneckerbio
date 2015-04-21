@@ -519,7 +519,7 @@ nu = nnz(isu);
 uNames = xuNames(isu);
 uSyms  = xuSyms(isu);
 uNicestrs = xuNicestrs(isu);
-u = sym(xu0(isu)); % Default is no time varying inputs
+u = xu0(isu); % Default is no time varying inputs
 vuInd   = vxuInd(isu);
 
 nq = 0;
