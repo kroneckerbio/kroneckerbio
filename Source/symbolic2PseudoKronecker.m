@@ -572,156 +572,156 @@ f = eval(['@(t,x,u,k) [' f ']']);
 dfdx = regexprep(dfdx, '[', ''); %remove extra "[" from front of lines
 dfdx = regexprep(dfdx, ']', ''); %and "]"
 dfdx = strtrim(dfdx);            %trim excess new lines from the end
-dfdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' dfdx '])))']);
+dfdx = eval(['@(t,x,u,k) sparse([' dfdx '])']);
 
 dfdu = regexprep(dfdu, '[', '');
 dfdu = regexprep(dfdu, ']', '');
 dfdu = strtrim(dfdu);
-dfdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' dfdu '])))']);
+dfdu = eval(['@(t,x,u,k) sparse([' dfdu '])']);
 
 dfdk = regexprep(dfdk, '[', '');
 dfdk = regexprep(dfdk, ']', '');
 dfdk = strtrim(dfdk);
-dfdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' dfdk '])))']);
+dfdk = eval(['@(t,x,u,k) sparse([' dfdk '])']);
 
 d2fdx2 = regexprep(d2fdx2, '[', '');
 d2fdx2 = regexprep(d2fdx2, ']', '');
 d2fdx2 = strtrim(d2fdx2);
-d2fdx2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdx2 '])))']);
+d2fdx2 = eval(['@(t,x,u,k) sparse([' d2fdx2 '])']);
 
 d2fdu2 = regexprep(d2fdu2, '[', '');
 d2fdu2 = regexprep(d2fdu2, ']', '');
 d2fdu2 = strtrim(d2fdu2);
-d2fdu2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdu2 '])))']);
+d2fdu2 = eval(['@(t,x,u,k) sparse([' d2fdu2 '])']);
 
 d2fdk2 = regexprep(d2fdk2, '[', '');
 d2fdk2 = regexprep(d2fdk2, ']', '');
 d2fdk2 = strtrim(d2fdk2);
-d2fdk2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdk2 '])))']);
+d2fdk2 = eval(['@(t,x,u,k) sparse([' d2fdk2 '])']);
 
 d2fdudx = regexprep(d2fdudx, '[', '');
 d2fdudx = regexprep(d2fdudx, ']', '');
 d2fdudx = strtrim(d2fdudx);
-d2fdudx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdudx '])))']);
+d2fdudx = eval(['@(t,x,u,k) sparse([' d2fdudx '])']);
 
 d2fdxdu = regexprep(d2fdxdu, '[', '');
 d2fdxdu = regexprep(d2fdxdu, ']', '');
 d2fdxdu = strtrim(d2fdxdu);
-d2fdxdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdxdu '])))']);
+d2fdxdu = eval(['@(t,x,u,k) sparse([' d2fdxdu '])']);
 
 d2fdkdx = regexprep(d2fdkdx, '[', '');
 d2fdkdx = regexprep(d2fdkdx, ']', '');
 d2fdkdx = strtrim(d2fdkdx);
-d2fdkdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdkdx '])))']);
+d2fdkdx = eval(['@(t,x,u,k) sparse([' d2fdkdx '])']);
 
 d2fdxdk = regexprep(d2fdxdk, '[', '');
 d2fdxdk = regexprep(d2fdxdk, ']', '');
 d2fdxdk = strtrim(d2fdxdk);
-d2fdxdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2fdxdk '])))']);
+d2fdxdk = eval(['@(t,x,u,k) sparse([' d2fdxdk '])']);
 
 d3fdx3 = regexprep(d3fdx3, '[', '');
 d3fdx3 = regexprep(d3fdx3, ']', '');
 d3fdx3 = strtrim(d3fdx3);
-d3fdx3 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d3fdx3 '])))']);
+d3fdx3 = eval(['@(t,x,u,k) sparse([' d3fdx3 '])']);
 
 d3fdkdx2 = regexprep(d3fdkdx2, '[', '');
 d3fdkdx2 = regexprep(d3fdkdx2, ']', '');
 d3fdkdx2 = strtrim(d3fdkdx2);
-d3fdkdx2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d3fdkdx2 '])))']);
+d3fdkdx2 = eval(['@(t,x,u,k) sparse([' d3fdkdx2 '])']);
 
 r = eval(['@(t,x,u,k) [' r ']']);
 
 % drdx = regexprep(drdx, '[', ''); %remove extra "[" from front of lines
 % drdx = regexprep(drdx, ']', ''); %and "]"
 % drdx = strtrim(drdx);            %trim excess new lines from the end
-drdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' drdx '])))']);
+drdx = eval(['@(t,x,u,k) sparse([' drdx '])']);
 
 % drdu = regexprep(drdu, '[', '');
 % drdu = regexprep(drdu, ']', '');
 % drdu = strtrim(drdu);
-drdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' drdu '])))']);
+drdu = eval(['@(t,x,u,k) sparse([' drdu '])']);
 
 % drdk = regexprep(drdk, '[', '');
 % drdk = regexprep(drdk, ']', '');
 % drdk = strtrim(drdk);
-drdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' drdk '])))']);
+drdk = eval(['@(t,x,u,k) sparse([' drdk '])']);
 
 % d2rdx2 = regexprep(d2rdx2, '[', '');
 % d2rdx2 = regexprep(d2rdx2, ']', '');
 % d2rdx2 = strtrim(d2rdx2);
-d2rdx2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdx2 '])))']);
+d2rdx2 = eval(['@(t,x,u,k) sparse([' d2rdx2 '])']);
 
 % d2rdu2 = regexprep(d2rdu2, '[', '');
 % d2rdu2 = regexprep(d2rdu2, ']', '');
 % d2rdu2 = strtrim(d2rdu2);
-d2rdu2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdu2 '])))']);
+d2rdu2 = eval(['@(t,x,u,k) sparse([' d2rdu2 '])']);
 
 % d2rdxdu = regexprep(d2rdxdu, '[', '');
 % d2rdxdu = regexprep(d2rdxdu, ']', '');
 % d2rdxdu = strtrim(d2rdxdu);
-d2rdxdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdxdu '])))']);
+d2rdxdu = eval(['@(t,x,u,k) sparse([' d2rdxdu '])']);
 
 % d2rdudx = regexprep(d2rdudx, '[', '');
 % d2rdudx = regexprep(d2rdudx, ']', '');
 % d2rdudx = strtrim(d2rdudx);
-d2rdudx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdudx '])))']);
+d2rdudx = eval(['@(t,x,u,k) sparse([' d2rdudx '])']);
 
 % d2rdk2 = regexprep(d2rdk2, '[', '');
 % d2rdk2 = regexprep(d2rdk2, ']', '');
 % d2rdk2 = strtrim(d2rdk2);
-d2rdk2 = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdk2 '])))']);
+d2rdk2 = eval(['@(t,x,u,k) sparse([' d2rdk2 '])']);
 
 % d2rdkdx = regexprep(d2rdkdx, '[', '');
 % d2rdkdx = regexprep(d2rdkdx, ']', '');
 % d2rdkdx = strtrim(d2rdkdx);
-d2rdkdx = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdkdx '])))']);
+d2rdkdx = eval(['@(t,x,u,k) sparse([' d2rdkdx '])']);
 
 % d2rdkdu = regexprep(d2rdkdu, '[', '');
 % d2rdkdu = regexprep(d2rdkdu, ']', '');
 % d2rdkdu = strtrim(d2rdkdu);
-d2rdkdu = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdkdu '])))']);
+d2rdkdu = eval(['@(t,x,u,k) sparse([' d2rdkdu '])']);
 
 % d2rdxdk = regexprep(d2rdxdk, '[', '');
 % d2rdxdk = regexprep(d2rdxdk, ']', '');
 % d2rdxdk = strtrim(d2rdxdk);
-d2rdxdk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdxdk '])))']);
+d2rdxdk = eval(['@(t,x,u,k) sparse([' d2rdxdk '])']);
 
 % d2rdudk = regexprep(d2rdudk, '[', '');
 % d2rdudk = regexprep(d2rdudk, ']', '');
 % d2rdudk = strtrim(d2rdudk);
-d2rdudk = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' d2rdudk '])))']);
+d2rdudk = eval(['@(t,x,u,k) sparse([' d2rdudk '])']);
 
 y = eval(['@(t,x,u) [' y ']']);
 
 dydx = regexprep(dydx, '[', ''); %remove extra "[" from front of lines
 dydx = regexprep(dydx, ']', ''); %and "]"
 dydx = strtrim(dydx);            %trim excess new lines from the end
-dydx = eval(['@(t,x,u) inf2big(nan2zero(sparse([' dydx '])))']);
+dydx = eval(['@(t,x,u) sparse([' dydx '])']);
 
 dydu = regexprep(dydu, '[', '');
 dydu = regexprep(dydu, ']', '');
 dydu = strtrim(dydu);
-dydu = eval(['@(t,x,u) inf2big(nan2zero(sparse([' dydu '])))']);
+dydu = eval(['@(t,x,u) sparse([' dydu '])']);
 
 d2ydx2 = regexprep(d2ydx2, '[', '');
 d2ydx2 = regexprep(d2ydx2, ']', '');
 d2ydx2 = strtrim(d2ydx2);
-d2ydx2 = eval(['@(t,x,u) inf2big(nan2zero(sparse([' d2ydx2 '])))']);
+d2ydx2 = eval(['@(t,x,u) sparse([' d2ydx2 '])']);
 
 d2ydu2 = regexprep(d2ydu2, '[', '');
 d2ydu2 = regexprep(d2ydu2, ']', '');
 d2ydu2 = strtrim(d2ydu2);
-d2ydu2 = eval(['@(t,x,u) inf2big(nan2zero(sparse([' d2ydu2 '])))']);
+d2ydu2 = eval(['@(t,x,u) sparse([' d2ydu2 '])']);
 
 d2ydxdu = regexprep(d2ydxdu, '[', '');
 d2ydxdu = regexprep(d2ydxdu, ']', '');
 d2ydxdu = strtrim(d2ydxdu);
-d2ydxdu = eval(['@(t,x,u) inf2big(nan2zero(sparse([' d2ydxdu '])))']);
+d2ydxdu = eval(['@(t,x,u) sparse([' d2ydxdu '])']);
 
 d2ydudx = regexprep(d2ydudx, '[', '');
 d2ydudx = regexprep(d2ydudx, ']', '');
 d2ydudx = strtrim(d2ydudx);
-d2ydudx = eval(['@(t,x,u) inf2big(nan2zero(sparse([' d2ydudx '])))']);
+d2ydudx = eval(['@(t,x,u) sparse([' d2ydudx '])']);
 
 if verbose; fprintf('done.\n'); end
 
