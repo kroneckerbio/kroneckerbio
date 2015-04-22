@@ -1,12 +1,8 @@
-function con = SteadyStateExperiment(m, s, inp, dos, time_scale, name)
-%SteadyStateExperiment Construct a KroneckerBio experimental conditions
-%   structure describing a initial value problem first run to steady state
+function con = experimentInitialValue(m, s, inp, dos, name)
+%experimentInitialValue Construct a KroneckerBio experimental conditions
+%   structure describing an initial value problem
 %
-%   con = Experiment(m, tF, s, steadyState, periodic, u, d,
-%                    discontinuities, q, dudq, dddq, name)
-%
-%   The inputs to this function allow one to set all the variables that are
-%   permitted on a KroneckerBio experimental conditions structure.
+%   con = experimentInitialValue(m, tF, s, inp, dos, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -21,11 +17,6 @@ function con = SteadyStateExperiment(m, s, inp, dos, time_scale, name)
 %   dos: [ dose struct scalar ]
 %       Default = doseZero(m)
 %       The definition of the dose amounts and schedule
-%   time_scale: [ nonnegative scalar ]
-%       Default = 10
-%       The typical time scale for an observation. The steady state is
-%       determined to be reached when the states are expected to change
-%       less than the tolerance over this time scale.
 %   name: [ string ]
 %       Default = ''
 %       An arbitrary name for the experiment
@@ -39,7 +30,6 @@ function con = SteadyStateExperiment(m, s, inp, dos, time_scale, name)
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-% Clean-up inputs
 if nargin < 5
     name = [];
     if nargin < 4
@@ -53,10 +43,24 @@ if nargin < 5
     end
 end
 
+if isempty(s)
+    s = m.s;
+end
+if isempty(inp)
+    inp = inputConstant(m, m.u);
+end
+if isempty(dos)
+    dos = doseZero(m);
+end
+if isempty(name)
+    name = '';
+end
+
 % m
 assert(isscalar(m) && is(m, 'Model'), 'KroneckerBio:Experiment:m', 'm must be a Model')
 m = keepfields(m, {'Type', 's', 'u', 'ns', 'nu'});
 nu = m.nu;
+
 % s
 assert(numel(s) == m.ns, 'KroneckerBio:Experiment:s', 's must a vector with length equal to m.ns')
 s = vec(s);
@@ -101,11 +105,11 @@ con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
 con.inp = inp;
 con.dos = dos;
-con.SteadyState = true;
+con.SteadyState = false;
 con.Periodic = false;
 con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
-con.private.TimeScale = time_scale;
+con.private = [];
 
     function val = vectorize_u(t, f_u)
         nt = numel(t);
@@ -116,6 +120,6 @@ con.private.TimeScale = time_scale;
     end
 
     function con_out = update(s, q, h)
-        con_out = InitialValueExperiment(m, s, inp.Update(q), dos.Update(h), name);
+        con_out = experimentInitialValue(m, s, inp.Update(q), dos.Update(h), name);
     end
 end
