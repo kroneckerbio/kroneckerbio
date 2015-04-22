@@ -2,7 +2,7 @@ function con = experimentInitialValue(m, s, inp, dos, name)
 %experimentInitialValue Construct a KroneckerBio experimental conditions
 %   structure describing an initial value problem
 %
-%   con = experimentInitialValue(m, tF, s, inp, dos, name)
+%   con = experimentInitialValue(m, s, inp, dos, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]

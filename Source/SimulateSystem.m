@@ -1,10 +1,10 @@
-function sim = Simulate(m, con, obs, opts)
-%Simulate Integrate a model under specified experimental conditions and
-% according to specified observation schemes
+function sim = SimulateSystem(m, con, obs, opts)
+%SimulateSystem Integrate a model under specified experimental conditions 
+% and according to specified observation schemes
 %
 %   Mathematically: x = Integral(f, t=0:tF)
 %   
-%   sim = Simulate(m, con, obs, opts)
+%   sim = SimulateSystem(m, con, obs, opts)
 %   
 %   Inputs
 %   m: [ model struct scalar ]
@@ -18,17 +18,20 @@ function sim = Simulate(m, con, obs, opts)
 %       returned.
 %   opts: [ options struct scalar ]
 %       Default = []
-%       .RelTol [ nonnegative scalar {1e-6} ]
+%       .RelTol [ nonnegative scalar ]
+%           Default = 1e-6
 %           Relative tolerance of the integration
 %       .AbsTol [ cell vector of nonnegative vectors | nonnegative vector |
-%                 nonegative scalar {1e-9} ]
+%                 nonegative scalar ]
+%           Default = 1e-9
 %           Absolute tolerance of the integration. If a cell vector is
 %           provided, a different AbsTol will be used for each experiment.
-%       .Verbose [ nonnegative integer scalar {1} ]
+%       .Verbose [ nonnegative integer scalar ]
+%           Default = 1
 %           Bigger number displays more progress information
 %
 %   Outputs
-%   sim = Simulate(m, con, obs, opts)
+%   sim: [ simulation struct matrix size(obs) ]
 %   	A matrix of simulation structures the same size as obs. The field
 %   	names are always the same (otherwise, Matlab won't make a matrix)
 %   	but the exact type and meaning is determined by the observation
@@ -47,6 +50,21 @@ function sim = Simulate(m, con, obs, opts)
 %           This function handle evaluates some outputs ind of the system
 %           at some particular time points t. The user may exclude ind, in
 %           which case all outputs are returned.
+%       .ie [ positive integer row vector ]
+%           The index of an event that triggered. This is empty for a basic
+%           simulation.
+%       .te [ sorted nonnegative row vector numel(ie) ]
+%           The time at which each event was triggered. Empty for a basic
+%           simulation.
+%       .xe [ nonegative matrix nx by numel(ie) ]
+%           The state when each event was triggered. Empty for a basic
+%           simulation.
+%       .ue [ nonnegative matrix nu by numel(ie) ]
+%           The input when each event was triggered. Empty for a basic
+%           simulation.
+%       .ye [ nonegative matrix ny by numel(ie) ]
+%           The output when each event was triggered. Empty for a basic
+%           simulation.
 %       .int [ integration struct scalar ]
 %           The integrator solution to the system
 
@@ -59,8 +77,8 @@ if nargin < 4
     opts = [];
 end
 
-assert(nargin >= 2, 'KroneckerBio:Simulate:TooFewInputs', 'Simulate requires at least 2 input arguments')
-assert(isscalar(m), 'KroneckerBio:Simulate:MoreThanOneModel', 'The model structure must be scalar')
+assert(nargin >= 3, 'KroneckerBio:SimulateSystem:TooFewInputs', 'SimulateSystem requires at least 3 input arguments')
+assert(isscalar(m), 'KroneckerBio:SimulateSystem:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
 defaultOpts.Verbose = 1;
@@ -97,7 +115,7 @@ for i_con = 1:n_con
     opts_i = opts;
     opts_i.AbsTol = opts.AbsTol{i_con};
     
-    if verbose; fprintf(['Integrating system for ' con(iCon).Name '...']); end
+    if verbose; fprintf(['Integrating system for ' con(i_con).Name '...']); end
     ints = integrateAllSys(m, con(i_con), obs(:,i_con), opts_i);
     if verbose; fprintf('done.\n'); end
     
