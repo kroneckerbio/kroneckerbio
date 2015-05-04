@@ -15,7 +15,6 @@ end
 % Options for displaying progress
 defaultOpts.Verbose = 0;
 defaultOpts.Validate = false;
-defaultOpts.UseNames = false; % true uses Names as IDs - potentially dangerous
 defaultOpts.SBML_level = 2;
 defaultOpts.SBML_version = 1;
 defaultOpts.UseConcentrations = true; % species use initial concs.; false = species use initial amounts
@@ -43,12 +42,8 @@ parameterIDs = [arrayfun(@char, symModel.kSyms, 'UniformOutput', false); ...
     arrayfun(@char, symModel.qSyms, 'UniformOutput', false)];
 
 %% Main SBML struct
-if opts.UseNames
-    modelID = symModel.Name;
-else
-    modelID = genUUID;
-end
 modelName = symModel.Name;
+modelID   = genUID;
 
 sbmlModel = baseStruct;
 sbmlModel.typecode = 'SBML_MODEL';
@@ -275,7 +270,7 @@ allReactions = [];
 for i = 1:nr
     reaction = reactionStruct;
     
-    reaction.id = genUUID;
+    reaction.id = genUID;
     reaction.name = symModel.rNames{i};
     
     %% Get reactants and products from states and inputs
@@ -407,10 +402,4 @@ sbmlModel.event = eventStruct;
 
 if verbose; fprintf('done.\n'); end
 
-end
-
-
-%% Helper functions
-function uuid = genUUID
-    uuid = strrep(char(java.util.UUID.randomUUID), '-', '_');
 end

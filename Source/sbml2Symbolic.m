@@ -1,14 +1,90 @@
 function symModel = sbml2Symbolic(sbmlModel, opts)
 %SBML2SYMBOLIC Inport SBML model and covert to kroneckerbio symbolic model.
-%   Detailed explanation goes here
-% Currently based heavily on simbio2Symbolic (which MathWorks clearly adpated the libSBML API)
-% Note: Doesn't convert variable names in Part 2, assuming that SBML IDs
-%   are all allowed symbolic variable names.
-%   Uses IDs as the internal identifier in this function.
 
-% TEST: convert SBML -> SimBio -> symbolic for comparison; remove when done
-% When done, deprecate the sbmlimport function (it depends on the SimBiology toolbox)
-% symbolicTest = simbio2Symbolic(sbmlimport(sbmlModel));
+%   Inputs
+%   SimbioModel: [ Simbiology model scalar ]
+%       A Simbiology model object
+%   opts: [ options struct scalar {} ]
+%       .Verbose [ logical scalar {false} ]
+%       	Print progress to command window
+%       .UseNames [logical scalar {false} ]
+%           Whether to convert SBML IDs to Names and autogenerate new IDs
+%           Use this when the supplied SBML model uses "nice" names as IDs
+%       .EvaluateExternalFunctions [ logical scalar {false} ]
+%           Determines whether to evaluate calls to external functions in
+%           the reaction rate expressions. The external functions are
+%           evaluated with symbolic input arguments to obtain a symbolic
+%           version of the output that can be differentiated. If set to
+%           false, derivatives of external function calls cannot be
+%           computed.
+%
+%   Outputs
+%   SymModel
+%       .Type: [ 'Model.SymbolicReactions' ]
+%       .Name: [ string ]
+%           Copied from SimbioModel.Name
+%       .nv: [ nonegative integer scalar ]
+%           Number of compartments
+%       .nk: [ nonegative integer scalar ]
+%           Number of kinetic parameters
+%       .ns: [ nonegative integer scalar ]
+%           Number of seed parameters
+%       .nq: [ nonegative integer scalar ]
+%           Number of input control parameters
+%       .nu: [ nonegative integer scalar ]
+%           Number of inputs
+%       .nx: [ nonegative integer scalar ]
+%           Number of states
+%       .nr: [ nonegative integer scalar ]
+%           Number of reactions
+%       .vSyms: [ symbolic vector nv ]
+%           Symbolic name of each compartment
+%       .vNames: [ cell vector of strings nv ]
+%           Natural names of the compartments
+%       .v: [ positive vector nv ]
+%           Sizes of the compartments
+%       .kSyms: [ symbolic vector nk ]
+%           Symbolic name of each kinetic parameter
+%       .kNames: [ cell vector nk of strings ]
+%           Natural names of the kinetic parameters
+%       .k: [ nonegative vector nk ]
+%           Kinetic parameter values
+%       .sNames: [ cell vector of strings ns ]
+%           Natural names of the seed parameters
+%       .s: [ nonegative vector ns ]
+%           Seed parameter values
+%       .q: [ nonegative vector nq ]
+%           Input control parameter values
+%       .uSyms: [ symbolic vector nu ]
+%           Symbolic name of each input species
+%       .uNames: [ cell vector of strings nu ]
+%           Natural names of the input species
+%       .uInd [ positive integer vector nu ]
+%           Index of the compartment to which the inputs belong
+%       .u: [ symbolic vector nu ]
+%           Symbolic representation of each input species
+%       .xSyms: [ symbolic vector nx ]
+%           Symbolic name of each state species
+%       .xInd [ positive integer vector nx ]
+%           Index of the compartment to which the states belong
+%       .xNames: [ cell vector of strings nx ]
+%           Natural names of the state species
+%       .dx0ds: [ nonegative matrix nx by ns ]
+%           The influence of each seed parameter on each state species's
+%           initial amount
+%       .x0 [ symbolic vector nx ]
+%           Initial conditions of the state species
+%       .r [ symbolic vector nr ]
+%           Symbolic representation of each reaction rate using the
+%           symbolic species and parameters
+%       .S [ matrix nx by nr ]
+%           The stoichiometry matrix of the reactions
+%       .Su [ matrix nx by nr ]
+%           A stoichiometry matrix of how the reactions are trying to alter
+%           the inputs
+
+% (c) 2013 David R Hagen & Bruce Tidor
+% This work is released under the MIT license.
 
 %% Options
 % Resolve missing inputs
@@ -19,6 +95,7 @@ end
 % Options for displaying progress
 defaultOpts.Verbose = 0;
 defaultOpts.Validate = false;
+defaultOpts.EvaluateExternalFunctions = false;
 defaultOpts.UseNames = false;
 
 opts = mergestruct(defaultOpts, opts);
@@ -36,21 +113,13 @@ if verbose; fprintf('done.\n'); end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 1: Extracting the Model Variables %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Note: In SBML, `id` is a required globally scoped reference while `name`
-% is an optional human readable identifier. This function uses ids throughout for
-% parsing/converting and outputs ids by default. You can specify that ids
-% be converted to names with the option ConvertIDs. However, this may
-% introduce ambiguity and/or errors if names aren't valid Matlab strings or
-% breaks scoping rules that I don't know about.
 if verbose; fprintf('Extracting model components...'); end
 
 %% Model name
-if ~isempty(sbml.name) % In this case, name is more useful if present
-    name = sbml.name;
-elseif ~isempty(sbml.id)
+if opts.UseNames
     name = sbml.id;
 else
-    name = 'Inported SBML model';
+    name = sbml.name;
 end
 
 %% Compartments
@@ -68,7 +137,7 @@ for i = 1:nv
         v(i) = sbml.compartment(i).size;
     else
         % TODO: Consider variable compartment size by assignment or fitting
-        warning('Warning:sbml2Symbolic:CompartmetSizeNotSet: Compartment size not set, setting default size = 1.')
+        warning('Warning:sbml2Symbolic:CompartmentSizeNotSet: Compartment size not set, setting default size = 1.')
         v(i) = 1;
     end
     
@@ -112,7 +181,6 @@ end
 
 %% Parameters
 nk  = length(sbml.parameter); % Total number of parameters (may change)
-nkm = nk; % Number of model parameters
 kIDs   = cell(nk,1);
 kNames = cell(nk,1);
 k      = zeros(nk,1);
@@ -145,9 +213,9 @@ end
 %% Done extracting model variables
 if verbose; fprintf('done.\n'); end
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 2: Convert to symbolics %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if verbose; fprintf('Converting to symbolics...'); end
 
 %% Compartments
@@ -183,8 +251,8 @@ if isfield(sbml, 'initialAssignment')
 end
 
 % Store targets and values
-targetStrs = [{sbml.rule.variable}'];
-valueStrs  = [{sbml.rule.formula}' ];
+targetStrs = {sbml.rule.variable}';
+valueStrs  = {sbml.rule.formula}' ;
 
 if isfield(sbml, 'initialAssignment')
     targetStrs = [targetStrs; {sbml.initialAssignment.symbol}'];
@@ -194,7 +262,6 @@ end
 % Turn into symbolics
 targetSyms = sym(targetStrs);
 valueSyms  = sym(valueStrs);
-valueSymVars = cell(nRules,1);
 
 % Make lookup function indicating which values are constant
 allIDs = [xuIDs; kIDs; vIDs];
@@ -206,7 +273,6 @@ makeoutput = false(nRules,1);
 setseedvalue = false(nRules,1);
 setparametervalue = false(nRules,1);
 setcompartmentvalue = false(nRules,1);
-addcompartmentexpr = false(nRules,1);
 
 for i = 1:nRules
     
@@ -239,9 +305,9 @@ for i = 1:nRules
         targetIsSpecies       = any(strcmp(targetStrs{i}, xuIDs));
         targetIsParameter     = any(strcmp(targetStrs{i}, kIDs));
         targetIsCompartment   = any(strcmp(targetStrs{i}, vIDs));
-        valuesAreParameters   = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nk), repmat(kIDs(:)', length(thisvalueStrs), 1)), 2);
-        valuesAreSpecies      = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nxu), repmat(xuIDs(:)', length(thisvalueStrs), 1)), 2);
-        valuesAreCompartments = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nv), repmat(vIDs(:)', length(thisvalueStrs), 1)), 2);
+%         valuesAreParameters   = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nk), repmat(kIDs(:)', length(thisvalueStrs), 1)), 2);
+%         valuesAreSpecies      = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nxu), repmat(xuIDs(:)', length(thisvalueStrs), 1)), 2);
+%         valuesAreCompartments = any(cellfun(@strcmp, repmat(thisvalueStrs(:), 1, nv), repmat(vIDs(:)', length(thisvalueStrs), 1)), 2);
         
         % If all the associated values are constants...
         if targetIsConstant && all(valueIsConstant)
@@ -282,10 +348,15 @@ vxInd  = vxuInd(~isu);
 
 % Represent every state's initial condition with a seed
 ns = nx;
-sNames = xIDs;
-sIDs = sprintf('seed%dx\n',(1:ns)');
-sIDs = textscan(sIDs,'%s','Delimiter','\n');
-sIDs   = sIDs{1};
+if opts.UseNames
+    sNames = xIDs;
+else
+    sNames = xNames;
+end
+sIDs = cell(ns,1);
+for i = 1:ns
+    sIDs{i} = genUID;
+end
 sSyms  = sym(sIDs);
 s      = xu0(~isu);
 
@@ -320,7 +391,8 @@ for i = 1:nr
     rNames{i} = reaction.name;
     
     % Get reaction rate
-    rStrs{i,1} = reaction.kineticLaw.math; % check this or formula
+    %   Formula and math are similar, but in 1 case, formula uses "power" while math uses "pow"
+    rStrs{i,1} = reaction.kineticLaw.formula; % check this or formula
     
     % Tally new entries
     nReactants = length(reaction.reactant);
@@ -385,6 +457,61 @@ for i = subsRules(:)'
     r = subs(r, targetSyms(subsRules), valueSyms(subsRules));
 end
 
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Part 5: Cleanup symbolic names (if specified) %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% If UseNames = true, write IDs into Names and generate UUIDS for IDs
+%   Useful if SBML file's IDs potentially lead to name collisions
+if opts.UseNames
+    if verbose; fprintf(' generating unique IDs...'); end
+    
+    %% Generate unique IDs
+    % Compartments
+    vNames = vIDs;
+    for i = 1:nv
+        vIDs{i} = genUID;
+    end
+    
+    % States
+    xNames = xIDs;
+    for i = 1:nx
+        xIDs{i} = genUID;
+    end
+    
+    % Inputs
+    uNames = uIDs;
+    for i = 1:nu
+        uIDs{i} = genUID;
+    end
+    
+    % Parameters
+    kNames = kIDs;
+    for i = 1:nk
+        kIDs{i} = genUID;
+    end
+    
+    % Seed parameters are already initialized with unique names
+    
+    % Input parameters aren't implemented
+    
+    %% Replace IDs in sym vars everywhere with new unique IDs
+    oldSyms = [vSyms; xSyms; uSyms; kSyms];
+    newIDs = [vIDs; xIDs; uIDs; kIDs];
+    newSyms = sym(newIDs);
+    
+    vSyms = subs(vSyms, oldSyms, newSyms);
+    xSyms = subs(xSyms, oldSyms, newSyms);
+    uSyms = subs(uSyms, oldSyms, newSyms);
+    kSyms = subs(kSyms, oldSyms, newSyms);
+    r = subs(r, oldSyms, newSyms);
+    
+end
+
+% Reevaluate terms to change external functions to symbolic expressions
+if opts.EvaluateExternalFunctions
+    r = evaluateExternalFunctions(r, [vIDs; xIDs; uIDs; kIDs]);
+end
+
 % Delete rule parameters
 [kSyms, kNames, k, nk] = deleteRuleParameters(kSyms, kNames, k, targetSyms, substitute);
 [xSyms, xNames, s, nx, found] = deleteRuleParameters(xSyms, xNames, s, targetSyms, substitute);
@@ -426,21 +553,6 @@ end
 %% Done building diff eqs
 if verbose; fprintf('done.\n'); end
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% Part 5: Use human readable names instead of IDs if desired %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if opts.UseNames
-    if verbose; fprintf('Converting IDs to names...'); end
-    vIDs = vNames;
-    kIDs = kNames;
-    sIDs = sNames;
-    qIDs = qNames;
-    uIDs = uNames;
-    xIDs = xNames;
-    rIDs = rNames;
-    if verbose; fprintf('done.\n'); end
-end
-
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Part 6: Build Symbolic Model %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -456,33 +568,33 @@ symModel.nx         = nx;
 symModel.nr         = nr;
 
 symModel.vSyms      = vSyms;
-symModel.vNames     = vIDs;
+symModel.vNames     = vNames;
 symModel.dv         = dv;
 symModel.v          = v;
 
 symModel.kSyms      = kSyms;
-symModel.kNames     = kIDs;
+symModel.kNames     = kNames;
 symModel.k          = k;
 
 symModel.sSyms      = sSyms;
-symModel.sNames     = sIDs;
+symModel.sNames     = sNames;
 symModel.s          = s;
 
 symModel.qSyms      = qSyms;
-symModel.qNames     = qIDs;
+symModel.qNames     = qNames;
 symModel.q          = q;
 
 symModel.uSyms      = uSyms;
-symModel.uNames     = uIDs;
+symModel.uNames     = uNames;
 symModel.vuInd      = vuInd;
 symModel.u          = u;
 
 symModel.xSyms      = xSyms;
-symModel.xNames     = xIDs;
+symModel.xNames     = xNames;
 symModel.vxInd      = vxInd;
 symModel.x0         = x0;
 
-symModel.rNames     = rIDs;
+symModel.rNames     = rNames;
 symModel.r          = r;
 symModel.S          = S;
 symModel.Su         = Su;
@@ -509,4 +621,17 @@ kNames(found(found ~= 0)) = [];
 k(found(found ~= 0)) = [];
 nk = numel(kSyms);
 
+end
+
+function rOut = evaluateExternalFunctions(rIn, ids)
+% Evaluate symbolic functions/pull in functions defined in path
+%   Necessary for "power" and other MathML function translation
+% Initialize symbolic variables
+syms(ids{:});
+
+% Evaluate the expressions to remove function calls
+rOut = eval(rIn);
+
+% Clear the symbolic variables
+% clear(ids{:})
 end
