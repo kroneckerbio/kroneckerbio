@@ -68,6 +68,10 @@ yNames = {
     };
 m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', yNames, [], [], opts);
 
+if opts.UseMEX
+    compileMEXFunctions(opts.MEXDirectory);
+end
+
 %% Create nominal experiment
 
 % Set the final simulation time
@@ -96,7 +100,7 @@ con = InitialValueExperiment(m, s, inp, d, 'nominal');
 %% Simulate nominal experiment and plot states
 
 % Simulate the model under the experiment
-sim = SimulateSystem(m,con,tF);
+tic; sim = SimulateSystem(m,con,tF); toc
 
 %%%%% Plot all the states %%%%%%
 t = 0:0.1:tF; % Choose which times to plot

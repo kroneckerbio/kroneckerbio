@@ -224,6 +224,7 @@ if opts.VolumeToParameter
 else% ~VolumeToParameter
     r = subs(r, vSyms, v);
     f = subs(f, vSyms, v);
+    y = subs(y, vSyms, v);
 end
 
 % Sanitize symbols
@@ -273,18 +274,6 @@ xNamesFull = cell(nx,1);
 for ix = 1:nx
     xNamesFull{ix} = [vNames{vxInd(ix)} '.' xNames{ix}];
 end
-
-% Convert compartment volumes to parameters or constants
-if opts.VolumeToParameter
-    nk = nk + nv;
-    kNames = [kNames; vNames];
-    k = [k; v];
-    kSyms = [kSyms; vSyms];
-else% ~VolumeToParameter
-    r = subs(r, vSyms, v, 0);
-end
-
-%f = Ssym*r;
 
 
 %%% For now, models will only contain constant default values of inputs %%%
@@ -1304,33 +1293,33 @@ if verbose; fprintf('done.\n'); end
         
     end
 
-    function out = fastsubs(f, old, new)
-        filename = which('fastsubs.mu');
-        read(symengine, filename);
-        out = feval(symengine,'fastsubs',f,old,new);
-    end
-
-    function fstr = fastchar(f)
-        filename = which('fastchar.mu');
-        read(symengine, filename);
-        fstr = feval(symengine,'fastchar',f);
-        fstr = eval(fstr);
-    end
-
-    function matout = initializeMatrixMupad(i,j,s,m,n)
-        % More efficient method for initializing sparse symbolic matrices.
-        % Utilizes a MuPAD function that generates a MuPAD table,
-        % then uses the table to initialize the matrix.
-        filename = which('sparse_mupad.mu');
-        read(symengine, filename);
-        matout = feval(symengine,'sparse_mupad',i, j, s, m, n);
-    end
-
-    function D = diff_vectorized(nums, dens)
-        filename = which('diff_vectorized.mu');
-        read(symengine, filename);
-        D = feval(symengine,'diff_vectorized',nums,dens);
-    end
+%     function out = fastsubs(f, old, new)
+%         filename = which('fastsubs.mu');
+%         read(symengine, filename);
+%         out = feval(symengine,'fastsubs',f,old,new);
+%     end
+% 
+%     function fstr = fastchar(f)
+%         filename = which('fastchar.mu');
+%         read(symengine, filename);
+%         fstr = feval(symengine,'fastchar',f);
+%         fstr = eval(fstr);
+%     end
+% 
+%     function matout = initializeMatrixMupad(i,j,s,m,n)
+%         % More efficient method for initializing sparse symbolic matrices.
+%         % Utilizes a MuPAD function that generates a MuPAD table,
+%         % then uses the table to initialize the matrix.
+%         filename = which('sparse_mupad.mu');
+%         read(symengine, filename);
+%         matout = feval(symengine,'sparse_mupad',i, j, s, m, n);
+%     end
+% 
+%     function D = diff_vectorized(nums, dens)
+%         filename = which('diff_vectorized.mu');
+%         read(symengine, filename);
+%         D = feval(symengine,'diff_vectorized',nums,dens);
+%     end
 
 end
 

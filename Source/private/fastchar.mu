@@ -1,7 +1,12 @@
 fastchar := proc(f)
 begin
     //return(coerce(f,DOM_STRING))
-    numberofterms := nops(f);
+    if testtype(f,Dom::Matrix()) then
+        numberofterms := nops(f);
+    else
+        numberofterms := 1;
+    end_if;
+    
     stringtoreturn := "{";
     if numberofterms = 1 then
         stringtoreturn := stringtoreturn."'".expr2text(f)."'";
