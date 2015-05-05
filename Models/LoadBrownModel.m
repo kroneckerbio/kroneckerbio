@@ -95,7 +95,7 @@ s(2) = 4560; % NGF
 
 % Create the experiment
 d = []; % Dosing
-con = InitialValueExperiment(m, s, inp, d, 'nominal');
+con = experimentInitialValue(m, s, inp, d, 'nominal');
 
 %% Simulate nominal experiment and plot states
 

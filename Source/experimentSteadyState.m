@@ -1,8 +1,8 @@
-function con = InitialValueExperiment(m, s, inp, dos, name)
-%InitialValueExperiment Construct a KroneckerBio experimental conditions
-%   structure describing an initial value problem
+function con = experimentSteadyState(m, s, basal_input, inp, dos, time_scale, name)
+%SteadyStateExperiment Construct a KroneckerBio experimental conditions
+%   structure describing a initial value problem first run to steady state
 %
-%   con = InitialValueExperiment(m, tF, s, inp, dos, name)
+%   con = SteadyStateExperiment(m, tF, s, inp, dos, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -17,6 +17,11 @@ function con = InitialValueExperiment(m, s, inp, dos, name)
 %   dos: [ dose struct scalar ]
 %       Default = doseZero(m)
 %       The definition of the dose amounts and schedule
+%   time_scale: [ nonnegative scalar ]
+%       Default = 10
+%       The typical time scale for an observation. The steady state is
+%       determined to be reached when the states are expected to change
+%       less than the tolerance over this time scale.
 %   name: [ string ]
 %       Default = ''
 %       An arbitrary name for the experiment
@@ -26,23 +31,29 @@ function con = InitialValueExperiment(m, s, inp, dos, name)
 %       The KroneckerBio experimental conditions structure
 %
 %   For the meanings of the fields of con see "help experimentZero"
-
-% (c) 2015 David R Hagen, David Flowers, & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-if nargin < 5
+% Clean-up inputs
+if nargin < 6
     name = [];
-    if nargin < 4
-        dos = [];
-        if nargin < 3
-            inp = [];
-            if nargin < 2
-                s = [];
+    if nargin < 5
+        time_scale = [];
+        if nargin < 4
+            dos = [];
+            if nargin < 3
+                inp = [];
+                if nargin < 2
+                    s = [];
+                end
             end
         end
     end
 end
 
+if isempty(time_scale)
+    time_scale = 10;
+end
 if isempty(s)
     s = m.s;
 end
@@ -80,7 +91,7 @@ assert(is(dos, 'Dose'), 'KroneckerBio:Experiment:dos', 'dos must be a Dose')
 assert(ischar(name), 'KroneckerBio:Experiment:name', 'name must be a string')
 
 % Build experiment
-con.Type = 'Experiment:InitialValue';
+con.Type = 'Experiment:SteadyState';
 con.Name = name;
 con.nu = m.nu;
 con.ns = m.ns;
@@ -95,14 +106,15 @@ con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
 con.inp = inp;
 con.dos = dos;
-con.SteadyState = false;
+con.SteadyState = true;
 con.Periodic = false;
 con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
-con.private = [];
+con.private.BasalInput = basal_input;
+con.private.TimeScale = time_scale;
 
     function con_out = update(s, q, h)
-        con_out = InitialValueExperiment(m, s, inp.Update(q), dos.Update(h), name);
+        con_out = experimentSteadyState(m, s, basal_input, inp.Update(q), dos.Update(h), time_scale, name);
     end
 
 end
@@ -117,11 +129,11 @@ clear inp
 u_t = @(t) u_tq(t,q);
 
 % Determine if u is vectorized, and fix if not
-try
-    testut = u_t([1 2]);
-    assert(size(testut) == [nu,2])
-catch
+testut = u_t([1 2]);
+if size(testut,2) == 1
     u_t = @ut_vectorized;
+elseif size(testut,2) ~= 2
+    error('u should return an nu-by-1 or nu-by-nt vector of input values')
 end
 
 dudq_t = @(t) dudq_tq(t,q);
@@ -134,5 +146,5 @@ d2udq2_t = @(t) d2udq2_tq(t,q);
             u(:,ti) = u_tq(t(ti),q);
         end
     end
-
+    
 end

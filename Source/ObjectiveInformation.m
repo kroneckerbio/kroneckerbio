@@ -210,7 +210,7 @@ for i_con = 1:n_con
     linInd(1:nTk) = 1:nTk;
     
     % s parameters are different
-    Tsind = nnz(opts_i.UseSeeds(:,1:i_con-1));
+    Tsind = nnz(opts.UseSeeds(:,1:i_con-1));
     linInd(nTk+1:nTk+inTs) = nTk+Tsind+1:nTk+Tsind+inTs;
     
     % q parameters are different

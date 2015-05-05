@@ -4,7 +4,7 @@ end
 
 function testEquilibrium(a)
 m = LoadModel('Equilibrium.txt');
-con = InitialValueExperiment(m);
+con = experimentInitialValue(m);
 tGet = 1:10;
 opts.Verbose = false;
 

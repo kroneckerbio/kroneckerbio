@@ -1,7 +1,9 @@
-function con = Uzero(m)
-%UZERO Default structure for Kronecker Bio experimental conditions
+function con = experimentZero(m)
+%experimentZero Default structure for KroneckerBio experimental conditions
+%
+%   con = experimentZero(m)
 % 
-%   This function returns a valid, empty, experiment. It is used for
+%   This function returns a valid, empty experiment. It is used for
 %   making experiments constructed by different means consistent so that
 %   their structures can be combined.
 %
@@ -69,6 +71,10 @@ function con = Uzero(m)
 %           returned is identical to the one to which Update is attached
 %           except that the parameter values have been changed and the
 %           appropriate matrices and function handles have been updated.
+%       .private [ anything ]
+%           Some experimental conditions have extra information associated
+%           with them, which is stored here because Matlab does not like
+%           stacking structs with different fields.
 
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
@@ -79,4 +85,4 @@ if isnumeric(m)
     return
 end
 
-con = InitialValueExperiment(m, 0, [], [], [], 'Uzero');
+con = experimentInitialValue(m, 0, [], [], [], 'Zero');
