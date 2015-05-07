@@ -282,7 +282,7 @@ int.sol = sol;
             val = d2fdk2(t,x,u); % fk_k
             
             dudq_i = dudq(t); % u_q
-            dudq_i = dudq_i(:,opts.UseDoseControls); % u_q -> u_Q
+            dudq_i = dudq_i(:,opts.UseInputControls); % u_q -> u_Q
             
             d2udQ2_i = d2udq2(t); % uq_q
             d2udQ2_i = reshape(d2udQ2_i(uqUseInputControls,opts.UseInputControls), [nu,nTq*nTq]); % uq_q -> uQ_Q -> u_QQ

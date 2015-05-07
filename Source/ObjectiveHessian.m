@@ -1,5 +1,4 @@
-function H = ObjectiveHessian(m, con, obj, opts, xSol, dxdpSol, d2xdp2Sol)
-warning('KroneckerBio:OutOfDate', 'ObjectiveHessian is radically out of date and needs to be fixed')
+function H = ObjectiveHessian(m, con, obj, opts)
 %ObjectiveHessian Evaluate the hessian of a set of objective functions
 %
 %   D = ObjectiveHessian(m, con, obj, opts)
@@ -56,127 +55,72 @@ warning('KroneckerBio:OutOfDate', 'ObjectiveHessian is radically out of date and
 
 %% Work-up
 % Clean up inputs
-assert(nargin >= 3, 'KroneckerBio:ObjectiveHessian:AtLeastThreeInputs', 'ObjectiveHessian requires at least 3 input arguments.')
-if nargin < 7
-    d2xdp2Sol = [];
-    if nargin < 6
-        dxdpSol = [];
-        if nargin < 5
-            xSol = [];
-            if nargin < 4
-                opts = [];
-            end
-        end
-    end
+if nargin < 4
+    opts = [];
 end
 
-% Options
-defaultOpts.useParams   = 1:m.nP;
-defaultOpts.useICs      = [];
-defaultOpts.UseModelICs = true;
-defaultOpts.Normalized  = true;
-defaultOpts.verbose     = false;
+assert(nargin >= 3, 'KroneckerBio:ObjectiveGradient:TooFewInputs', 'ObjectiveGradient requires at least 3 input arguments')
+assert(isscalar(m), 'KroneckerBio:ObjectiveGradient:MoreThanOneModel', 'The model structure must be scalar')
+
+% Default options
+defaultOpts.Verbose          = 1;
+
+defaultOpts.RelTol           = [];
+defaultOpts.AbsTol           = [];
+
+defaultOpts.UseParams        = nan;
+defaultOpts.UseSeeds         = nan;
+defaultOpts.UseInputControls = nan;
+defaultOpts.UseDoseControls  = nan;
+
+defaultOpts.ObjWeights       = ones(size(obj));
+
+defaultOpts.Normalized       = true;
+defaultOpts.UseAdjoint       = false;
 
 opts = mergestruct(defaultOpts, opts);
 
+verbose = logical(opts.Verbose);
+opts.Verbose = max(opts.Verbose-1,0);
+
 % Constants
-nPK = length(opts.useParams);
-nPX = length(opts.useICs);
-nP = nPK + nPX;
-nCon = length(con);
-nObj = size(obj, 2);
+nx = m.nx;
+ns = m.ns;
+nk = m.nk;
+n_con = numel(con);
 
-% Make conditions consistent as cell vectors
-if isstruct(con)
-    con = num2cell(con);
-end
+% Ensure UseParams is logical vector
+[opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
-% Make objectives consistent as cell arrays
-if isstruct(obj)
-    obj = num2cell(obj);
-end
+% Ensure UseSeeds is a logical matrix
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
-% Make solutions consistent as cell vectors
-if isstruct(xSol)
-    xSol = num2cell(xSol);
-end
-if isstruct(dxdpSol)
-    dxdpSol = num2cell(dxdpSol);
-end
-if isstruct(d2xdp2Sol)
-    d2xdp2Sol = num2cell(d2xdp2Sol);
-end
+% Ensure UseControls is a cell vector of logical vectors
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
-%% Loop through conditions
-H = zeros(nP,nP);
+nT = nTk + nTs + nTq + nTh;
 
-% Initialize All array if requested
-if nargout >= 2
-    All = cell(nCon,nObj);
-end
+% Refresh conditions and objectives
+con = refreshCon(m, con);
 
-for iCon = 1:nCon
-    % First integration if not provided
-    if isempty(xSol) || isempty(xSol{iCon})
-        sim = simulate(m, con{iCon}, opts);
-        xSoliCon = sim.sol;
-    else
-        xSoliCon = xSol{iCon};
-    end
+% Fix integration type
+[opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(con, obj);
+
+% RelTol
+opts.RelTol = fixRelTol(opts.RelTol);
+
+% Fix AbsTol to be a cell array of vectors appropriate to the problem
+opts.AbsTol = fixAbsTol(opts.AbsTol, 3, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+
+%% Run main calculation
+[unused, unused, H] = computeObjHess(m, con, obj, opts);
+
+%% Normalization
+if opts.Normalized
+    T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
     
-    % Second integration if not provided
-    if isempty(dxdpSol) || isempty(dxdpSol{iCon})
-        sim = SimulateSensitivity(m, con{iCon}, opts, xSoliCon);
-        dxdpSoliCon = sim.sol;
-    else
-        dxdpSoliCon = dxdpSol{iCon};
-    end
-    
-    % Third Integration if not provided
-    if isempty(d2xdp2Sol) || isempty(d2xdp2Sol{iCon})
-        sim = SimulateHessian(m, con{iCon}, opts, xSoliCon, dxdpSoliCon);
-        d2xdp2SoliCon = sim.sol;
-    else
-        d2xdp2SoliCon = d2xdp2Sol{iCon};
-    end
-    
-    % Sum all hessians as computed by each objective function
-    if opts.Normalized
-        if opts.verbose; fprintf(['Computing hessian (normalized) for' con{iCon}.name '...']); end
-        % Loop through each objective function in the current row
-        for iObj = 1:nObj
-            % Ignore empty structures
-            if ~isempty(obj{iCon,iObj}) && ~isempty(obj{iCon,iObj}.Hn)
-                p = m.p(opts.useParams); % rate constants
-                if opts.UseModelICs
-                    p = [p; m.ic(opts.useICs)]; % model initial conditions
-                else
-                    p = [p; con{iCon}.ic(opts.useICs)]; % con initial conditions
-                end
-                curH = obj{iCon,iObj}.Hn(xSoliCon, dxdpSoliCon, d2xdp2SoliCon, p);
-                H = H + curH;
-                
-                % Store hessian if requested
-                if nargout >= 2
-                    All{iCon, iObj} = curH;
-                end
-            end
-        end
-    else
-        if opts.verbose; fprintf(['Computing hessian (non-normalized) for' con{iCon}.name '...']); end
-        % Loop through each objective function in the current row
-        for iObj = 1:nObj
-            % Ignore empty structures
-            if ~isempty(obj{iCon,iObj}) && ~isempty(obj{iCon,iObj}.H)
-                curH = obj{iCon,iObj}.H(xSoliCon, dxdpSoliCon, d2xdp2SoliCon);
-                H = H + curH;
-                
-                % Store hessian if requested
-                if nargout >= 2
-                    All{iCon, iObj} = curH;
-                end
-            end
-        end
-    end
-    if opts.verbose; fprintf('done.\n'); end
+    % Normalize
+    H = spdiags(T,0,nT,nT) * H * spdiags(T,0,nT,nT);
+    H = full(H); % Matlab bug makes this necessary
 end

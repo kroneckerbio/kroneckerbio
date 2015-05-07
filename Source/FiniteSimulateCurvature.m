@@ -1,14 +1,11 @@
-function sim = SimulateCurvature(m, con, obs, opts)
-%SimulateCurvature Integrate the second-order sensitivities 
-%   of every species with respect to every parameter over all time in the
-%   mass action kinetics framework
+function sim = FiniteSimulateCurvature(m, con, obs, opts)
+%FiniteSimulateSensitivitySelect Approximate the sensitivities of every 
+%   species with respect to every parameter over all time returns the
+%   values at select time points
+%
+%   Mathematically: dx/dT = (x(T1) - x(T2)) / (T1 - T2)
 %   
-%   Mathematically: d2x/dT2 = Integral(df/dx * d2x/dT2 +
-%                                      2 * d2f/dTx * dx/dT +
-%                                      (d2f/dx2 * dx/dT) * dx/dT +
-%                                      d2f/dT2, t=0:tF)
-%   
-%   sim = SimulateCurvature(m, con, tGet, opts)
+%   sim = FiniteSimulateSensitivitySelect(m, con, tGet, opts)
 %   
 %   Inputs
 %   m: [ model struct scalar ]
@@ -42,44 +39,20 @@ function sim = SimulateCurvature(m, con, obs, opts)
 %           Bigger number displays more progress information
 %
 %   Outputs
-%   SimulateCurvature(m, con, opts)
-%   	Plots the second-order sensitivities under each condition
-%
-%   sim = SimulateCurvature(m, con, opts)
+%   sim = FiniteSimulateSensitivitySelect(m, con, tGet, opts)
 %   	A vector of structures with each entry being the simulation
 %       under one of the conditions.
-%       .t [ sorted nonnegative row vector ]
-%           Timepoints chosen by the ode solver
-%       .y [ handle @(t,y) returns matrix numel(y) by numel(t) ]
-%           This function handle evaluates some outputs y of the system at
-%           some particular time points t. The user may exclude y, in which
-%           case all outputs are returned.
-%       .x [ handle @(t,x) returns matrix numel(x) by numel(t) ]
-%           This function handle evaluates some states x of the system at
-%           some particular time points t. The user may exclude x, in which
-%           case all states are returned.
-%       .dydT [ handle @(t,y) returns matrix numel(y)*nT by numel(t) ]
-%           This function handle evaluates the sensitivity of some outputs
-%           y to the active parameters of the system at some particular
-%           time points t. The user may exclude y, in which case all
-%           outputs are returned.
-%       .dxdT [ handle @(t,x) returns matrix numel(x) by numel(t) ]
-%           This function handle evaluates the sensitivity of some states
-%           x to the active parameters of the system at some particular
-%           time points t. The user may exclude x, in which case all
-%           states are returned.
-%       .d2ydT2 [ handle @(t,y) returns matrix numel(y)*nT*nT by numel(t) ]
-%           This function handle evaluates the curvature of some outputs
-%           y to the active parameters of the system at some particular
-%           time points t. The user may exclude y, in which case all
-%           outputs are returned.
-%       .d2xdT2 [ handle @(t,x) returns matrix numel(x)*nT*nT by numel(t) ]
-%           This function handle evaluates the curvature of some states
-%           x to the active parameters of the system at some particular
-%           time points t. The user may exclude x, in which case all
-%           states are returned.
-%       .sol [ struct scalar ]
-%           The integrator solution to the system
+%       .t tGet
+%       .y [ matrix ny by numel(tGet) ]
+%           The value of the outputs at each selected time point
+%       .x [ matrix nx by numel(tGet) ]
+%           The value of the states at each selected time point
+%       .dydT [ matrix ny*nT by numel(tGet) ]
+%           The value of the sensitivites of the outputs at each selected
+%           time point
+%       .dxdT [ matrix nx by numel(tGet) ]
+%           The value of the sensitivities of the states at each selected
+%           time point
 
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
@@ -90,8 +63,8 @@ if nargin < 4
     opts = [];
 end
 
-assert(nargin >= 3, 'KroneckerBio:SimulateCurvature:TooFewInputs', 'SimulateCurvature requires at least 3 input arguments')
-assert(isscalar(m), 'KroneckerBio:SimulateCurvature:MoreThanOneModel', 'The model structure must be scalar')
+assert(nargin >= 2, 'KroneckerBio:SimulateSensitivity:TooFewInputs', 'SimulateSensitivity requires at least 2 input arguments')
+assert(isscalar(m), 'KroneckerBio:SimulateSensitivity:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
 defaultOpts.Verbose          = 1;
@@ -99,7 +72,9 @@ defaultOpts.Verbose          = 1;
 defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
-defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.Normalized       = true;
+
+defaultOpts.UseParams        = nan;
 defaultOpts.UseSeeds         = nan;
 defaultOpts.UseInputControls = nan;
 defaultOpts.UseDoseControls  = nan;
@@ -111,7 +86,6 @@ opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
-ny = m.ny;
 nk = m.nk;
 n_con = numel(con);
 n_obs = size(obs,1);
@@ -135,7 +109,7 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 3, false(n_con,1), nx, n_con, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(n_con,1), nx, n_con, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 % Fix observations
 obs = fixObservation(con, obs);
@@ -151,9 +125,9 @@ for i_con = 1:n_con
     opts_i.UseInputControls = opts.UseInputControls{i_con};
     opts_i.UseDoseControls = opts.UseDoseControls{i_con};
     
-    % Integrate [x; dx/dT; d2x/dT2] over time
+    % Integrate [x; dx/dT] for each finitely perturbed parameter
     if verbose; fprintf(['Integrating curvature for ' con(i_con).Name '...']); end
-    ints = integrateAllCurv(m, con(i_con), obs(:,i_con), opts_i);
+    ints = integrateAllCurv(m, con(i_con), obs(:,i_con), opts_i, true);
     if verbose; fprintf('done.\n'); end
     
     for i_obs = 1:n_obs

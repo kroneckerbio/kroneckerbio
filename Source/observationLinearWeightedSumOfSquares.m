@@ -46,6 +46,7 @@ obs = pastestruct(observationZero(), obs);
         sim.y = ybar;
         sim.more.outputlist = outputlist;
         sim.more.sd = sd;
+        sim.int = int;
     end
 
     function obj = objective(measurements)
@@ -66,8 +67,8 @@ obj.Type = 'Objective.Data.WeightedSumOfSquares';
 obj.Continuous = false;
 
 obj.G = @G;
-obj.dGdx = @dGdx;
-obj.d2Gdx2 = @d2Gdx2;
+obj.dGdy = @dGdy;
+obj.d2Gdy2 = @d2Gdy2;
 
 obj.p = @p;
 obj.logp = @logp;
@@ -138,8 +139,8 @@ obj = pastestruct(objectiveZero(), obj);
         discrete = discrete_times;
     end
 
-    function val = dGdx(t, int)
-        nx = int.nx;
+    function val = dGdy(t, int)
+        % dGdy = 2 * sigma^-1 * dsigmady + 2 * (sigma - (y-yhat)*dsigmady) * sigma^-2
         ny = int.ny;
         
         % Find all data points that have a time that matches t
@@ -148,10 +149,7 @@ obj = pastestruct(objectiveZero(), obj);
         
         if n_current > 0
             % Extract integration for this time point
-            xt = int.x(:,int.t == t);
-            ut = int.u(:,int.t == t);
             yt = int.y(:,int.t == t);
-            dydxt = reshape(int.dydx(t, xt, ut), ny,nx);
             
             % Extract the data points with time t
             timelist_t = timelist(ind_t);
@@ -160,29 +158,26 @@ obj = pastestruct(objectiveZero(), obj);
             
             % Compute e for each datapoint that has a matching time to t
             ybar_t = zeros(n_current,1);
-            dydx_t = zeros(n_current,nx);
             sigma_t = zeros(n_current,1);
             dsigmady_t = zeros(n_current,1);
             for i = 1:n_current
                 ybar_t(i) = yt(outputlist_t(i));
-                dydx_t(i,:) = dydxt(outputlist_t(i),:);
                 [sigma_t(i), dsigmady_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
             end
             
-            % Gradient function
-            e = ybar_t - measurements_t;
-            dsigmadx = bsxfun(@times, dsigmady_t, dydx_t);
-            val = vec(2 * sum(bsxfun(@times, sigma_t.^-1, dsigmadx),1) + 2 * sum(bsxfun(@times, e .* sigma_t.^-2, dydx_t),1) + -2 * sum(bsxfun(@times, e.^2 .* sigma_t.^-3, dsigmadx),1));
+            % Gradient value
+            e = ybar_t - measurements_t; % Y_
+            dGdybar = 2 ./ sigma_t .* dsigmady_t + 2 .* e .* (sigma_t - e.*dsigmady_t) ./ sigma_t.^3; % Y_
+            val = accumarray(outputlist_t, dGdybar, [ny,1]); % sum the entries associated with the same output
         else
-            val = zeros(nx, 1);
+            val = zeros(ny, 1);
         end
     end
 
-    function val = d2Gdx2(t, int)
-        nx = int.nx;
-        
-        error()
-        % THIS STILL NEEDS TO BE VERIFIED
+    function val = d2Gdy2(t, int)
+        % d2Gdy2 = -2 * sigma^-2 * dsigmady + 2 * sigma^-1 * d2sigmady2 + 2 * ((sigma - (y-yhat)*dsigmady) * sigma^-3 * (1 - 3*(y-yhat)*sigma^-1) - (y-yhat)^2 * d2sigmady2)
+        ny = int.ny;
+
         % Find all data points that have a time that matches t
         ind_t = find(t == timelist);
         n_current = numel(ind_t);
@@ -190,25 +185,29 @@ obj = pastestruct(objectiveZero(), obj);
         if n_current > 0
             % Extract integration for this time point
             yt = int.y(:,int.t == t);
-            dydxt = reshape(int.y(:,int.t == t), ny,nx);
 
+            % Extract the data points with time t
+            timelist_t = timelist(ind_t);
+            outputlist_t = outputlist(ind_t);
+            measurements_t = measurements(ind_t);
+            
             ybar_t = zeros(n_current,1);
-            dydx_t = zeros(n_current,nx);
             sigma_t = zeros(n_current,1);
             dsigmady_t = zeros(n_current,1);
             d2sigmady2_t = zeros(n_current,1);
             for i = 1:n_current
                 ybar_t(i) = yt(outputlist_t(i));
-                dydx_t(i,:) = dydxt(outputlist_t(i),:);
-                [sigma_t(i), dsigmady_t(i), d2sigmady2_t(i)] = sd(timelist(ind_t(i)), outputlist(ind_t(i)), ybar_t(i));
+                [sigma_t(i), dsigmady_t(i), d2sigmady2_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
             end
             
-            % Compute d2Gdx2 = 2*C1'*W*C1 + 4*e'*dWdx*C1 + e'*d2Wdx2*e
-            val = 2 * dydx_t.' * bsxfun(@times, sigma_t.^-1,  dydx_t) + ...
-                4 * (bsxfun(@times, e, bsxfun(@times, dsigmady_t .* sigma_t.^-3, dydx_t))).' * dydx_t + ...
-                dydx_t.' * bsxfun(@times, e.^2, bsxfun(@times, -2 * (d2sigmady2_t .* sigma_t.^-3 + -3 * dsigmady_t.^2 .* sigma_t.^-4), dydx_t));
+            % Curvature value
+            e = ybar_t - measurements_t;
+            d2Gdybar2 = -2 ./ sigma_t.^2 .* dsigmady_t + 2 ./ sigma_t .* d2sigmady2_t + ...
+                2 .* ((sigma_t - e .* dsigmady_t) ./ sigma_t.^3 .* (1 - 3 .* e ./ sigma_t) - e.^2 .* d2sigmady2_t);
+            val = accumarray(outputlist_t, d2Gdybar2, [ny,1]); % y_ % sum the entries associated with the same output
+            val = spdiags(val, 0, ny, ny); % y_y
         else
-            val = zeros(nx, nx);
+            val = zeros(ny, ny);
         end
     end
 
