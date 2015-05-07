@@ -131,34 +131,34 @@ end
 assert(isscalar(m), 'KroneckerBio:FitObjective:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
-defaultOpts.Verbose        = 1;
+defaultOpts.Verbose          = 1;
 
-defaultOpts.RelTol         = [];
-defaultOpts.AbsTol         = [];
+defaultOpts.RelTol           = [];
+defaultOpts.AbsTol           = [];
 
-defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseParams        = nan;
 defaultOpts.UseSeeds         = nan;
 defaultOpts.UseInputControls = nan;
 defaultOpts.UseDoseControls  = nan;
 
-defaultOpts.ObjWeights     = ones(size(obj));
+defaultOpts.ObjWeights       = ones(size(obj));
 
-defaultOpts.Normalized     = true;
-defaultOpts.UseAdjoint     = true;
+defaultOpts.Normalized       = true;
+defaultOpts.UseAdjoint       = true;
 
-defaultOpts.LowerBound     = 0;
-defaultOpts.UpperBound     = inf;
-defaultOpts.Aeq            = [];
-defaultOpts.beq            = [];
-defaultOpts.TolOptim       = 1e-5;
-defaultOpts.Restart        = 0;
-defaultOpts.RestartJump    = 0.001;
-defaultOpts.TerminalObj    = -inf;
+defaultOpts.LowerBound       = 0;
+defaultOpts.UpperBound       = inf;
+defaultOpts.Aeq              = [];
+defaultOpts.beq              = [];
+defaultOpts.TolOptim         = 1e-5;
+defaultOpts.Restart          = 0;
+defaultOpts.RestartJump      = 0.001;
+defaultOpts.TerminalObj      = -inf;
 
-defaultOpts.MaxStepSize    = 1;
-defaultOpts.Algorithm      = 'active-set';
-defaultOpts.MaxIter        = 1000;
-defaultOpts.MaxFunEvals    = 5000;
+defaultOpts.MaxStepSize      = 1;
+defaultOpts.Algorithm        = 'active-set';
+defaultOpts.MaxIter          = 1000;
+defaultOpts.MaxFunEvals      = 5000;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -359,7 +359,7 @@ end
         
         % Integrate sensitivities or use adjoint to get objective gradient
         if nargout == 2
-            [G, D] = computeObjSens(m, con, obj, intOpts);
+            [G, D] = computeObjGrad(m, con, obj, intOpts);
             
             % Normalize gradient
             if opts.Normalized

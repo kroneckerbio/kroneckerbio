@@ -127,7 +127,7 @@ for i_con = 1:n_con
     opts_i.UseInputControls = opts.UseInputControls{i_con};
     opts_i.UseDoseControls = opts.UseDoseControls{i_con};
     
-    % Integrate [x; dx/dT] over time
+    % Integrate [x] for each finitely perturbed parameter
     if verbose; fprintf(['Integrating sensitivities for ' con(i_con).Name '...']); end
     ints = integrateAllSens(m, con(i_con), obs(:,i_con), opts_i, true);
     if verbose; fprintf('done.\n'); end

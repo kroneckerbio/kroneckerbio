@@ -85,4 +85,4 @@ if isnumeric(m)
     return
 end
 
-con = experimentInitialValue(m, 0, [], [], [], 'Zero');
+con = experimentInitialValue(m, [], [], [], 'Zero');
