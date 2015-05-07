@@ -93,7 +93,7 @@ con.u  = @(t)inp.u(t,inp.q);
 try
     % See if u is vectorized
     test = con.u([1,2]);
-    assert(size(test) == [nu,2])
+    assert(all(size(test) == [nu,2]))
 catch
     % Nope, vectorize it
     con.u = @(t)vectorize_u(t, @(ti)inp.u(ti,inp.q));
