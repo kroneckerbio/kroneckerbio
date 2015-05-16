@@ -24,7 +24,7 @@ verifyCurvature(a, m, con(2), tGet, opts)
 verifyCurvature(a, m, con(3), tGet, opts)
 end
 
-function testSimulateSensitivitySimple(a)
+function testSimulateCurvatureSimple(a)
 [m, con, unused, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
@@ -33,7 +33,7 @@ tGet = 1:6;
 verifyCurvature(a, m, con, tGet, opts)
 end
 
-function testSimulateSensitivitySimpleEvent(a)
+function testSimulateCurvatureSimpleEvent(a)
 [m, con, unused, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
