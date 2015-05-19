@@ -264,12 +264,12 @@ int.sol = sol;
             d3fdxdTdT_val = sparse(nx*nT*nT,nx);
             
             % Real computation
-            %temp = sparse(d3fdxdTdx(t,x,u) * dxdT); % fxT_x * x_T -> fxT_T
-            %temp = temp + spermute132(temp, [nx*nx,nT,nT], [nx*nx*nT,nT]); % fxT_T + (fxT_T -> fxT_T) -> fxT_T
-            %d3fdxdTdT_val = sparse(d3fdx3(t,x,u) * dxdT); % fxx_x * x_T -> fxx_T
-            %d3fdxdTdT_val = spermute132(d3fdxdTdT_val, [nx*nx,nx,nT], [nx*nx*nT,nx]); % fxx_T -> fxT_x
-            %d3fdxdTdT_val = sparse(d3fdxdTdT_val * dxdT); % fxT_x * x_T -> fxT_T
-            %d3fdxdTdT_val = reshape(df2dx2(t,x,u) * d2xdT2, nx*nx*nT,nT) + d3fdxdTdT_val + temp + d3fdxdTdT; % ((fx_x * x_TT -> fx_TT) -> fxT_T) + fxT_T + fxT_T + fxT_T -> fxT_T
+%             temp = sparse(d3fdxdTdx(t,xi,ui) * dxdT); % fxT_x * x_T -> fxT_T
+%             temp = temp + spermute132(temp, [nx*nx,nT,nT], [nx*nx*nT,nT]); % fxT_T + (fxT_T -> fxT_T) -> fxT_T
+%             d3fdxdTdT_val = sparse(d3fdx3(t,xi,ui) * dxdT); % fxx_x * x_T -> fxx_T
+%             d3fdxdTdT_val = spermute132(d3fdxdTdT_val, [nx*nx,nx,nT], [nx*nx*nT,nx]); % fxx_T -> fxT_x
+%             d3fdxdTdT_val = sparse(d3fdxdTdT_val * dxdT); % fxT_x * x_T -> fxT_T
+%             d3fdxdTdT_val = reshape(df2dx2(t,xi,ui) * d2xdT2, nx*nx*nT,nT) + d3fdxdTdT_val + temp + d3fdxdTdT; % ((fx_x * x_TT -> fx_TT) -> fxT_T) + fxT_T + fxT_T + fxT_T -> fxT_T
             
             % Compute d/dxdT(d2fdT2)
             % d/dxdT(d2fdT2) = (d2fdx2 *{x.x} dxdT2) * IT1 + (d2fdx2 *{x.x} dxdT1) * IT2 + d2fdT2dx * IT1 + d2fdT1dx * IT2
@@ -316,7 +316,7 @@ int.sol = sol;
             val = d2fdk2(t,x,u); % fk_k
             
             dudq_i = dudq(t); % u_q
-            dudq_i = dudq_i(:,opts.UseDoseControls); % u_q -> u_Q
+            dudq_i = dudq_i(:,opts.UseInputControls); % u_q -> u_Q
             
             d2udQ2_i = d2udq2(t); % uq_q
             d2udQ2_i = reshape(d2udQ2_i(uqUseInputControls,opts.UseInputControls), [nu,nTq*nTq]); % uq_q -> uQ_Q -> u_QQ

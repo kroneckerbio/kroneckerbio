@@ -50,17 +50,14 @@ sim2 = SimulateSensitivity(m, con, obsSelect, opts);
 
 sim3 = FiniteSimulateSensitivity(m, con, obsSelect, opts);
 
-a.verifyEqual(sim1.dydT(tGet,1:m.ny), sim3.dydT, 'RelTol', 0.01, 'AbsTol', 1e-4)
-a.verifyEqual(sim2.dydT, sim3.dydT, 'RelTol', 0.01, 'AbsTol', 1e-4)
+a.verifyEqual(sim1.dydT(tGet,1:m.ny), sim3.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(sim2.dydT, sim3.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end
 
 function verifySensitivityEvent(a, m, con, obs, opts)
 sim1 = SimulateSensitivity(m, con, obs, opts);
 
-sim2 = SimulateSensitivity(m, con, obs, opts);
+sim2 = FiniteSimulateSensitivity(m, con, obs, opts);
 
-sim3 = FiniteSimulateSensitivity(m, con, obs, opts);
-
-a.verifyEqual(sim1.dyedT, sim3.dyedT, 'RelTol', 0.01, 'AbsTol', 1e-4)
-a.verifyEqual(sim2.dyedT, sim3.dyedT, 'RelTol', 0.01, 'AbsTol', 1e-4)
+a.verifyEqual(sim1.dyedT, sim2.dyedT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end

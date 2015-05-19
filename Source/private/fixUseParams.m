@@ -17,10 +17,13 @@ function [UseParams, nTk] = fixUseParams(UseParams, nk)
 %   nTk: [ nonnegative integer scalar ]
 %       Number of active kinetic parameters
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-if islogical(UseParams)
+if isnumeric(UseParams) && isscalar(UseParams) && isnan(UseParams)
+    % Default
+    UseParams = true(nk,1);
+elseif islogical(UseParams)
     UseParams = vec(UseParams);
 else%if isnumeric
     temp = UseParams;

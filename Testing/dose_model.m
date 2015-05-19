@@ -27,4 +27,6 @@ obj = obs.Objective(values(:,3));
 opts.Verbose = false;
 opts.UseParams = 1;
 opts.UseSeeds = [];
+opts.UseInputControls = [];
+opts.UseDoseControls = [];
 end

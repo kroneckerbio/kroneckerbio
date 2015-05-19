@@ -42,216 +42,102 @@ function [H, All] = FiniteObjectiveHessian(m, con, obj, opts)
 %   values are ignored. This way, conditions can have different numbers of
 %   objective functions associated with them.
 
-% (c) 2009 David R Hagen and Bruce Tidor
+% (c) 2015 David R Hagen and Bruce Tidor
 % This software is released under the GNU GPLv2 or later.
-
-% TODO: get 0s instead of NaNs when parameters are zero when using
-% Normalized.
-% TODO: Updating of con and obj when nargin=1 appears to be incomplete
 
 %% Work-up
 % Clean up inputs
-assert(nargin >= 3, 'KroneckerBio:FiniteObjectiveHessian:AtLeastThreeInputs', 'FiniteObjectiveHessian requires at least 3 input arguments')
 if nargin < 4
-	opts = [];
+    opts = [];
 end
 
-assert(isscalar(m), 'KroneckerBio:FiniteObjectiveHessian:MoreThanOneModel', 'The model structure must be scalar')
+assert(nargin >= 3, 'KroneckerBio:ObjectiveGradient:TooFewInputs', 'ObjectiveGradient requires at least 3 input arguments')
+assert(isscalar(m), 'KroneckerBio:ObjectiveGradient:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelICs    = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseICs         = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 defaultOpts.ObjWeights     = ones(size(obj));
 
 defaultOpts.Normalized     = true;
-defaultOpts.UseAdjoint     = true;
+defaultOpts.UseAdjoint     = false;
+
+opts = mergestruct(defaultOpts, opts);
 
 verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
 
-opts = mergestruct(defaultOpts, opts);
-
 % Constants
 nx = m.nx;
+ns = m.ns;
 nk = m.nk;
-nCon = numel(con);
-nObj = size(obj, 2);
+n_con = numel(con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
-UseParamsInd = find(opts.UseParams);
 
-% Ensure UseICs is a logical matrix
-[opts.UseICs, nTx] = fixUseICs(opts.UseICs, opts.UseModelICs, nx, nCon);
-UseICsInd = find(opts.UseParams);
+% Ensure UseSeeds is a logical matrix
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls, nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
-nT = nTk + nTx + nTq;
+nT = nTk + nTs + nTq + nTh;
 
-assert(nCon == 1 || opts.UseModelICs || ~nTx, 'KroneckerBio:FiniteObjectiveGradient:VectorCon', 'A vector for con is not yet fully supported variable initial conditions. Please contribute!')
+% Store starting parameter sets
+T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+
+% Refresh conditions and objectives
+con = refreshCon(m, con);
 
 % Fix integration type
-[opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(obj);
+[opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(con, obj);
 
-%% Tolerances
 % RelTol
-if isempty(opts.RelTol) || isnan(opts.RelTol)
-    opts.RelTol = 1e-6;
-end
+opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 1, opts.continuous, nx, nCon);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Loop through conditions
-H = zeros(nT,nT);
+H = zeros(nT,1);
 
-if nargout <= 1
-    % Initial value
-    if verbose; fprintf('Initial round\n'); end
-    [unused D] = computeObjSens(m, con, obj, opts);
+% Initial value
+if verbose; fprintf('Initial round\n'); end
+[unused, D] = computeObjGrad(m, con, obj, opts);
+
+for iT = 1:nT
+    if verbose; fprintf('Step %d of %d\n', iT, nT); end
     
-    % Finite stepping
-    for i = 1:nT
-        if verbose; fprintf('Step %d of %d\n', i, nk); end
-        
-        % Set baseline parameters
-        kup = m.p;
-        kdown = m.p;
-        
-        if opts.UseModelICs
-            xup = m.ic;
-            xdown = m.ic;
-        else
-            xup = con.ic;
-            xdown = con.ic;
-        end
-        
-        % Change current parameter by finite amount
-        if i <= nTk
-            pi = kup(UseParamsInd(i));
-            diff = kup(UseParamsInd(i)) * 1e-8;
-            kup(UseParamsInd(i)) = pi + diff;
-            kdown(UseParamsInd(i)) = pi - diff;
-        else
-            pi = xup(UseICsInd(i-nTk));
-            diff = xup(UseICsInd(i-nTk)) * 1e-8;
-            xup(UseICsInd(i-nTk)) = pi + diff;
-            xdown(UseICsInd(i-nTk)) = pi - diff;
-        end
-        
-        % Run models to get goal function
-        if opts.UseModelICs
-            mtemp = m.update(kup, xup);
-            contemp = con.update(m);
-            objtemp = obj.update(mtemp);
-            Dup = computeObjSens(mtemp, contemp, objtemp, opts);
-            mtemp = m.update(kdown, xdown);
-            contemp = con.update(m);
-            objtemp = obj.update(mtemp);
-            Ddown = computeObjSens(mtemp, contemp, objtemp, opts);
-        else
-            mtemp = m.update(kup, m.ic);
-            contemp = con.update(m, xup);
-            objtemp = obj.update(mtemp);
-            Dup = computeObjSens(mtemp, contemp, objtemp, opts);
-            mtemp = m.update(kdown, m.ic);
-            contemp = con.update(m, xdown);
-            objtemp = obj.update(mtemp);
-            Ddown = computeObjSens(mtemp, contemp, objtemp, opts);
-        end
-        
-        % Compute H
-        if opts.Normalized
-            H(i,:) = pi * p .* ( (Dup - D) / diff + (D - Ddown) / diff ) / 2;
-        else
-            H(i,:) = ( (Dup - D) / diff + (D - Ddown) / diff ) / 2;
-        end
+    % Set baseline parameters
+    T_i = T0(iT);
+    T_up = T0;
+    
+    % Change current parameter by finite amount
+    if opts.Normalized
+        diff = T_i * 1e-8;
+    else
+        diff = 1e-8;
     end
     
-else
-    % Initialize All array
-    All = cell(nCon,nObj);
-    
-    % Initial value
-    for iCon = 1:nCon
-        for iObj = 1:nObj
-            if verbose; fprintf('Initial round\n'); end
-            [unused D] = computeObjSens(m, con(iCon), obj(iCon,iObj), opts);
-            
-            % Finite stepping
-            curH = zeros(nT,nT);
-            
-            for i = 1:nT
-                if verbose; fprintf('Step %d of %d\n', i, nk); end
-                
-                % Set baseline parameters
-                kup = m.p;
-                kdown = m.p;
-                
-                if opts.UseModelICs
-                    xup = m.ic;
-                    xdown = m.ic;
-                else
-                    xup = con{iCon}.ic;
-                    xdown = con{iCon}.ic;
-                end
-                
-                % Change current parameter by finite amount
-                if i <= nTk
-                    pi = kup(UseParamsInd(i));
-                    diff = kup(UseParamsInd(i)) * 1e-8;
-                    kup(UseParamsInd(i)) = pi + diff;
-                    kdown(UseParamsInd(i)) = pi - diff;
-                else
-                    pi = xup(UseICsInd(i-nTk));
-                    diff = xup(UseICsInd(i-nTk)) * 1e-8;
-                    xup(UseICsInd(i-nTk)) = pi + diff;
-                    xdown(UseICsInd(i-nTk)) = pi - diff;
-                end
-                
-                % Run models to get goal function
-                if opts.UseModelICs
-                    mtemp = m.update(kup, xup);
-                    contemp = con(iCon).update(m);
-                    objtemp = obj(iCon,iObj).update(mtemp);
-                    Dup = computeObjSens(mtemp, contemp, objtemp, opts);
-                    mtemp = m.update(kdown, xdown);
-                    contemp = con(iCon).update(m);
-                    objtemp = obj(iCon,iObj).update(mtemp);
-                    Ddown = computeObjSens(mtemp, contemp, objtemp, opts);
-                else
-                    mtemp = m.update(kup, m.ic);
-                    contemp = con(iCon).update(m, xup);
-                    objtemp = obj(iCon,iObj).update(mtemp);
-                    Dup = computeObjSens(mtemp, contemp, objtemp, opts);
-                    mtemp = m.update(kdown, m.ic);
-                    contemp = con(iCon).update(m, xdown);
-                    objtemp = obj(iCon,iObj).update(mtemp);
-                    Ddown = computeObjSens(mtemp, contemp, objtemp, opts);
-                end
-                
-                % Compute H
-                if opts.Normalized
-                    curH(i,:) = pi * p .* ( (Dup - D) / diff + (D - Ddown) / diff ) / 2;
-                else
-                    curH(i,:) = ( (Dup - D) / diff + (D - Ddown) / diff ) / 2;
-                end
-            end
-            
-            H = H + curH;
-            
-            All{iCon, iObj} = curH;
-        end
+    % Compute objective values
+    T_up(iT) = T_up(iT) + diff;
+    [m, con] = updateAll(m, con, T_up, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+    [unused, D_up] = computeObjGrad(m, con, obj, opts);
+
+    % Compute D
+    if opts.Normalized
+        H(:,iT) = T_i * T0 .* (D_up - D) ./ diff;
+    else
+        H(:,iT) = (D_up - D) ./ diff ;
     end
 end

@@ -132,7 +132,7 @@ nt = numel(t);
 
 val = int.d2ydT2(t);
 if nargin >= 3
-    val = reshape(val, ny,nT*nt); % y_TTt
+    val = reshape(val, ny,nT*nT*nt); % y_TTt
     val = val(ind,:); % y_TTt chopped out rows
     val = reshape(val, nnz(ind)*nT*nT,nt); % yTT_t
 end

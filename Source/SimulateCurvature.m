@@ -100,9 +100,9 @@ defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
 defaultOpts.UseParams        = 1:m.nk;
-defaultOpts.UseSeeds         = [];
-defaultOpts.UseInputControls = [];
-defaultOpts.UseDoseControls  = [];
+defaultOpts.UseSeeds         = nan;
+defaultOpts.UseInputControls = nan;
+defaultOpts.UseDoseControls  = nan;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -122,7 +122,7 @@ n_obs = size(obs,1);
 % Ensure UseSeeds is a logical matrix
 [opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, nx, n_con);
 
-% Ensure UseControls is a cell vector of logical vectors
+% Ensure UseControls are cell vectors of logical vectors
 [opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
 [opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 

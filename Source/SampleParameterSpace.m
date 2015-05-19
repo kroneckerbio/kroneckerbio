@@ -1,4 +1,4 @@
-function [Ts data] = SampleParameterSpace(m, con, obj, n, opts)
+function [Ts, data] = SampleParameterSpace(m, con, obj, n, opts)
 %SampleParameterSpace Sample the parameter space according to the
 %   probability
 %
@@ -17,16 +17,6 @@ function [Ts data] = SampleParameterSpace(m, con, obj, n, opts)
 %       The number of samples to be returned
 %   opts: [ options struct scalar ]
 %       Optional
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions. This will
-%           determine both which parameters are used for simulation as well
-%           as what parameters will be varied in the optimization.
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions. This will determine both
-%           which parameters are used for simulation as well as what
-%           parameters will be varied in the optimization.
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Indicates the kinetic parameters that will be allowed to vary
 %           during the optimization
@@ -40,9 +30,14 @@ function [Ts data] = SampleParameterSpace(m, con, obj, n, opts)
 %           and every experiment will be considered to have the same active
 %           seed parameters. It can also be a vector of linear indexes into
 %           the ns vector and assumed the same for all conditions.
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the input control parameters that will be allowed to
+%           vary during the optimization
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
 %           Indicates the input control parameters that will be allowed to
 %           vary during the optimization
 %       .LowerBound [ nonegative vector {0} ]
@@ -53,60 +48,37 @@ function [Ts data] = SampleParameterSpace(m, con, obj, n, opts)
 %       .UpperBound [ nonegative vector {0} ]
 %           The upper bound for the fitted parameters. It must be the same
 %           length as LowerBound.
-%     	.ObjWeights [ real matrix nObj by nCon {ones(nObj,nCon)} ]
-%           Applies a post evaluation weight on each objective function
-%           in terms of how much it will contribute to the final objective
-%           function value.
 %       .Normalized [ logical scalar {true} ]
 %           Indicates if the optimization should be done in log parameters
 %           space
-%    	.UseAdjoint [ logical scalar {false} ]
-%           Indicates whether the gradient should be calculated via the
-%           adjoint method or the forward method
-%     	.TolOptim [ positive scalar {1e-5} ]
-%           The objective tolerance. The optimization stops when it is
-%           predicted that the objective function cannot be improved more
-%           than this in the next iteration.
-%     	.Restart [ nonnegative integer scalar {0} ]
-%           A scalar integer determining how many times the optimzation
-%           should restart once optimization has stopped.
-%     	.RestartJump [ handle @(iter,G) returns nonnegative vector nT or
-%                      scalar | nonnegative vector nT or scalar {0.001} ]
-%           This function handle controls the schedule for the noise that
-%           will be added to the parameters before each restart. The
-%           parameters for the next iteration will be normally distributed
-%           in log space with a mean equal to the previous iteration and a
-%           standard deviation equal to the value returned by this
-%           function. The value returned should usually be a scalar, but it
-%           can also be a vector with length equal to the number of active
-%           parameters. It can also be numeric, and the noise will be
-%           treated as this constant value.
-%      	.TerminalObj [ real scalar {-inf} ]
-%           Optimization is halted when this objective function value is
-%           reached
-%       .MaxSampleStep [ nonegative scalar {1} ]
-%           Scalar fraction indicator of the maximum relative step size
-%           that any parameter can take in a single interation
-%     	.Algorithm [ string {active-set} ]
-%           Option for fmincon. Which optimization algorithm to use
-%     	.MaxIter [ postive scalar integer {1000} ]
-%           Option for fmincon. Maximum number of iterations allowed before
-%           optimization will be terminated.
-%     	.MaxFunEvals [ postive scalar integer {5000} ]
-%           Option for fmincon. Maximum number of objective function
-%           evaluations allowed before optimization will be terminated.
-%       .AdaptAcceptance [ logical scalar {true} ]
-%           If the acceptance is ratio is outside of LowerAcceptance and
-%           UpperAcceptance, then MaxSampleStep will be adjusted after each
-%           StepsPerCheck so that the acceptance ratio remains optimal even
-%           as the shape of the region being explored changes
+%       .StepsPerCheck [ nonnegative scalar  {100} ]
+%           The Fisher information matrix will be recalulated and the
+%           MaxSampleStep adjusted (if applicable) after this many steps
 %       .MaxSampleStep [ nonegative scalar {1} ]
 %           This is the maximum relative change that is allowed in any
 %           parameter in a single step. Because all steps are Guassian,
 %           this will be violated with probability 0.05.
-%       .StepsPerCheck [ nonnegative scalar  {100} ]
-%           The Fisher information matrix will be recalulated and the
-%           MaxSampleStep adjusted (if applicable) after this many steps
+%       .AdaptMaxSampleStep [ logical scalar {true} ]
+%           If the acceptance is ratio is outside of LowerAcceptance and
+%           UpperAcceptance, then MaxSampleStep will be adjusted after each
+%           StepsPerCheck so that the acceptance ratio remains optimal even
+%           as the shape of the region being explored changes
+%       .AdaptProposal [ logical scalar {true} ]
+%           After every StepsPerCheck the proposal distribution will be
+%           recomputed by linearization at the current location.
+%       .SampleThinning [ numeric scalar {0.234} ]
+%           A number between 0 and 1. This fraction of parameter samples is
+%           retained
+%       .AdaptThinning [ logical scalar {false} ]
+%           After every StepsPerCheck, the thinning is recomputed based on
+%           the acceptance ratio. The formula is 
+%           SampleThinning = min(accept, 0.305-0.305*accept)
+%       .LowerAcceptance [ numeric scalar {0.15} ]
+%           A number between 0 and 1. The lowest acceptance ratio that is
+%           acceptable when AdaptMaxSampleStep is true
+%       .UpperAcceptance [ numeric scalar {0.5} ]
+%           A number between 0 and 1. The highest acceptance ratio that is
+%           acceptable when AdaptMaxSampleStep is true
 %       .RelTol [ nonnegative scalar {1e-6} ]
 %           Relative tolerance of the integration
 %       .AbsTol [ cell vector of nonnegative vectors | nonnegative vector |
@@ -136,7 +108,7 @@ function [Ts data] = SampleParameterSpace(m, con, obj, n, opts)
 %   is a minor violation of the Metropolis criterion, so it should be
 %   turned off if numerically perfect results are required.
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 % Clean up inputs
@@ -150,33 +122,31 @@ assert(isscalar(n) && n >= 0 && round(n) == n, 'KroneckerBio:SampleParameterSpac
 
 %% Options
 % Default options
-defaultOpts.Verbose        = 1;
+defaultOpts.Verbose            = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol             = [];
+defaultOpts.AbsTol             = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams          = nan;
+defaultOpts.UseSeeds           = nan;
+defaultOpts.UseInputControls   = nan;
+defaultOpts.UseDoseControls    = nan;
 
-defaultOpts.ObjWeights     = ones(size(obj));
+defaultOpts.ObjWeights         = ones(size(obj));
 
-defaultOpts.Normalized     = true;
-defaultOpts.UseAdjoint     = false;
+defaultOpts.Normalized         = true;
 
-defaultOpts.LowerBound     = 0;
-defaultOpts.UpperBound     = inf;
+defaultOpts.LowerBound         = 0;
+defaultOpts.UpperBound         = inf;
 
-defaultOpts.MaxSampleStep   = 1;     % Uncertainty vectors with 95% CI stetching more than this fold change are truncated
-defaultOpts.AdaptMaxSampleStep = true; % Change the max sample step based on the acceptance ratio
-defaultOpts.AdaptProposal   = true;  % Re-linearize the system every StepsPerCheck to get a new proposal distribution
-defaultOpts.AdaptThinning   = false;  % Change the thinning based on the acceptance ratio
-defaultOpts.SampleThinning  = 0.234; % The fraction of draws that will be retained after thinning
-defaultOpts.LowerAcceptance = 0.15;  % The lowest acceptance ratio that is good
-defaultOpts.UpperAcceptance = 0.5;   % The highest acceptance ratio that is good
-defaultOpts.StepsPerCheck   = 100;   % Number of steps between checks on the acceptance rate
+defaultOpts.StepsPerCheck      = 100;   % Number of steps between checks on the acceptance rate
+defaultOpts.MaxSampleStep      = 1;     % Uncertainty vectors with 95% CI stetching more than this fold change are truncated
+defaultOpts.AdaptMaxSampleStep = true;  % Change the max sample step based on the acceptance ratio
+defaultOpts.AdaptProposal      = true;  % Re-linearize the system every StepsPerCheck to get a new proposal distribution
+defaultOpts.SampleThinning     = 0.234; % The fraction of draws that will be retained after thinning
+defaultOpts.AdaptThinning      = false; % Change the thinning based on the acceptance ratio
+defaultOpts.LowerAcceptance    = 0.15;  % The lowest acceptance ratio that is good
+defaultOpts.UpperAcceptance    = 0.5;   % The highest acceptance ratio that is good
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -184,29 +154,28 @@ verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
-nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-nCon = numel(con);
-nObj = size(obj,1);
+n_con = numel(con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m.nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 % Bounds
-opts.LowerBound = fixBounds(opts.LowerBound, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
-opts.UpperBound = fixBounds(opts.UpperBound, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+opts.LowerBound = fixBounds(opts.LowerBound, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+opts.UpperBound = fixBounds(opts.UpperBound, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Starting parameter set
-T = collectActiveParameters(m, con, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Variance of sample space
 F = ObjectiveInformation(m, con, obj, opts);
@@ -273,7 +242,7 @@ while true % dowhile
     
     % Adapt proposal distribution
     if opts.AdaptProposal
-        [m, con] = updateAll(m, con, T, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+        [m, con] = updateAll(m, con, T, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
         
         try
             % If this fails, just use the last information matrix
@@ -328,7 +297,7 @@ data.FinalProposal = V;
         T = vec(T); % Kronecker needs column vectors
         
         % Update everything
-        [m, con] = updateAll(m, con, T, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams, opts.UseSeeds, opts.UseControls);
+        [m, con] = updateAll(m, con, T, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
         
         % Compute probability
         try
@@ -352,5 +321,4 @@ data.FinalProposal = V;
         end
         T = row(T); % mhsample needs row vectors
     end
-
 end
