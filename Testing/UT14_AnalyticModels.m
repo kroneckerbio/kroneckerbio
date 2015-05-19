@@ -299,17 +299,34 @@ end
 
 function [m,expectedexprs] = getModel(opts,useMEX)
 
-if nargin < 1
-    opts = struct;
+if nargin < 2
+    useMEX = false;
+    if nargin < 1
+        opts = struct;
+    end
 end
+
+% Clear mex functions to allow overwriting of old ones, if necessary
+clear mex
 
 % Get symbolic model
 [m,expectedexprs] = symbolicmodel(opts);
 
-% Build analytical model
+% Set up mex directory
 buildopts.UseMEX = useMEX;
 kroneckerdir = cd(cd([fileparts(which('symbolic2PseudoKronecker.m')) filesep '..']));
 buildopts.MEXDirectory = fullfile(kroneckerdir,'Testing','mexfuns');
+
+% Remove old mex directory from the path, if it exists
+% if exist(buildopts.MEXDirectory,'dir') == 7
+%     id = 'MATLAB:rmpath:DirNotFound';
+%     warning('off',id)
+%     rmpath(buildopts.MEXDirectory);
+%     warning('on',id)
+%     %rmsuccess = rmdir(buildopts.MEXDirectory,'s');
+% end
+
+% Build analytical model
 m = symbolic2PseudoKronecker(m,buildopts);
 
 % Compile MEX functions, if necessary
