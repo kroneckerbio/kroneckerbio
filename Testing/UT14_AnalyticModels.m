@@ -1,14 +1,29 @@
-function tests = UT14_AnalyticModels()
+function tests = UT14_AnalyticModels(useMEX)
 % More extensive testing of the creation and simulation of analytic models
 % from symbolic models
-tests = functiontests(localfunctions);
+if nargin < 1
+    useMEX = false;
 end
+
+% Get function handles
+funnames = {'testBasicModel';'testNoStates';'testOneState';'testNoInputs';'testOneInput';'testNoOutputs';'testOneOutput';'testModelUpdate'};
+if useMEX
+    funnames = strcat(funnames,'MEX');
+end
+testfuns = cellfun(@str2func,funnames,'UniformOutput',false);
+tests = functiontests(testfuns);
+
+end
+
+%% Non-MEX functions
 
 function testBasicModel(a)
 
+useMEX = false;
+
 opts = struct;
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
 
@@ -20,9 +35,11 @@ end
 
 function testNoStates(a)
 
+useMEX = false;
+
 opts.Inputs = {'A';'B';'C';'D'};
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
 
@@ -34,9 +51,11 @@ end
 
 function testOneState(a)
 
+useMEX = false;
+
 opts.Inputs = {'B';'C';'D'};
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
 
@@ -49,9 +68,11 @@ end
 
 function testNoInputs(a)
 
+useMEX = false;
+
 opts.Inputs = [];
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
 
@@ -63,9 +84,11 @@ end
 
 function testOneInput(a)
 
+useMEX = false;
+
 opts.Inputs = {'A'};
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
 
@@ -77,9 +100,11 @@ end
 
 function testNoOutputs(a)
 
+useMEX = false;
+
 opts.Outputs = [];
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
 
@@ -91,9 +116,11 @@ end
 
 function testOneOutput(a)
 
+useMEX = false;
+
 opts.Outputs = {'A+B'};
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
 
@@ -105,9 +132,11 @@ end
 
 function testModelUpdate(a)
 
+useMEX = false;
+
 opts = struct;
 
-[m,expectedexprs] = getModel(opts);
+[m,expectedexprs] = getModel(opts,useMEX);
 
 newk = m.k-[0.1;0.2;0.4;0.7];
 m = m.Update(newk);
@@ -126,10 +155,149 @@ a.verifyEqual(m.k,newk,'Model parameters did not change following parameter upda
 
 end
 
+%% MEX functions
+
+function testBasicModelMEX(a)
+
+useMEX = true;
+
+opts = struct;
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
+function testNoStatesMEX(a)
+
+useMEX = true;
+
+opts.Inputs = {'A';'B';'C';'D'};
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
+function testOneStateMEX(a)
+
+useMEX = true;
+
+opts.Inputs = {'B';'C';'D'};
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+
+end
+
+function testNoInputsMEX(a)
+
+useMEX = true;
+
+opts.Inputs = [];
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
+function testOneInputMEX(a)
+
+useMEX = true;
+
+opts.Inputs = {'A'};
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
+function testNoOutputsMEX(a)
+
+useMEX = true;
+
+opts.Outputs = [];
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
+function testOneOutputMEX(a)
+
+useMEX = true;
+
+opts.Outputs = {'A+B'};
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
+function testModelUpdateMEX(a)
+
+useMEX = true;
+
+opts = struct;
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+newk = m.k-[0.1;0.2;0.4;0.7];
+m = m.Update(newk);
+
+order = 0;
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs,order);
+
+% Get f and r indices. Don't test y changes because I set x and u to
+% particular values, so parameter changes won't affect y.
+vis = find(ismember(funnames,{'f';'r'}));
+
+for vi = vis(:)'
+    a.verifyGreaterThan(max(abs(funvals{vi} - expectedvals{vi})), 1e-9, [funnames{vi} ' did not change after model parameter update.']);
+end
+a.verifyEqual(m.k,newk,'Model parameters did not change following parameter update.')
+
+end
 
 %% Auxiliary functions
 
-function [m,expectedexprs] = getModel(opts)
+function [m,expectedexprs] = getModel(opts,useMEX)
 
 if nargin < 1
     opts = struct;
@@ -139,7 +307,14 @@ end
 [m,expectedexprs] = symbolicmodel(opts);
 
 % Build analytical model
-m = symbolic2PseudoKronecker(m);
+buildopts.UseMEX = useMEX;
+buildopts.MEXDirectory = 'mexfuns/';
+m = symbolic2PseudoKronecker(m,buildopts);
+
+% Compile MEX functions, if necessary
+if useMEX
+    compileMEXFunctions(buildopts.MEXDirectory,false)
+end
 
 end
 

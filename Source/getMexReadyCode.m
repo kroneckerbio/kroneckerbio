@@ -3,8 +3,6 @@ function getMexReadyCode(dsym,nzi,nzsizes,xSyms,uSyms,kSyms,dername,savedir)
 m = size(dsym,1);
 n = size(dsym,2);
 
-cstrcell = cell(size(nzi,1),1);
-
 % sub2ind requires a size input of length two
 if length(nzsizes) == 1
     nzsizes = [nzsizes 1];
@@ -15,14 +13,14 @@ nziindices = sub2ind(nzsizes,nzicell{:});
 
 % Get code
 if ~isempty(nziindices)
-    cstr = ccode(dsym(nziindices));
+    cstr = ccode(vec(dsym(nziindices)));
 else
     cstr = '';
 end
 
-% If only one element is in dsym, the evaluation is assigned to t0 instead
-% of T[index][0]. Replace t0 with T[0][0] for consistency.
-if m == 1 && n == 1
+% If only one nonzero element is in dsym, the evaluation is assigned to t0
+% instead of T[index][0]. Replace t0 with T[0][0] for consistency.
+if length(nziindices) == 1
     cstr = regexprep(cstr,'t0 =','T[0][0] =');
 end
 
@@ -59,6 +57,15 @@ if ~isempty(cstr)
     xnew = getNewVars('x',nx);
     unew = getNewVars('u',nu);
     knew = getNewVars('k',nk);
+    if nx == 0
+        xnew = {};
+    end
+    if nu == 0
+        unew = {};
+    end
+    if nk == 0
+        knew = {};
+    end
     xold = fastchar(xSyms);
     uold = fastchar(uSyms);
     kold = fastchar(kSyms);

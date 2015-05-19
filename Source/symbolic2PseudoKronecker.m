@@ -972,10 +972,10 @@ if verbose; fprintf('done.\n'); end
                 orderstr = '';
             end
             [denterms,~,denoccurenceindex] = unique(dens,'stable');
-            dencounts = histcounts(denoccurenceindex,1:length(denterms));
-            dencounts = strtrim(cellstr(int2str(dencounts)));
+            dencounts = histcounts(denoccurenceindex,0.5:length(denterms)+0.5);
+            dencounts = strtrim(cellstr(int2str(dencounts(:))));
             dencounts(strcmp(dencounts,'1')) = {''};
-            denstrs = strcat('d',denterms,dencounts);
+            denstrs = strcat('d',denterms(:),dencounts(:));
             variable_name = ['d' orderstr num denstrs{:}];
         else
             variable_name = num;
@@ -995,7 +995,7 @@ if verbose; fprintf('done.\n'); end
                 nzlogical = getNonZeroEntries(num, dens);
                 nzi = cell(ndims(nzlogical),1);
                 nziind = find(nzlogical);
-                [nzi{:}] = ind2sub(size(nzlogical),nziind);
+                [nzi{:}] = ind2sub(size(nzlogical),nziind(:));
                 nzi = [nzi{:}];
                 nzsizes = [sizes.(num) cellfun(@(den)sizes.(den),dens(:)')];
                 

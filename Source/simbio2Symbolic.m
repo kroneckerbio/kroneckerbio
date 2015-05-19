@@ -715,7 +715,6 @@ SymModel.Name       = name;
 SymModel.nv         = nv;
 SymModel.nk         = nk;
 SymModel.ns         = ns;
-SymModel.nq         = nq;
 SymModel.nu         = nu;
 SymModel.nx         = nx;
 SymModel.nr         = nr;
@@ -732,11 +731,6 @@ SymModel.k          = k;
 SymModel.sSyms      = sSyms;
 SymModel.sNames     = sNames;
 SymModel.s          = s;
-
-% Currently unused
-% SymModel.qSyms      = qSyms;
-% SymModel.qNames     = qNames;
-% SymModel.q          = q;
 
 SymModel.uSyms      = uSyms;
 SymModel.uNames     = uNames;
