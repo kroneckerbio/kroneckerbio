@@ -12,6 +12,6 @@ assert(isempty(j) || max(j) <= n, 'All elements of j must be less than or equal 
 
 filename = which('sparse_mupad.mu');
 read(symengine, filename);
-matout = feval(symengine,'sparse_mupad',i, j, s, m, n);
+matout = feval(symengine,'sparse_mupad',i(:), j(:), s(:), m, n);
 
 end

@@ -30,8 +30,6 @@ function SymModel = simbio2Symbolic(SimbioModel, opts)
 %           Number of kinetic parameters
 %       .ns: [ nonegative integer scalar ]
 %           Number of seed parameters
-%       .nq: [ nonegative integer scalar ]
-%           Number of input control parameters
 %       .nu: [ nonegative integer scalar ]
 %           Number of inputs
 %       .nx: [ nonegative integer scalar ]
@@ -54,8 +52,6 @@ function SymModel = simbio2Symbolic(SimbioModel, opts)
 %           Natural names of the seed parameters
 %       .s: [ nonegative vector ns ]
 %           Seed parameter values
-%       .q: [ nonegative vector nq ]
-%           Input control parameter values
 %       .uSyms: [ symbolic vector nu ]
 %           Symbolic name of each input species
 %       .uNames: [ cell vector of strings nu ]
@@ -522,10 +518,11 @@ uNicestrs = xuNicestrs(isu);
 u = xu0(isu); % Default is no time varying inputs
 vuInd   = vxuInd(isu);
 
-nq = 0;
-qSyms = sym(zeros(0,1));
-qNames = cell(0,1);
-q = zeros(0,1);
+% Currently unused
+% nq = 0;
+% qSyms = sym(zeros(0,1));
+% qNames = cell(0,1);
+% q = zeros(0,1);
 
 %% Build up rate string and stoichiometry
 reactions = SimbioModel.Reactions;
@@ -736,9 +733,10 @@ SymModel.sSyms      = sSyms;
 SymModel.sNames     = sNames;
 SymModel.s          = s;
 
-SymModel.qSyms      = qSyms;
-SymModel.qNames     = qNames;
-SymModel.q          = q;
+% Currently unused
+% SymModel.qSyms      = qSyms;
+% SymModel.qNames     = qNames;
+% SymModel.q          = q;
 
 SymModel.uSyms      = uSyms;
 SymModel.uNames     = uNames;
