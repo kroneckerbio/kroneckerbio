@@ -308,7 +308,8 @@ end
 
 % Build analytical model
 buildopts.UseMEX = useMEX;
-buildopts.MEXDirectory = 'mexfuns/';
+kroneckerdir = cd(cd([fileparts(which('symbolic2PseudoKronecker.m')) filesep '..']));
+buildopts.MEXDirectory = fullfile(kroneckerdir,'Testing','mexfuns');
 m = symbolic2PseudoKronecker(m,buildopts);
 
 % Compile MEX functions, if necessary
