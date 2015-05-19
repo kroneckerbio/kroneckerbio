@@ -317,15 +317,6 @@ buildopts.UseMEX = useMEX;
 kroneckerdir = cd(cd([fileparts(which('symbolic2PseudoKronecker.m')) filesep '..']));
 buildopts.MEXDirectory = fullfile(kroneckerdir,'Testing','mexfuns');
 
-% Remove old mex directory from the path, if it exists
-% if exist(buildopts.MEXDirectory,'dir') == 7
-%     id = 'MATLAB:rmpath:DirNotFound';
-%     warning('off',id)
-%     rmpath(buildopts.MEXDirectory);
-%     warning('on',id)
-%     %rmsuccess = rmdir(buildopts.MEXDirectory,'s');
-% end
-
 % Build analytical model
 m = symbolic2PseudoKronecker(m,buildopts);
 
