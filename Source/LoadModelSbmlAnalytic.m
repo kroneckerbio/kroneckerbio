@@ -1,13 +1,12 @@
-function kronModel = LoadModelSbmlAnalytic(simbioModel, yNames, yMembers, yValues, opts)
-%LoadModelSbmlAnalytic Convert an SBML model into a pseudo-kronecker model
+function kronModel = LoadModelSbmlAnalytic(model, yNames, yMembers, yValues, opts)
+%LoadModelSbmlAnalytic Convert a model into a pseudo-kronecker model
 %   which interacts with much of the Kronecker toolbox much like a
 %   Kronecker model.
 % 
-%   m = LoadModelSbmlAnalytic(SimbioModel, yNames, yMembers, yValues, opts)
+%   m = LoadModelSbmlAnalytic(model, yNames, yMembers, yValues, opts)
 %
 %   Inputs
-%   simbioModel: [ path string | SimBiology Model scalar | 
-%                  symbolic model scalar ]
+%   model: [ path string | SimBiology Model scalar |  symbolic model scalar ]
 %       This can be a path to an SBML file, a Simbiology Model, or a
 %       symbolic model.
 %   yNames: [ string | cell vector of strings {{m.Species.Name}} ]
@@ -62,16 +61,18 @@ if nargin < 5
     end
 end
 
-% Load sbml model directly to symbolic model
-symModelDirect = sbml2Symbolic(simbioModel);
+useSimBioIntermediate = false; % use SimBiology intermediate when converting SBML -> symbolic
 
-% Load sbml if file is provided
-if ischar(simbioModel)
-    simbioModel = sbmlimport(simbioModel);
+if ischar(model) % SBML model input
+    if useSimBioIntermediate
+        simBioModel = sbmlimport(model);
+        symModel = simbio2Symbolic(simBioModel, opts);
+    else
+        symModel = sbml2Symbolic(model, opts);
+    end
+else % SimBiology model input
+    symModel = simbio2Symbolic(model, opts);
 end
-
-% Use sbml2Symbolic to convert an SBML model to a symbolic model
-symModel = simbio2Symbolic(simbioModel, opts);
 
 %%%%%%%% Add specified outputs to the symbolic model %%%%%%%%%
 
@@ -154,13 +155,19 @@ for yi = 1:ny
         end
 
     end
-        
-    symModel.y(oldny+yi) = C1(oldny+yi,:)*xSyms + C2(oldny+yi,:)*uSyms + c(oldny+yi);
-        
+    
+    % Set empty input matrices to 0
+    if isempty(C2) || isempty(uSyms)
+        inputTerm = 0;
+    else
+        inputTerm = C2(oldny+yi,:)*uSyms;
+    end
+    
+    symModel.y(oldny+yi) = C1(oldny+yi,:)*xSyms + inputTerm + c(oldny+yi); % should not be empty
+    
 end
 
 symModel.yNames = [symModel.yNames; yNames];
-
 
 % Use symbolic2Kronecker to convert a symbolic model to a psuedo kronecker model
 kronModel = symbolic2PseudoKronecker(symModel, opts);

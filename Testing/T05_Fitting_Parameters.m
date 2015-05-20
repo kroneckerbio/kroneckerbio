@@ -19,18 +19,39 @@ m = AddReaction(m, '', '', 'A', 'B', 'C', '', 'kf', 'kr');
 m = FinalizeModel(m);
 
 %% Construct experiment
-con = InitialValueExperiment(m, 1, [], [], [], 'InitialValueExperiment');
+con = experimentInitialValue(m, [], [], [], 'InitialValueExperiment');
 
 %% Construct objective
-outputlist = [1;1;2;2;3;3];
-timeslist = [0.1;1;0.1;1;0.1;1];
+outputList = [1;1;2;2;3;3];
+timesList = [0.1;1;0.1;1;0.1;1];
 measurements = [0.6; 0.4; 1.5; 1.3; 0.4; 0.6];
 sd = sdLinear(0.05, 0.1);
 
-obj = objectiveWeightedSumOfSquaresNonNeg(outputlist, timeslist, sd, measurements);
+obs = observationLinearWeightedSumOfSquares(outputList, timesList, sd, 'DefaultObservation');
+obj = obs.Objective(measurements);
 
 %% Fit
-mfit = FitObjective(m, con, obj);
+mFit = FitObjective(m, con, obj);
+
+% Display fit results
+tF = 1;
+times = linspace(0, tF, 100);
+simOriginal = SimulateSystem(m, con, tF);
+simFit = SimulateSystem(mFit, con, tF);
+
+figure
+hold on
+plot(times, simOriginal.x(times))
+ax = gca;
+ax.ColorOrderIndex = 1;
+plot(timesList(1:2), reshape(measurements,2,3), '+')
+ax = gca;
+ax.ColorOrderIndex = 1;
+plot(times, simFit.x(times), ':')
+hold off
+legend('A','B','C','A data','B data','C data','A fit','B fit','C Fit')
+xlabel('Time')
+ylabel('Amount')
 
 %% Linearized parameter uncertainty
-% F = ObjectiveInformation(mfit, con, obj);
+F = ObjectiveInformation(mFit, con, obj);

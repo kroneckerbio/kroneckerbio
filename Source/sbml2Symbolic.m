@@ -97,6 +97,7 @@ defaultOpts.Verbose = 0;
 defaultOpts.Validate = false;
 defaultOpts.EvaluateExternalFunctions = false;
 defaultOpts.UseNames = false;
+defaultOpts.AddRulesAsOutputs = false;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -343,7 +344,6 @@ nx = nnz(~isu);
 xIDs   = xuIDs(~isu);
 xNames = xuNames(~isu);
 xSyms  = xuSyms(~isu);
-x0     = sym(xu0(~isu));
 vxInd  = vxuInd(~isu);
 
 % Represent every state's initial condition with a seed
@@ -359,12 +359,13 @@ for i = 1:ns
 end
 sSyms  = sym(sIDs);
 s      = xu0(~isu);
+x0     = sSyms; % initial conditions syms which can be updated in experiments
 
 nu = nnz(isu);
 uIDs   = xuIDs(isu);
 uNames = xuNames(isu);
 uSyms  = xuSyms(isu);
-u      = sym(xu0(isu));
+u      = xu0(isu);
 vuInd  = vxuInd(isu);
 
 % Input parameters don't have an analog in SBML
@@ -522,8 +523,13 @@ sNames(found(found ~= 0)) = [];
 % Convert rule terms to outputs
 %   This is optional but convenient
 %   Make sure to add additional outputs as desired when building model
-y = valueSyms(makeoutput);
-yNames = arrayfun(@char, targetSyms, 'UniformOutput', false);
+if opts.AddRulesAsOutputs
+    y = valueSyms(makeoutput);
+    yNames = arrayfun(@char, targetSyms, 'UniformOutput', false);
+else
+    y = sym([]);
+    yNames = {};
+end
 
 % Substitute values for initial assignments
 for i = 1:nRules

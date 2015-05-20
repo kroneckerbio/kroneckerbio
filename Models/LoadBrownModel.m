@@ -31,6 +31,9 @@ opts.Restart = 0;
 opts.RestartNoise = 0.001;
 opts.GlobalOptimization = false;
 
+% Loading SBML
+opts.UseNames = true;
+
 %% Load model
 yNames = {
     'EGF'
