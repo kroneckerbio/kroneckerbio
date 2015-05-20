@@ -34,7 +34,7 @@ dose = doseConstant(m, 3:5, 1:6);
 
 % Experiment
 tF = 6;
-con = InitialValueExperiment(m, [], input, dose, 'SimpleExperiment');
+con = experimentInitialValue(m, [], input, dose, 'SimpleExperiment');
 
 % Objective
 sd = sdLinear(0.1, 1);

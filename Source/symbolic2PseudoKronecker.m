@@ -20,11 +20,6 @@ function m = symbolic2PseudoKronecker(SymModel, opts)
 %           parameters or converted to immutable constants
 %       .Verbose [ nonnegative integer scalar {1} ]
 %           Bigger number displays more progress information
-%       .NewJacobianMethod [ {true} | false ]
-%           Determines whether to use the more memory-efficient Jacobian
-%           method or the original method. For smaller models ( < 100
-%           reactions or species), there is little difference between the
-%           methods.
 %       .UseMEX [ true | {false} ]
 %           Set to true to write MEX functions in C that calculate f, r,
 %           and their derivatives with respect to x, u, and k. For larger
@@ -62,7 +57,6 @@ defaultMEXdirectory = ['mexfuns_' regexprep(thistime,'\.','_') filesep];
 defaultOpts.Order             = 2;
 defaultOpts.VolumeToParameter = false;
 defaultOpts.Verbose           = 0;
-defaultOpts.NewJacobianMethod = true;
 defaultOpts.UseMEX            = false;
 defaultOpts.MEXDirectory      = defaultMEXdirectory;
 
@@ -158,8 +152,8 @@ if isfield(SymModel, 'f')
     f = SymModel.f;
     if isfield(SymModel, 'r')
         r = SymModel.r;
-        S = SymModel.S;
-        Ssym = initSsym(S);
+        StoichiometricMatrix = SymModel.S;
+        StoichiometricSym = initSsym(StoichiometricMatrix);
         nr = numel(r);
         
         if isfield(SymModel, 'rNames')
@@ -169,16 +163,16 @@ if isfield(SymModel, 'f')
         end
     else
         r = sym(zeros(0,1));
-        S = zeros(nx,0);
-        Ssym = initSsym(S);
+        StoichiometricMatrix = zeros(nx,0);
+        StoichiometricSym = initSsym(StoichiometricMatrix);
         nr = 0;
         rNames = cell(0,1);
     end
 else
     % If there is no f, then r and S must be supplied
     r = SymModel.r;
-    S = SymModel.S;
-    Ssym = initSsym(S);
+    StoichiometricMatrix = SymModel.S;
+    StoichiometricSym = initSsym(StoichiometricMatrix);
     nr = numel(r);
     
     if isfield(SymModel, 'rNames')
@@ -187,14 +181,15 @@ else
         rNames = repmat({''}, [nr,1]);
     end
     
-    f = Ssym*r;
+    f = StoichiometricSym*r;
 end
 
-    function Ssym = initSsym(S)
-        Sind = find(S ~= 0);
-        [Si,Sj] = ind2sub(size(S),Sind);
-        Ssize = size(S);
-        Ssym = initializeMatrixMupad(Si,Sj,S(Sind),Ssize(1),Ssize(2));
+    function StoichiometricSym = initSsym(StoichiometricMatrix)
+        Sind = find(StoichiometricMatrix(:) ~= 0);
+        [Si,Sj] = ind2sub(size(StoichiometricMatrix),Sind);
+        Ssize = size(StoichiometricMatrix);
+        Ss = StoichiometricMatrix(Sind);
+        StoichiometricSym = initializeMatrixMupad(Si,Sj,Ss,Ssize(1),Ssize(2));
     end
 
 y       = SymModel.y;
@@ -224,6 +219,7 @@ if opts.VolumeToParameter
 else% ~VolumeToParameter
     r = subs(r, vSyms, v);
     f = subs(f, vSyms, v);
+    y = subs(y, vSyms, v);
 end
 
 % Sanitize symbols
@@ -274,52 +270,40 @@ for ix = 1:nx
     xNamesFull{ix} = [vNames{vxInd(ix)} '.' xNames{ix}];
 end
 
-% Convert compartment volumes to parameters or constants
-if opts.VolumeToParameter
-    nk = nk + nv;
-    kNames = [kNames; vNames];
-    k = [k; v];
-    kSyms = [kSyms; vSyms];
-else% ~VolumeToParameter
-    r = subs(r, vSyms, v, 0);
-end
 
-%f = Ssym*r;
-
-q = SymModel.q;
-nq = SymModel.nq;
-qStrs = cell(nq,1);
-qSyms = SymModel.qSyms;
-
-% Standardize names of input parameters
-newqSyms = sym('q%dx',[nq,1]);
-u = fastsubs(u, qSyms, newqSyms);
-qSyms = newqSyms; clear newqSyms
-qStrs = fastchar(qSyms);
+%%% For now, models will only contain constant default values of inputs %%%
+% q = SymModel.q;
+% nq = SymModel.nq;
+% qStrs = cell(nq,1);
+% qSyms = SymModel.qSyms;
 % 
-% for iq = 1:nq
-%     u = subs(u, qSyms(iq), newqSym(iq));
-%     qSyms(iq) = newqSym;
-%     qStrs{iq} = char(qSyms(iq));
-% end
+% % Standardize names of input parameters
+% newqSyms = sym('q%dx',[nq,1]);
+% u = fastsubs(u, qSyms, newqSyms);
+% qSyms = newqSyms; clear newqSyms
+% qStrs = fastchar(qSyms);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Determine the species and parameters in each reaction
 
 rstr = fastchar(r);
 ystr = fastchar(y);
-ustr = fastchar(u);
+
 x0str = fastchar(x0);
 
 rhasx = exprhasvar(rstr,xStrs,nr,nx);
 rhasu = exprhasvar(rstr,uStrs,nr,nu);
 rhask = exprhasvar(rstr,kStrs,nr,nk);
 
-uhasq = exprhasvar(ustr,qStrs,nu,nq);
-
 yhasx = exprhasvar(ystr,xStrs,ny,nx);
 yhasu = exprhasvar(ystr,uStrs,ny,nu);
 
 x0hass = exprhasvar(x0str,sStrs,nx,ns);
+
+%%% For now, models will only contain constant default values of inputs %%%
+% ustr = fastchar(u);
+% uhasq = exprhasvar(ustr,qStrs,nu,nq);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     function out = exprhasvar(exprStrs,varStrs,nexprs,nvars)
         
@@ -350,7 +334,10 @@ sizes.r = nr;
 sizes.k = nk;
 sizes.x = nx;
 sizes.u = nu;
-sizes.q = nq;
+sizes.s = ns;
+%%% For now, models will only contain constant default values of inputs %%%
+%sizes.q = nq;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 sizes.y = ny;
 
 % The above logical arrays are the nonzero elements of the first derivative
@@ -363,18 +350,20 @@ nz = containers.Map;
 nz('r') = true(nr,1);
 nz('f') = true(nx,1);
 nz('y') = true(ny,1);
-nz('u') = true(nu,1);
 nz('rx') = rhasx;
 nz('ru') = rhasu;
 nz('rk') = rhask;
-nz('fx') = logical(abs(S)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
-nz('fu') = logical(abs(S)*rhasu);
-nz('fk') = logical(abs(S)*rhask);
-nz('uq') = uhasq;
+nz('fx') = logical(abs(StoichiometricMatrix)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
+nz('fu') = logical(abs(StoichiometricMatrix)*rhasu);
+nz('fk') = logical(abs(StoichiometricMatrix)*rhask);
 nz('yx') = yhasx;
 nz('yu') = yhasu;
 nz('xs') = x0hass;
 
+%%% For now, models will only contain constant default values of inputs %%%
+% nz('u') = true(nu,1);
+% nz('uq') = uhasq;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     function nzout = getNonZeroEntries(num,dens)
         % Inputs:
@@ -436,124 +425,57 @@ nz('xs') = x0hass;
         
     end
 
-% if order > 1
-%     nz_rxx = nz_addorder(nz_rx,nz_rx);
-%     nz_rkx = nz_addorder(nz_rx,nz_rk);
-%     nz_rxk = nz_addorder(nz_rk,nz_rx);
-%     nz_rkk = nz_addorder(nz_rk,nz_rk);
-%     nz_ruu = nz_addorder(nz_ru,nz_ru);
-%     nz_rux = nz_addorder(nz_rx,nz_ru);
-%     nz_rxu = nz_addorder(nz_ru,nz_rx);
-%     nz_ruk = nz_addorder(nz_rk,nz_ru);
-%     nz_rku = nz_addorder(nz_ru,nz_rk);
-% end
-% if order > 2
-%     error('This function does not support orders greater than 2 at this time.')
-% end
-% 
-%     function nzout = nz_addorder(nz1,nz2)
-%         nz1dimsizes = cell(ndims(nz1),1);
-%         nz2dimsizes = cell(ndims(nz2),1);
-%         [nz1dimsizes{:}] = size(nz1);
-%         [nz2dimsizes{:}] = size(nz2);
-%         permutedims1 = [nz1dimsizes{:} 1];
-%         nzout = bsxfun(@and,nz1,permute(nz2,
-%     end
 fprintf('\n')
-
-%% Analyze common subexpressions in reaction rates
-% Reaction rates will typically consist of a few rate forms repeated many
-% times. I identify repeated rate forms here and only take the symbolic
-% derivatives of each rate form once.
-%
-% This isn't finished yet.
-
-% Add indicators of variable type (parameter, state, input) to
-% standardized names by replacing y with x, u, or k
-% xStrs_types = strrep(xStrs,'y','x');
-% uStrs_types = strrep(uStrs,'y','u');
-% kStrs_types = strrep(kStrs,'y','k');
-% 
-% % Replace variable names with indicator names
-% rstr_types = regexprep(rstr,[xStrs;uStrs;kStrs],[xStrs_types;uStrs_types;kStrs_types]);
-% 
-% % Determine the order of appearance of each variable type in each
-% % expression
-% vartypes = {'x','u','k'};
-% rstr_forms = rstr_types;
-% for vi = 1:length(vartypes)
-%     vartype = vartypes{vi};
-%     rstr_forms = getRateForms_onevartype(rstr_forms,vartype);
-% end
-% 
-%     function rstr_forms = getRateForms_onevartype(rstr_types,vartype)
-%         rstr_varStrs = regexp(rstr_types,['s' vartype '\d+x'],'match');
-%         lengths = cellfun(@length,rstr_varStrs);
-%         rstr_repvarStrs = strsplit(strtrim(sprintf(['s' vartype '%dx\n'],1:max(lengths))))';
-%         rstr_forms = cell(sizes.r,1);
-%         for ri = 1:sizes.r
-%             rstr_forms{ri} = regexprep(rstr_types{ri},rstr_varStrs{ri},rstr_repvarStrs(1:lengths(ri)));
-%         end
-%     end
-
-% Find rates with same form 
 
 %% Generate derivatives of desired order
 
-% Determine which method to use to calculate Jacobians
-if opts.NewJacobianMethod
-    jacobianfun = @calcDerivative;
-    reshapefun = @reshapeDerivative;
-else
-    jacobianfun = @(x, syms, num, dens) jacobian(vec(x), syms);
-    reshapefun = @reshape_extraarguments;
-end
-
 if order >= 1
     
+%%% For now, models will only contain constant default values of inputs %%%
     % Gradient of u with respect to q
-    if verbose; fprintf('Calculating dudq...'); end
-    dudq = jacobianfun(u, qSyms);
-    if verbose; fprintf('Done.\n'); end
-    
+%     if verbose; fprintf('Calculating dudq...'); end
+%     dudq = calcDerivative(u, qSyms);
+%     if verbose; fprintf('Done.\n'); end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     % Gradient of r with respect to x
     if verbose; fprintf('Calculating drdx...'); end
-    drdx = jacobianfun(r, xSyms);
+    drdx = calcDerivative(r, xSyms, 'r', {'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to u
     if verbose; fprintf('Calculating drdu...'); end
-    drdu = jacobianfun(r, uSyms);
+    drdu = calcDerivative(r, uSyms, 'r', {'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to k
     if verbose; fprintf('Calculating drdk...'); end
-    drdk = jacobianfun(r, kSyms);
+    drdk = calcDerivative(r, kSyms, 'r', {'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to x
     if verbose; fprintf('Calculating dfdx...'); end
-    dfdx = Ssym*drdx;
+    dfdx = StoichiometricSym*drdx;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to u
     if verbose; fprintf('Calculating dfdu...'); end
-    dfdu = Ssym*drdu;
+    dfdu = StoichiometricSym*drdu;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to k
     if verbose; fprintf('Calculating dfdk...'); end
-    dfdk = Ssym*drdk;
+    dfdk = StoichiometricSym*drdk;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to x
     if verbose; fprintf('Calculating dydx...'); end
-    dydx = jacobianfun(y, xSyms);
+    dydx = calcDerivative(y, xSyms, 'y', {'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to u
     if verbose; fprintf('Calculating dydu...'); end
-    dydu = jacobianfun(y, uSyms);
+    dydu = calcDerivative(y, uSyms, 'y', {'u'});
     if verbose; fprintf('Done.\n'); end
 
 else
@@ -568,118 +490,118 @@ end
 if order >= 2
     % Gradient of drdx with respect to x
     if verbose; fprintf('Calculating d2rdx2...'); end
-    d2rdx2 = jacobianfun(drdx, xSyms, 'r', {'x','x'});
+    d2rdx2 = calcDerivative(drdx, xSyms, 'r', {'x','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to u
     if verbose; fprintf('Calculating d2rdu2...'); end
-    d2rdu2 = jacobianfun(drdu, uSyms, 'r', {'u','u'});
+    d2rdu2 = calcDerivative(drdu, uSyms, 'r', {'u','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to x
     if verbose; fprintf('Calculating d2rdxdu...'); end
-    d2rdxdu = jacobianfun(drdu, xSyms, 'r', {'u','x'});
+    d2rdxdu = calcDerivative(drdu, xSyms, 'r', {'u','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdx with respect to u
     if verbose; fprintf('Calculating d2rdudx...'); end
-    d2rdudx = jacobianfun(drdx, uSyms, 'r', {'x','u'});
+    d2rdudx = calcDerivative(drdx, uSyms, 'r', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to k
     if verbose; fprintf('Calculating d2rdk2...'); end
-    d2rdk2 = jacobianfun(drdk, kSyms, 'r', {'k','k'});
+    d2rdk2 = calcDerivative(drdk, kSyms, 'r', {'k','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdx with respect to k
     if verbose; fprintf('Calculating d2rdkdx...'); end
-    d2rdkdx = jacobianfun(drdx, kSyms, 'r', {'x','k'});
+    d2rdkdx = calcDerivative(drdx, kSyms, 'r', {'x','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to k
     if verbose; fprintf('Calculating d2rdkdu...'); end
-    d2rdkdu = jacobianfun(drdu, kSyms, 'r', {'u','k'});
+    d2rdkdu = calcDerivative(drdu, kSyms, 'r', {'u','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to x
     if verbose; fprintf('Calculating d2rdxdk...'); end
-    d2rdxdk = jacobianfun(drdk, xSyms, 'r', {'k','x'});
+    d2rdxdk = calcDerivative(drdk, xSyms, 'r', {'k','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to u
     if verbose; fprintf('Calculating d2rdudk...'); end
-    d2rdudk = jacobianfun(drdk, uSyms, 'r', {'k','u'});
+    d2rdudk = calcDerivative(drdk, uSyms, 'r', {'k','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to x
     if verbose; fprintf('Calculating d2fdx2...'); end
-    d2fdx2 = Ssym*reshapefun(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
-    d2fdx2 = reshapefun(d2fdx2, [nx*nx nx], 'f', {'x' 'x'});
+    d2fdx2 = StoichiometricSym*reshapeDerivative(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
+    d2fdx2 = reshapeDerivative(d2fdx2, [nx*nx nx], 'f', {'x' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to u
     if verbose; fprintf('Calculating d2fdu2...'); end
-    d2fdu2 = Ssym*reshapefun(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
-    d2fdu2 = reshapefun(d2fdu2, [nx*nu,nu], 'f', {'u' 'u'});
+    d2fdu2 = StoichiometricSym*reshapeDerivative(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
+    d2fdu2 = reshapeDerivative(d2fdu2, [nx*nu,nu], 'f', {'u' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to x
     if verbose; fprintf('Calculating d2fdxdu...'); end
-    d2fdxdu = Ssym*reshapefun(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
-    d2fdxdu = reshapefun(d2fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
+    d2fdxdu = StoichiometricSym*reshapeDerivative(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
+    d2fdxdu = reshapeDerivative(d2fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to u
     if verbose; fprintf('Calculating d2fdudx...'); end
-    d2fdudx = Ssym*reshapefun(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
-    d2fdudx = reshapefun(d2fdudx, [nx*nx,nu], 'f', {'x' 'u'});
+    d2fdudx = StoichiometricSym*reshapeDerivative(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
+    d2fdudx = reshapeDerivative(d2fdudx, [nx*nx,nu], 'f', {'x' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to k
     if verbose; fprintf('Calculating d2fdk2...'); end
-    d2fdk2 = Ssym*reshapefun(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
-    d2fdk2 = reshapefun(d2fdk2, [nx*nk,nk], 'f', {'k' 'k'});
+    d2fdk2 = StoichiometricSym*reshapeDerivative(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
+    d2fdk2 = reshapeDerivative(d2fdk2, [nx*nk,nk], 'f', {'k' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to k
     if verbose; fprintf('Calculating d2fdkdx...'); end
-    d2fdkdx = Ssym*reshapefun(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
-    d2fdkdx = reshapefun(d2fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
+    d2fdkdx = StoichiometricSym*reshapeDerivative(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
+    d2fdkdx = reshapeDerivative(d2fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to k
     if verbose; fprintf('Calculating d2fdkdu...'); end
-    d2fdkdu = Ssym*reshapefun(d2rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
-    d2fdkdu = reshapefun(d2fdkdu, [nx*nu,nk], 'f',{'u' 'k'});
+    d2fdkdu = StoichiometricSym*reshapeDerivative(d2rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
+    d2fdkdu = reshapeDerivative(d2fdkdu, [nx*nu,nk], 'f',{'u' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to x
     if verbose; fprintf('Calculating d2fdxdk...'); end
-    d2fdxdk = Ssym*reshapefun(d2rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
-    d2fdxdk = reshapefun(d2fdxdk, [nx*nk,nx], 'f',{'k' 'x'});
+    d2fdxdk = StoichiometricSym*reshapeDerivative(d2rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
+    d2fdxdk = reshapeDerivative(d2fdxdk, [nx*nk,nx], 'f',{'k' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to u
     if verbose; fprintf('Calculating d2fdudk...'); end
-    d2fdudk = Ssym*reshapefun(d2rdudk, [nr,nk*nu], 'r',{'k' 'u'});
-    d2fdudk = reshapefun(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
+    d2fdudk = StoichiometricSym*reshapeDerivative(d2rdudk, [nr,nk*nu], 'r',{'k' 'u'});
+    d2fdudk = reshapeDerivative(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Output's second derivatives
     if verbose; fprintf('Calculating d2ydx2...'); end
-    d2ydx2 = jacobianfun(dydx, xSyms, 'y', {'x','x'});
+    d2ydx2 = calcDerivative(dydx, xSyms, 'y', {'x','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydu2...'); end
-    d2ydu2 = jacobianfun(dydu, uSyms, 'y', {'u','u'});
+    d2ydu2 = calcDerivative(dydu, uSyms, 'y', {'u','u'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydxdu...'); end
-    d2ydxdu = jacobianfun(dydu, xSyms, 'y', {'u','x'});
+    d2ydxdu = calcDerivative(dydu, xSyms, 'y', {'u','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydudx...'); end
-    d2ydudx = jacobianfun(dydx, uSyms, 'y', {'x','u'});
+    d2ydudx = calcDerivative(dydx, uSyms, 'y', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
 else
@@ -709,18 +631,18 @@ end
 
 if order >= 3
     %Gradient of d2rdx2 with respect to x
-    d3rdx3 = jacobianfun(vec(d2rdx2), xSyms, 'r', {'x','x','x'});
+    d3rdx3 = calcDerivative(vec(d2rdx2), xSyms, 'r', {'x','x','x'});
     
     %Gradient of d2rdx2 with respect to k
-    d3rdkdx2 = jacobianfun(vec(d2rdx2), kSyms, 'r', {'x','x','k'});
+    d3rdkdx2 = calcDerivative(vec(d2rdx2), kSyms, 'r', {'x','x','k'});
     
     %Gradient of d2fdx2 with respect to x
-    d3fdx3 = Ssym*reshapefun(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
-    d3fdx3 = reshapefun(d3fdx3, [xn*nx*nx,nx], 'f',{'x' 'x' 'x'});
+    d3fdx3 = StoichiometricSym*reshapeDerivative(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
+    d3fdx3 = reshapeDerivative(d3fdx3, [xn*nx*nx,nx], 'f',{'x' 'x' 'x'});
     
     %Gradient of d2fdx2 with respect to k
-    d3fdkdx2 = Ssym*reshapefun(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
-    d3fdkdx2 = reshapefun(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
+    d3fdkdx2 = StoichiometricSym*reshapeDerivative(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
+    d3fdkdx2 = reshapeDerivative(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
 else
     d3rdx3   = '';
     d3rdkdx2 = '';
@@ -732,7 +654,7 @@ end
 
 % Take derivative of initial condition expressions with respect to seed
 % parameters
-dx0ds = jacobianfun(x0, sSyms);
+dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
 
 % Convert nonzero terms to doubles (we currently expect only linear
 % combinations of seeds with added constant factors for each x0)
@@ -776,57 +698,60 @@ end
 
 if verbose; fprintf('Converting symbolics to functions...\n'); end
 % Convert the symbolics into strings
-u        = symbolic2function('u', 'u', {});
-f        = symbolic2function('f', 'f', {});
-r        = symbolic2function('r', 'r', {});
-y        = symbolic2function('y', 'y', {});
+%%% For now, models will only contain constant default values of inputs %%%
+%u        = symbolic2function('u', 'u', {});
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+f        = symbolic2function(f, 'f', {});
+r        = symbolic2function(r, 'r', {});
+y        = symbolic2function(y, 'y', {});
 
 if order >= 1
-    dudq     = symbolic2function('dudq', 'u', 'q');
-    
-    dfdx     = symbolic2function('dfdx', 'f', 'x');
-    dfdu     = symbolic2function('dfdu', 'f', 'u');
-    dfdk     = symbolic2function('dfdk', 'f', 'k');
+%%% For now, models will only contain constant default values of inputs %%%
+    %dudq     = symbolic2function('dudq', 'u', 'q');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    dfdx     = symbolic2function(dfdx, 'f', 'x');
+    dfdu     = symbolic2function(dfdu, 'f', 'u');
+    dfdk     = symbolic2function(dfdk, 'f', 'k');
 
-    drdx     = symbolic2function('drdx', 'r', 'x');
-    drdu     = symbolic2function('drdu', 'r', 'u');
-    drdk     = symbolic2function('drdk', 'r', 'k');
+    drdx     = symbolic2function(drdx, 'r', 'x');
+    drdu     = symbolic2function(drdu, 'r', 'u');
+    drdk     = symbolic2function(drdk, 'r', 'k');
     
-    dydx     = symbolic2function('dydx', 'y', 'x');
-    dydu     = symbolic2function('dydu', 'y', 'u');
+    dydx     = symbolic2function(dydx, 'y', 'x');
+    dydu     = symbolic2function(dydu, 'y', 'u');
 end
 
 if order >= 2
-    d2fdx2   = symbolic2function('d2fdx2', 'f', {'x' 'x'});
-    d2fdu2   = symbolic2function('d2fdu2', 'f', {'u' 'u'});
-    d2fdk2   = symbolic2function('d2fdk2', 'f', {'k' 'k'});
-    d2fdudx  = symbolic2function('d2fdudx', 'f', {'x' 'u'});
-    d2fdxdu  = symbolic2function('d2fdxdu', 'f', {'u' 'x'});
-    d2fdkdx  = symbolic2function('d2fdkdx', 'f', {'x' 'k'});
-    d2fdxdk  = symbolic2function('d2fdxdk', 'f', {'k' 'x'});
+    d2fdx2   = symbolic2function(d2fdx2, 'f', {'x' 'x'});
+    d2fdu2   = symbolic2function(d2fdu2, 'f', {'u' 'u'});
+    d2fdk2   = symbolic2function(d2fdk2, 'f', {'k' 'k'});
+    d2fdudx  = symbolic2function(d2fdudx, 'f', {'x' 'u'});
+    d2fdxdu  = symbolic2function(d2fdxdu, 'f', {'u' 'x'});
+    d2fdkdx  = symbolic2function(d2fdkdx, 'f', {'x' 'k'});
+    d2fdxdk  = symbolic2function(d2fdxdk, 'f', {'k' 'x'});
+    d2fdkdu  = symbolic2function(d2fdkdu, 'f', {'u' 'k'});
+    d2fdudk  = symbolic2function(d2fdudk, 'f', {'k' 'u'});
 
-    d2rdx2   = symbolic2function('d2rdx2', 'r', {'x' 'x'});
-    d2rdu2   = symbolic2function('d2rdu2', 'r', {'u' 'u'});
-    d2rdxdu  = symbolic2function('d2rdxdu', 'r', {'u' 'x'});
-    d2rdudx  = symbolic2function('d2rdudx', 'r', {'x' 'u'});
-    d2rdk2   = symbolic2function('d2rdk2', 'r', {'k' 'k'});
-    d2rdkdx  = symbolic2function('d2rdkdx', 'r', {'x' 'k'});
-    d2rdkdu  = symbolic2function('d2rdkdu', 'r', {'u' 'k'});
-    d2rdxdk  = symbolic2function('d2rdxdk', 'r', {'k' 'x'});
-    d2rdudk  = symbolic2function('d2rdudk', 'r', {'k' 'u'});
+    d2rdx2   = symbolic2function(d2rdx2, 'r', {'x' 'x'});
+    d2rdu2   = symbolic2function(d2rdu2, 'r', {'u' 'u'});
+    d2rdxdu  = symbolic2function(d2rdxdu, 'r', {'u' 'x'});
+    d2rdudx  = symbolic2function(d2rdudx, 'r', {'x' 'u'});
+    d2rdk2   = symbolic2function(d2rdk2, 'r', {'k' 'k'});
+    d2rdkdx  = symbolic2function(d2rdkdx, 'r', {'x' 'k'});
+    d2rdkdu  = symbolic2function(d2rdkdu, 'r', {'u' 'k'});
+    d2rdxdk  = symbolic2function(d2rdxdk, 'r', {'k' 'x'});
+    d2rdudk  = symbolic2function(d2rdudk, 'r', {'k' 'u'});
     
-    d2ydx2   = symbolic2function('d2ydx2',  'y', {'x' 'x'});
-    d2ydu2   = symbolic2function('d2ydu2',  'y', {'u' 'u'});
-    d2ydudx  = symbolic2function('d2ydudx', 'y', {'x' 'u'});
-    d2ydxdu  = symbolic2function('d2ydxdu', 'y', {'u' 'x'});
+    d2ydx2   = symbolic2function(d2ydx2,  'y', {'x' 'x'});
+    d2ydu2   = symbolic2function(d2ydu2,  'y', {'u' 'u'});
+    d2ydudx  = symbolic2function(d2ydudx, 'y', {'x' 'u'});
+    d2ydxdu  = symbolic2function(d2ydxdu, 'y', {'u' 'x'});
 end
 
 if order >= 3
-    d3fdx3   = symbolic2function('d3fdx3', 'f', {'x' 'x' 'x'});
-    d3fdkdx2 = symbolic2function('d3fdkdx2', 'f', {'x' 'x' 'k'});
+    d3fdx3   = symbolic2function(d3fdx3, 'f', {'x' 'x' 'x'});
+    d3fdkdx2 = symbolic2function(d3fdkdx2, 'f', {'x' 'x' 'k'});
 end
-
-clear symbolic2function % clears the persistent save directory variable from memory
 
 if verbose; fprintf('   ...done.\n'); end
 
@@ -841,7 +766,7 @@ clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms x0 ...
     addlength currentLength iExpr ind match nAdd nExpr uAddInd sys_string ...
     i iv ik is iq iu ix ir iy ...
     rstates rinputs rparams statesubs inputsubs paramssubs rstatesi rinputsi rparamsi...
-    uqi qsinui nz sizes jacobianfun reshapefun symbolic2stringmethod...
+    uqi qsinui nz sizes symbolic2stringmethod...
     thistime defaultMEXdirectory
 
 m = InitializeModel();
@@ -878,11 +803,13 @@ m.s  = s;
 m.dx0ds = dx0ds;
 m.x0c = x0c;
 
-m.u    = setfun_u(u,q);
-% Not sure if we still need the following values
+%%% For now, models will only contain constant default values of inputs %%%
+% m.u    = setfun_u(u,q);
 % m.q    = q;
 % m.dudq = dudq;
 % m.nqu  = zeros(nu,1);
+m.u     = u;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 m.vxInd = vxInd;
 m.vuInd = vuInd;
@@ -920,7 +847,7 @@ if order >= 3
     m.d3fdkdx2  = setfun_rf(d3fdkdx2,k);
 end
 
-m.S = S;
+m.S = StoichiometricMatrix;
 m.r = setfun_rf(r,k);
 
 if order >= 1
@@ -1029,41 +956,46 @@ if verbose; fprintf('done.\n'); end
 %%%% Helper functions %%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function fun = symbolic2function(variable_name, num, dens)
+    function fun = symbolic2function(dsym, num, dens)
         
-        if verbose; fprintf([variable_name '...']); end
-        
+        % Standardize independent variable names as a cell array
         if ischar(dens)
             dens = {dens};
         end
         
+        % Get string of variable name for this function (i.e., 'dfdx')
+        if ~isempty(dens)
+            order_ = length(dens);
+            if order_ >= 2
+                orderstr = int2str(length(dens));
+            else
+                orderstr = '';
+            end
+            [denterms,~,denoccurenceindex] = unique(dens,'stable');
+            dencounts = histcounts(denoccurenceindex,0.5:length(denterms)+0.5);
+            dencounts = strtrim(cellstr(int2str(dencounts(:))));
+            dencounts(strcmp(dencounts,'1')) = {''};
+            denstrs = strcat('d',denterms(:),dencounts(:));
+            variable_name = ['d' orderstr num denstrs{:}];
+        else
+            variable_name = num;
+        end
+        
+        if verbose; fprintf([variable_name '...']); end
+        
         switch symbolic2stringmethod
             case 'efficient'
-                string_rep = symbolic2string_new(variable_name, num, dens);
-                string_rep = convertSymStrtoIndexedStr(string_rep, num);
+                
+                string_rep = symbolic2string(dsym, num, dens);
                 fun = string2fun(string_rep, num, dens);
-            case 'original'
-                string_rep = symbolic2string_old(variable_name, num, dens);
-                string_rep = convertSymStrtoIndexedStr(string_rep, num);
-                fun = string2fun(string_rep, num, dens);
+                
             case 'mex'
-                
-                % Don't create MEX files for u and dudq. Use the
-                % 'efficient' method instead
-                if any(strcmp(variable_name,{'u';'dudq'}))
-                    string_rep = symbolic2string_new(variable_name, num, dens);
-                    string_rep = convertSymStrtoIndexedStr(string_rep, num);
-                    fun = string2fun(string_rep, num, dens);
-                    if verbose; fprintf('Done.\n'); end
-                    return
-                end
-                
+
                 % Prepare inputs to C code generation function
-                dsym = eval(variable_name);
                 nzlogical = getNonZeroEntries(num, dens);
                 nzi = cell(ndims(nzlogical),1);
                 nziind = find(nzlogical);
-                [nzi{:}] = ind2sub(size(nzlogical),nziind);
+                [nzi{:}] = ind2sub(size(nzlogical),nziind(:));
                 nzi = [nzi{:}];
                 nzsizes = [sizes.(num) cellfun(@(den)sizes.(den),dens(:)')];
                 
@@ -1076,133 +1008,85 @@ if verbose; fprintf('done.\n'); end
         if verbose; fprintf('Done.\n'); end
         
     end
-    
-    function string_rep = symbolic2string_old(variable_name, num, dens)
-        
-        densizes = cellfun(@(den)sizes.(den),dens);
-        dimensions = [sizes.(num) densizes(:)'];
-        
-        if numel(dimensions) == 1
-            dimensions = [dimensions, 1];
-        end
-        
-        if any(dimensions == 0)
-            string_rep = ['zeros([' num2str(dimensions,['%d' repmat(',%d',1,length(dimensions)-1)]) '])'];
-        else
-            string_rep = evalc(['disp(' variable_name ')']);
-        end
-        
-        string_rep = regexprep(string_rep, '[', '');
-        string_rep = regexprep(string_rep, ']', '');
-        string_rep = strtrim(string_rep);
-    end
 
-    function string_rep = symbolic2string_new(variable_name, num, dens)
+    function string_rep = symbolic2string(dsym, num, dens)
         
         % If provided an empty input, return an empty output
-        if isempty(variable_name)
-            string_rep = '';
-            return
-        end
-        
-        % For f, r, u, and y, just use the old method, since they are not sparse
-        if any(strcmp(variable_name,{'f';'r';'u';'y'}))
-            string_rep = symbolic2string_old(variable_name, num, dens);
-            return
-        end
-        
-        % Evaluate variable name to get symbolic array
-        variable = eval(variable_name);
-        
-        % Get nonzero derivative logical matrix
-        nzlogical = getNonZeroEntries(num, dens);
-        
-        % Reshape nzlogical to the same size as that of the provided value
-        varsizes = size(variable);
-        nzlogical = reshape(nzlogical,varsizes);
-        
-        % Find symbolic derivatives for nonzero elements. This outputs an
-        % oddly-formatted string that needs to be stripped of some extra characters.
-        nzindices = find(nzlogical(:));
-        strelements = fastchar(variable(nzindices)); % Don't replace indices with logicals here. The conversion of the logical to sym takes too long.
-        
-%         % Get string elements between square brackets, not including square
-%         % brackets
-%         nnzelements = sum(nzlogical(:));
-%         if nnzelements == 1
-%             % Special case for one element: the odd formatting isn't used, so just
-%             % copy the result
-%             strelements = {str_unformatted};
-%         else
-%             [~,~,~,strelements] = regexp(str_unformatted,'(?<=\[)[^\[\]]+(?=\])');
-%         end
-%         
-%         assert(length(strelements) == nnzelements, ['The number of expressions in d' num 'd' dens{:} ' does not match the number of nonzero elements expected for it.'])
-%         
-        strelements = strjoin(strelements,',');
-        
-        % Convert subscripts into strings
-        [isubscripts,jsubscripts] = find(nzlogical);
-        isubscriptstrs = strtrim(cellstr(num2str(isubscripts)));
-        jsubscriptstrs = strtrim(cellstr(num2str(jsubscripts)));
-        isubstring = strjoin(isubscriptstrs,',');
-        jsubstring = strjoin(jsubscriptstrs,',');
-        
-        % Write sparse initialization string, which will fit in the
-        % following expression:
-        % '@(t,x,u,k) inf2big(nan2zero(sparse([' STRING_REP '])))'
-        % To fit this expression, note the square brackets are left off the
-        % left and right sides of string_rep.
-        string_rep = sprintf([isubstring '],[' jsubstring '],[' strelements '],[' num2str(varsizes(1)) '],[' num2str(varsizes(2))]);
-        
-    end
-
-    function string_rep = convertSymStrtoIndexedStr(string_rep, num)
-        if any(strcmp(num, {'f' 'r' 'y'}))
-            % Replace expressions for states, inputs, and parameters with
-            % indexed calls to x, u, and k, respectively
-            if nx == 0
-                xindexstring = {};
+        if isempty(dsym)
+            dsymsize = size(dsym);
+            dsymsize = strtrim(cellstr(int2str(dsymsize(:))));
+            if isempty(dens)
+                string_rep = ['zeros(' dsymsize{:} ')'];
+                return
             else
-                xindexstring = sprintf('x(%d)\n', 1:nx);
-                xindexstring = textscan(xindexstring,'%s','Delimiter','\n');
-                xindexstring = xindexstring{1};
+                string_rep = ['[],[],[],' dsymsize{1} ',' dsymsize{2}];
             end
-            if nu == 0
-                uindexstring = {};
-            else
-                uindexstring = sprintf('u(%d)\n', 1:nu);
-                uindexstring = textscan(uindexstring,'%s','Delimiter','\n');
-                uindexstring = uindexstring{1};
-            end
-            if nk == 0
-                kindexstring = {};
-            else
-                kindexstring = sprintf('k(%d)\n', 1:nk);
-                kindexstring = textscan(kindexstring,'%s','Delimiter','\n');
-                kindexstring = kindexstring{1};
-            end
-            string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs], [xindexstring; uindexstring; kindexstring], 0);
-        elseif strcmp(num, 'u')
-            % Replace expressions for input parameters with indexed calls to
-            % q
-            qindexstring = sprintf('q(%d)\n', 1:nq);
-            qindexstring = textscan(qindexstring,'%s','Delimiter','\n');
-            qindexstring = qindexstring{1};
-            string_rep = regexprep(string_rep, qStrs, qindexstring, 0);
         end
-    end
-
-    function d2rdkdx_ = calcDerivative(drdx,kSyms,num,dens)
-        if size(drdx,2) <= 1
-            d2rdkdx_ = jacobian(drdx,kSyms);
-        elseif size(drdx,2) > 1
-            d2rdkdx_ = calcHigherOrderDerivative(drdx,kSyms,num,dens);
-        end
-    end
+        
+        if isempty(dens)
             
+            % For zero-order derivatives, don't create a sparse matrix
+            strelements = fastchar(dsym);
+            string_rep = strjoin(strelements,';');
+            
+        else
+    
+            % Get nonzero derivative logical matrix
+            nzlogical = getNonZeroEntries(num, dens);
+            
+            % Reshape nzlogical to the same size as that of the provided value
+            varsizes = size(dsym);
+            nzlogical = reshape(nzlogical,varsizes);
+            
+            % Convert nonzero terms to strings
+            nzindices = find(nzlogical(:));
+            strelements = fastchar(dsym(nzindices)); %#ok % Don't replace indices with logicals here. The conversion of the logical to sym takes too long.
+            
+            strelements = strjoin(strelements,',');
+            
+            % Convert subscripts into strings
+            [isubscripts,jsubscripts] = find(nzlogical);
+            isubscriptstrs = strtrim(cellstr(num2str(isubscripts)));
+            jsubscriptstrs = strtrim(cellstr(num2str(jsubscripts)));
+            isubstring = strjoin(isubscriptstrs,',');
+            jsubstring = strjoin(jsubscriptstrs,',');
+            
+            % Write sparse initialization string, which will fit in the
+            % following expression:
+            % '@(t,x,u,k) inf2big(nan2zero(sparse([' STRING_REP '])))'
+            % To fit this expression, note the square brackets are left off the
+            % left and right sides of string_rep.
+            string_rep = sprintf(['[' isubstring '],[' jsubstring '],[' strelements '],[' num2str(varsizes(1)) '],[' num2str(varsizes(2)) ']']);
+            
+        end
+        
+        % Replace symbolic names with indexed references to vectors
+        if nx == 0
+            xindexstring = {};
+        else
+            xindexstring = sprintf('x(%d)\n', 1:nx);
+            xindexstring = textscan(xindexstring,'%s','Delimiter','\n');
+            xindexstring = xindexstring{1};
+        end
+        if nu == 0
+            uindexstring = {};
+        else
+            uindexstring = sprintf('u(%d)\n', 1:nu);
+            uindexstring = textscan(uindexstring,'%s','Delimiter','\n');
+            uindexstring = uindexstring{1};
+        end
+        if nk == 0
+            kindexstring = {};
+        else
+            kindexstring = sprintf('k(%d)\n', 1:nk);
+            kindexstring = textscan(kindexstring,'%s','Delimiter','\n');
+            kindexstring = kindexstring{1};
+        end
+        string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs], [xindexstring; uindexstring; kindexstring], 0);
+        
+    end         
 
-    function d2rdkdx_ = calcHigherOrderDerivative(drdx_, kSyms_, num, dens)
+    function d2rdkdx_ = calcDerivative(drdx_, kSyms_, num, dens)
         % Note that in the input argument names here, I use the
         % prototypical example of taking the derivative of drdx with
         % respect to k. This means "r" stands for the variable whose
@@ -1215,6 +1099,12 @@ if verbose; fprintf('done.\n'); end
         nr_ = size(drdx_,1);
         nxu_ = size(drdx_,2);
         
+        % If any dimensions are zero, return an empty derivative
+        if any([nk_ nr_ nxu_] == 0,2)
+            d2rdkdx_ = initializeMatrixMupad([],[],[],nr_*nxu_, nk_);
+            return
+        end
+        
         % Standardize dens as a cell array
         if ischar(dens)
             dens = {dens};
@@ -1225,32 +1115,44 @@ if verbose; fprintf('done.\n'); end
         nze = reshape(nze,nr_*nxu_,nk_);
         [nzterms,nzdens] = find(nze);
         
+        % If there aren't any nonzero terms, return an all-zero derivative
+        if isempty(nzterms)
+            d2rdkdx_ = initializeMatrixMupad([],[],[],nr_*nxu_, nk_);
+            return
+        end
+        
         % Take derivatives of the possibly nonzero entries
         nzders = diff_vectorized(drdx_(nzterms),kSyms_(nzdens));
         
         % Of the supposedly nonzero derivatives, find the ones that are
         % actually nonzero, and only keep those
-        %iszero = cellfun(@(nzders)logical(nzders == 0),nzders);
         iszero = logical(nzders == 0);
-        
-        if all(iszero) || isempty(iszero)
-            d2rdkdx_ = initializeMatrixMupad([],[],[],nr_*nxu_, nk_);
-            return
-        end
-        
-        % Update the nz map with the new information
         nzeiszero = sub2ind([nr_*nxu_,nk_],nzterms(iszero),nzdens(iszero));
         nze(nzeiszero) = false;
-        nze = reshape(nze,nr_,nxu_,nk_);
+        
+        % Get sizes of dependent (numerator) and dependent (denominator)
+        % variables in the derivative
+        numsize = sizes.(num);
+        densizes = zeros(1,length(dens));
+        for di = 1:length(dens)
+            densizes(di) = sizes.(dens{di});
+        end
+        
+        % Reshape nonzero entries to n-dimensional matrix
+        nze = reshape(nze,[numsize,densizes]);
+        
+        % Update the non-zero map to account for newly discovered zero
+        % terms
         nzkey = [num dens{:}];
         nz(nzkey) = nze;
+        
         % Also get information about f derivative, if numerator is r
         if strcmp(num,'r')
             nzkey_f = strrep(nzkey,'r','f');
-            % Check that we don't already know more about f than we can
-            % gather from the current derivative
+            % Only update the key for f if no information about this
+            % particular derivative was previously stored in nz
             if ~isKey(nz,nzkey_f)
-                nztemp = logical(abs(S)*reshape(nze,[nr_,nxu_*nk_]));
+                nztemp = logical(abs(StoichiometricMatrix)*reshape(nze,[nr_,nxu_*nk_]));
                 nz(nzkey_f) = reshape(nztemp,[nx,nxu_,nk_]);
             end
         end
@@ -1262,30 +1164,6 @@ if verbose; fprintf('done.\n'); end
         
         d2rdkdx_ = initializeMatrixMupad(nzterms, nzdens, nzders, nr_*nxu_, nk_);
         
-    end
-    
-    function d2rdkdx_ = calcHigherOrderDerivative_old(drdx, kSyms)
-        
-        nk_ = length(kSyms);
-        nr_ = size(drdx,1);
-        nxu_ = size(drdx,2);
-        
-        d2rdkdxtemp = cell(nxu_,1);
-        if verbose; fprintf(repmat(' ',1,25)); end
-        for xi = 1:nxu_
-            if verbose; fprintf([repmat('\b',1,25) '%25s'],sprintf('%3g%% complete', 50*xi/nxu_)); end
-            d2rdkdxtemp{xi} = jacobian(drdx(:,xi), kSyms);
-        end
-        d2rdkdx_ = d2rdkdxtemp{1};
-        for xi = 1:nxu_-1
-            if verbose; fprintf([repmat('\b',1,25) '%25s'],sprintf('%3g%% complete', 50+50*xi/nxu_)); end
-            d2rdkdx_ = feval(symengine,'linalg::stackMatrix',d2rdkdx_,d2rdkdxtemp{xi+1});
-        end
-        
-    end
-
-    function matout = reshape_extraarguments(mat, newsize, ~, ~)
-        matout = reshape(mat,newsize);
     end
 
     function matout = reshapeDerivative(mat, newsize, num, dens)
@@ -1307,66 +1185,18 @@ if verbose; fprintf('done.\n'); end
         
     end
 
-    function out = fastsubs(f, old, new)
-        filename = which('fastsubs.mu');
-        read(symengine, filename);
-        out = feval(symengine,'fastsubs',f,old,new);
-    end
-
-    function fstr = fastchar(f)
-        filename = which('fastchar.mu');
-        read(symengine, filename);
-        fstr = feval(symengine,'fastchar',f);
-        fstr = eval(fstr);
-    end
-
-    function matout = initializeMatrixMupad(i,j,s,m,n)
-        % More efficient method for initializing sparse symbolic matrices.
-        % Utilizes a MuPAD function that generates a MuPAD table,
-        % then uses the table to initialize the matrix.
-        filename = which('sparse_mupad.mu');
-        read(symengine, filename);
-        matout = feval(symengine,'sparse_mupad',i, j, s, m, n);
-    end
-
-    function D = diff_vectorized(nums, dens)
-        filename = which('diff_vectorized.mu');
-        read(symengine, filename);
-        D = feval(symengine,'diff_vectorized',nums,dens);
-    end
-
 end
 
-function fun = string2fun(string_rep, num, dens)
+function fun = string2fun(string_rep, ~, dens)
 % Note that string2fun is a subfunction instead of a nested function to
 % prevent the anonymous functions created here from saving copies of
 % the primary function workspace variables.
 
-if any(strcmp(num, {'f' 'r'}))
-    
-    % Set up the function handle by evaluating the string
-    if isempty(dens)
-        fun = eval(['@(t,x,u,k) [' string_rep ']']);
-    else
-        fun = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' string_rep '])))']);
-    end
-    
-elseif strcmp(num, 'u')
-    
-    % Set up the function handle by evaluating the string
-    if isempty(dens) % u
-        fun = eval(['@(t,q) repmat([' string_rep '],1,numel(t))']);
-    else % dudq
-        fun = eval(['@(t,q) inf2big(nan2zero(sparse([' string_rep '])))']);
-    end
-    
-elseif strcmp(num, 'y')
-    
-    if isempty(dens)
-        fun = eval(['@(t,x,u,k) [' string_rep ']']);
-    else
-        fun = eval(['@(t,x,u,k) inf2big(nan2zero(sparse([' string_rep '])))']);
-    end
+% Set up the function handle by evaluating the string
+if isempty(dens)
+    fun = eval(['@(t,x,u,k) [' string_rep ']']);
+else
+    fun = eval(['@(t,x,u,k) sparse(' string_rep ')']);
 end
 
 % Convert function to and from function handle to ensure that
@@ -1382,9 +1212,11 @@ function fun = setfun_rf(basefun, k)
     fun = @(t,x,u)basefun(t,x,u,k);
 end
 
-function fun = setfun_u(basefun, q)
-    fun = @(t)basefun(t,q);
-end
+%%% For now, models will only contain constant default values of inputs %%%
+% function fun = setfun_u(basefun, q)
+%     fun = @(t)basefun(t,q);
+% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function fun = setfun_y(basefun,is0order,ny,nk)
 % nk is needed to initialize a dummy k vector, which is needed to avoid
@@ -1401,6 +1233,12 @@ end
 function val = vectorize_y(y, t, x, u, ny, nk)
     nt = numel(t);
     val = zeros(ny,nt);
+    if isempty(x)
+        x = zeros(0,nt);
+    end
+    if isempty(u)
+        u = zeros(0,nt);
+    end
     for it = 1:nt
         val(:,it) = y(t(it), x(:,it), u(:,it), ones(nk,1));
     end

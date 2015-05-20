@@ -68,13 +68,17 @@ yNames = {
     };
 m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', yNames, [], [], opts);
 
+if opts.UseMEX
+    compileMEXFunctions(opts.MEXDirectory);
+end
+
 %% Create nominal experiment
 
 % Set the final simulation time
 tF = 120;
 
 % Set up the input functions
-u0 = m.u(0); % Input values at t=0. The input is a constant value for all time.
+u0 = m.u; % Default input values. The input is a constant value for all time.
 nq = 0; % Number of input parameters
 nu = m.nu; % Number of inputs
 ufun = @(t,q) repmat(u0,1,numel(t)); % Sets up a function that returns a matrix consisting of u0 repeated numel(t) times
@@ -91,12 +95,12 @@ s(2) = 4560; % NGF
 
 % Create the experiment
 d = []; % Dosing
-con = InitialValueExperiment(m, s, inp, d, 'nominal');
+con = experimentInitialValue(m, s, inp, d, 'nominal');
 
 %% Simulate nominal experiment and plot states
 
 % Simulate the model under the experiment
-sim = SimulateSystem(m,con,tF);
+tic; sim = SimulateSystem(m,con,tF); toc
 
 %%%%% Plot all the states %%%%%%
 t = 0:0.1:tF; % Choose which times to plot

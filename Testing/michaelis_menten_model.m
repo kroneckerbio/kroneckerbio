@@ -24,7 +24,7 @@ m.yNames = {'S','P'};
 m.y = [S;P];
 
 m_kron = symbolic2PseudoKronecker(m);
-con = InitialValueExperiment(m_kron);
+con = experimentInitialValue(m_kron);
 obj = [];
 opts.Verbose = false;
 end

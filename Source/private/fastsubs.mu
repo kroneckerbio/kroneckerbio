@@ -1,8 +1,16 @@
 fastsubs := proc(f, oldvars, newvars)
 begin
-    [nsubs,temp] := linalg::matdim(oldvars);
-    for ii from 1 to nsubs do
-        f := subs(f, oldvars[ii] = newvars[ii]);
-    end_for;
-    return(f);
+    if testtype(oldvars,Dom::Matrix()) then
+        numberofsubstitutions := nops(oldvars);
+    else
+        numberofsubstitutions := 1;
+    end_if;
+    if numberofsubstitutions = 1 then
+        f := subs(f, oldvars = newvars);
+    else
+        for substitutionindex from 1 to numberofsubstitutions do
+            f := subs(f, oldvars[substitutionindex] = newvars[substitutionindex]);
+        end_for;
+    end_if;
+    return(f)
 end_proc

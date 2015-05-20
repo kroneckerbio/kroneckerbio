@@ -65,19 +65,19 @@ assert(nargin >= 3, 'KroneckerBio:FiniteObjectiveGradient:TooFewInputs', 'Finite
 assert(isscalar(m), 'KroneckerBio:FiniteObjectiveGradient:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
-defaultOpts.Verbose        = 1;
+defaultOpts.Verbose          = 1;
 
-defaultOpts.RelTol         = [];
-defaultOpts.AbsTol         = [];
+defaultOpts.RelTol           = [];
+defaultOpts.AbsTol           = [];
 
-defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseParams        = nan;
 defaultOpts.UseSeeds         = nan;
 defaultOpts.UseInputControls = nan;
 defaultOpts.UseDoseControls  = nan;
 
-defaultOpts.ObjWeights     = ones(size(obj));
+defaultOpts.ObjWeights       = ones(size(obj));
 
-defaultOpts.Normalized     = true;
+defaultOpts.Normalized       = true;
 
 opts = mergestruct(defaultOpts, opts);
 

@@ -1,4 +1,4 @@
-function con = SteadyStateExperiment(m, s, inp, dos, time_scale, name)
+function con = experimentSteadyState(m, s, basal_input, inp, dos, time_scale, name)
 %SteadyStateExperiment Construct a KroneckerBio experimental conditions
 %   structure describing a initial value problem first run to steady state
 %
@@ -110,10 +110,11 @@ con.SteadyState = true;
 con.Periodic = false;
 con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
+con.private.BasalInput = basal_input;
 con.private.TimeScale = time_scale;
 
     function con_out = update(s, q, h)
-        con_out = SteadyStateExperiment(m, s, inp.Update(q), dos.Update(h), time_scale, name);
+        con_out = experimentSteadyState(m, s, basal_input, inp.Update(q), dos.Update(h), time_scale, name);
     end
 
 end
@@ -145,5 +146,5 @@ d2udq2_t = @(t) d2udq2_tq(t,q);
             u(:,ti) = u_tq(t(ti),q);
         end
     end
-
+    
 end

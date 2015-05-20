@@ -156,34 +156,28 @@ obj.Continuous = false; % Continuous g here is 0
 
 % Continuous objective function
 obj.g = @g;
-obj.dgdx = @dgdx;
-obj.d2gdx2 = @d2gdx2;
+obj.dgdy = @dgdy;
+obj.d2gdy2 = @d2gdy2;
 
 % Discrete objective function
 obj.G = @G;
-obj.dGdx = @dGdx;
+obj.dGdy = @dGdy;
+obj.d2Gdy2 = @d2Gdy2;
+
 obj.dGdk = @dGdk;
 obj.dGds = @dGds;
 obj.dGdq = @dGdq;
 obj.dGdh = @dGdh;
-obj.d2Gdx2 = @d2Gdx2;
 obj.d2Gdk2 = @d2Gdk2;
 obj.d2Gds2 = @d2Gds2;
 obj.d2Gdq2 = @d2Gdq2;
 obj.d2Gdh2 = @d2Gdh2;
-obj.d2Gdkdx = @d2Gdkdx;
-obj.d2Gdsdx = @d2Gdsdx;
-obj.d2Gdqdx = @d2Gdqdx;
-obj.d2Gdhdx = @d2Gdhdx;
-obj.d2Gdxdk = @d2Gdxdk;
 obj.d2Gdsdk = @d2Gdsdk;
 obj.d2Gdqdk = @d2Gdqdk;
 obj.d2Gdhdk = @d2Gdhdk;
-obj.d2Gdxds = @d2Gdxds;
 obj.d2Gdkds = @d2Gdkds;
 obj.d2Gdqds = @d2Gdqds;
 obj.d2Gdhds = @d2Gdhds;
-obj.d2Gdxdq = @d2Gdxdq;
 obj.d2Gdkdq = @d2Gdkdq;
 obj.d2Gdsdq = @d2Gdsdq;
 obj.d2Gdhdq = @d2Gdhdq;
@@ -196,186 +190,123 @@ obj.Fn = @Fn;
 
 % Copy the objective structure
 obj = repmat(obj, dims);
-
 end
 
-function val = g(t,x,u)
+function val = g(t,y)
 val = 0;
 end
-function val = dgdx(t,x,u)
-nx = numel(x);
-val = sparse(nx, 1);
+function val = dgdy(t,y)
+ny = numel(y);
+val = sparse(ny,1);
 end
-function val = d2gdx2(t,x,u)
-nx = numel(x);
-val = sparse(nx, nx);
+function val = d2gdy2(t,y)
+ny = numel(y);
+val = sparse(ny,ny);
 end
 
-function [val, discreteTimes] = G(sol)
+function [val,discreteTimes] = G(int)
 val = 0;
 discreteTimes = zeros(0,1);
 end
-function val = dGdx(t,sol)
-nx = size(sol.C1,2);
-val = sparse(nx, 1);
+function val = dGdy(t,int)
+ny = int.ny;
+val = sparse(ny,1);
 end
-function val = dGdk(t,sol)
-nk = numel(sol.k);
-val = sparse(nk, 1);
+function val = d2Gdy2(t,int)
+ny = int.ny;
+val = sparse(ny,ny);
 end
-function val = dGds(t,sol)
-ns = numel(sol.s);
-val = sparse(ns, 1);
+
+function val = dGdk(int)
+nk = int.nk;
+val = sparse(nk,1);
 end
-function val = dGdq(t,sol)
-nq = numel(sol.q);
-val = sparse(nq, 1);
+function val = dGds(int)
+ns = int.ns;
+val = sparse(ns,1);
 end
-function val = dGdh(t,sol)
-nh = numel(sol.h);
-val = sparse(nh, 1);
+function val = dGdq(int)
+nq = numel(int.q);
+val = sparse(nq,1);
 end
-function val = d2Gdx2(t,sol)
-nx = size(sol.C1,2);
-val = sparse(nx, nx);
+function val = dGdh(int)
+nh = int.nh;
+val = sparse(nh,1);
 end
-function val = d2Gdk2(t,sol)
-nk = numel(sol.k);
-val = sparse(nk, nk);
+function val = d2Gdk2(int)
+nk = int.nk;
+val = sparse(nk,nk);
 end
-function val = d2Gds2(t,sol)
-ns = numel(sol.s);
-val = sparse(ns, ns);
+function val = d2Gds2(int)
+ns = int.ns;
+val = sparse(ns,ns);
 end
-function val = d2Gdq2(t,sol)
-nq = numel(sol.q);
-val = sparse(nq, nq);
+function val = d2Gdq2(int)
+nq = numel(int.q);
+val = sparse(nq,nq);
 end
-function val = d2Gdh2(t,sol)
-nh = numel(sol.h);
-val = sparse(nh, nh);
+function val = d2Gdh2(int)
+nh = int.nh;
+val = sparse(nh,nh);
 end
-function val = d2Gdkdx(t,sol)
-nk = numel(sol.k);
-nx = size(sol.C1,2);
-val = sparse(nx, nk);
+function val = d2Gdsdk(int)
+ns = int.ns;
+nk = int.nk;
+val = sparse(nk,ns);
 end
-function val = d2Gdsdx(t,sol)
-ns = numel(sol.s);
-nx = size(sol.C1,2);
-val = sparse(nx, ns);
+function val = d2Gdqdk(int)
+nk = int.nk;
+nq = numel(int.q);
+val = sparse(nk,nq);
 end
-function val = d2Gdqdx(t,sol)
-nq = numel(sol.q);
-nx = size(sol.C1,2);
-val = sparse(nx, nq);
+function val = d2Gdhdk(int)
+nk = int.nk;
+nh = int.nh;
+val = sparse(nk,nh);
 end
-function val = d2Gdhdx(t,sol)
-nh = numel(sol.h);
-nx = size(sol.C1,2);
-val = sparse(nx, nh);
+function val = d2Gdkds(int)
+nk = int.nk;
+ns = int.ns;
+val = sparse(ns,nk);
 end
-function val = d2Gdxdk(t,sol)
-nk = numel(sol.k);
-nx = size(sol.C1,2);
-val = sparse(nk, nx);
+function val = d2Gdqds(int)
+ns = int.ns;
+nq = numel(int.q);
+val = sparse(ns,nq);
 end
-function val = d2Gdsdk(t,sol)
-ns = numel(sol.s);
-nk = numel(sol.k);
-val = sparse(nk, ns);
+function val = d2Gdhds(int)
+ns = int.ns;
+nh = int.nh;
+val = sparse(ns,nh);
 end
-function val = d2Gdqdk(t,sol)
-nk = numel(sol.k);
-nq = numel(sol.q);
-val = sparse(nk, nq);
+function val = d2Gdkdq(int)
+nk = int.nk;
+nq = numel(int.q);
+val = sparse(nq,nk);
 end
-function val = d2Gdhdk(t,sol)
-nk = numel(sol.k);
-nh = numel(sol.h);
-val = sparse(nk, nh);
+function val = d2Gdsdq(int)
+ns = int.ns;
+nq = numel(int.q);
+val = sparse(nq,ns);
 end
-function val = d2Gdxds(t,sol)
-ns = numel(sol.s);
-nx = size(sol.C1,2);
-val = sparse(ns, nx);
-end
-function val = d2Gdkds(t,sol)
-nk = numel(sol.k);
-ns = numel(sol.s);
-val = sparse(ns, nk);
-end
-function val = d2Gdqds(t,sol)
-ns = numel(sol.s);
-nq = numel(sol.q);
-val = sparse(ns, nq);
-end
-function val = d2Gdhds(t,sol)
-ns = numel(sol.s);
-nh = numel(sol.h);
-val = sparse(ns, nh);
-end
-function val = d2Gdxdq(t,sol)
-nq = numel(sol.q);
-nx = size(sol.C1,2);
-val = sparse(nq, nx);
-end
-function val = d2Gdkdq(t,sol)
-nk = numel(sol.k);
-nq = numel(sol.q);
-val = sparse(nq, nk);
-end
-function val = d2Gdsdq(t,sol)
-ns = numel(sol.s);
-nq = numel(sol.q);
-val = sparse(nq, ns);
-end
-function val = d2Gdhdq(t,sol)
-ns = numel(sol.s);
-nh = numel(sol.h);
-val = sparse(nh, ns);
-end
-function val = d2Gdxdh(t,sol)
-nh = numel(sol.h);
-nx = size(sol.C1,2);
-val = sparse(nh, nx);
-end
-function val = d2Gdkdh(t,sol)
-nk = numel(sol.k);
-nh = numel(sol.h);
-val = sparse(nh, nk);
-end
-function val = d2Gdsdh(t,sol)
-ns = numel(sol.s);
-nh = numel(sol.h);
-val = sparse(nh, ns);
-end
-function val = d2Gdqdh(t,sol)
-nq = numel(sol.q);
-nh = numel(sol.h);
-val = sparse(nh, nq);
+function val = d2Gdhdq(int)
+ns = int.ns;
+nh = int.nh;
+val = sparse(nh,ns);
 end
 
 % For Objective.Information
-function val = p(sol)
+function val = p(int)
 val = 1;
 end
-function val = logp(sol)
+function val = logp(int)
 val = 0;
 end
-function val = F(sol)
-nTk = sum(sol.UseParams);
-nTs = sum(sol.UseSeeds);
-nTq = sum(sol.UseInputControls);
-nTh = sum(sol.UseDoseControls);
-nT  = nTk + nTs + nTq + nTh;
+function val = F(int)
+nT = int.nT;
 val = zeros(nT,nT);
 end
-function val = Fn(sol)
-nTk = sum(sol.UseParams);
-nTs = sum(sol.UseSeeds);
-nTq = sum(sol.UseInputControls);
-nTh = sum(sol.UseDoseControls);
-nT  = nTk + nTs + nTq + nTh;
+function val = Fn(int)
+nT = int.nT;
 val = zeros(nT,nT);
 end

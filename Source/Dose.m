@@ -56,7 +56,7 @@ assert(isnumeric(schedule) && all(schedule >= 0), 'KroneckerBio:Dosing:discontin
 schedule = vec(unique(schedule));
 
 % h
-assert(isnumeric(h) && all(h > 0), 'KroneckerBio:Dosing:h', 'h must be a nonegative vector')
+assert(isnumeric(h) && all(h >= 0), 'KroneckerBio:Dosing:h', 'h must be a nonegative vector')
 h = vec(h);
 nh = numel(h);
 

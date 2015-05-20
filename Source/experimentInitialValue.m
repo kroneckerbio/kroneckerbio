@@ -1,8 +1,8 @@
-function con = InitialValueExperiment(m, s, inp, dos, name)
-%InitialValueExperiment Construct a KroneckerBio experimental conditions
+function con = experimentInitialValue(m, s, inp, dos, name)
+%experimentInitialValue Construct a KroneckerBio experimental conditions
 %   structure describing an initial value problem
 %
-%   con = InitialValueExperiment(m, tF, s, inp, dos, name)
+%   con = experimentInitialValue(m, s, inp, dos, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -89,6 +89,7 @@ con.nh = numel(dos.h);
 con.s  = s;
 con.q  = inp.q;
 con.h  = dos.h;
+% Store input functions in a closure instead of leaving them in inp because accessing con.inp.u is slow
 [con.u,con.dudq,con.d2udq2] = getU(inp,m.nu);
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
@@ -102,7 +103,7 @@ con.Update = @update;
 con.private = [];
 
     function con_out = update(s, q, h)
-        con_out = InitialValueExperiment(m, s, inp.Update(q), dos.Update(h), name);
+        con_out = experimentInitialValue(m, s, inp.Update(q), dos.Update(h), name);
     end
 
 end
@@ -117,11 +118,11 @@ clear inp
 u_t = @(t) u_tq(t,q);
 
 % Determine if u is vectorized, and fix if not
-testut = u_t([1 2]);
-if size(testut,2) == 1
+try
+    testut = u_t([1 2]);
+    assert(size(testut) == [nu,2])
+catch
     u_t = @ut_vectorized;
-elseif size(testut,2) ~= 2
-    error('u should return an nu-by-1 or nu-by-nt vector of input values')
 end
 
 dudq_t = @(t) dudq_tq(t,q);

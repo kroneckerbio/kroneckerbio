@@ -8,6 +8,9 @@ if blank
     clc
 end
 
+% Use same random number seed
+rng(1)
+
 % Find file names of all unit test files (begin with "UT")
 [test_directory, ~, ~] = fileparts(mfilename('fullpath'));
 files_in_test_directory = dir(test_directory);

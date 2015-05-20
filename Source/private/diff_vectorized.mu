@@ -1,9 +1,17 @@
 diff_vectorized := proc(nums, dens)
 begin
-    [nzterms,temp] := linalg::matdim(nums);
-    Der := matrix(nzterms, 1);
-    for nti from 1 to nzterms do
-        Der[nti,1] := simplifyFraction(diff(nums[nti,1],dens[nti,1]));
-    end_for;
-    return(Der)
+    if testtype(nums,Dom::Matrix()) then
+        [nnonzeroterms,tempnottobeused] := linalg::matdim(nums);
+    else
+        nnonzeroterms := 1;
+    end_if;
+    DerivativeVector := matrix(nnonzeroterms, 1);
+    if nnonzeroterms = 1 then
+        DerivativeVector[1,1] := simplifyFraction(diff(nums,dens));
+    else
+        for nonzerotermindex from 1 to nnonzeroterms do
+            DerivativeVector[nonzerotermindex,1] := simplifyFraction(diff(nums[nonzerotermindex,1],dens[nonzerotermindex,1]));
+        end_for;
+    end_if;
+    return(DerivativeVector)
 end_proc

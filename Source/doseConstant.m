@@ -45,7 +45,7 @@ assert(is(m, 'Model'), 'KroneckerBio:doseConstant:m', 'm must be a Model')
 m = keepfields(m, {'Type', 'ns'});
 
 % amounts
-assert(isnumeric(amounts) && all(amounts > 0), 'KroneckerBio:doseConstant:amounts', 'amounts must be a nonegative vector')
+assert(isnumeric(amounts) && all(amounts >= 0), 'KroneckerBio:doseConstant:amounts', 'amounts must be a nonegative vector')
 amounts = vec(amounts);
 nh = numel(amounts);
 

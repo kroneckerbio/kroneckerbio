@@ -2,7 +2,7 @@ function handle = sdLinear(a, b)
 
 handle = @sdHandle;
 
-    function [sigma dsigmady d2sigmady2] = sdHandle(t, yInd, yVal)
+    function [sigma, dsigmady, d2sigmady2] = sdHandle(t, yInd, yVal)
         sigma = a + b .* yVal;
         
         if nargout >= 2

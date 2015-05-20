@@ -1,4 +1,4 @@
-function int = integrateSensSimpFinite(m, con, tF, eve, fin, t_get, opts)
+function int = integrateCurvSimpFinite(m, con, tF, eve, fin, t_get, opts)
 % Store starting parameter sets
 T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls});
 
@@ -9,7 +9,7 @@ ny = m.ny;
 nT = numel(T0);
 
 % Initial simulation
-int0 = integrateSysSimp(m, con, tF, eve, fin, t_get, opts);
+int0 = integrateSensSimp(m, con, tF, eve, fin, t_get, opts);
 if numel(int0) > 1; error('Not implemented yet'); end
 
 % Need an observation that watches all discrete times
@@ -18,9 +18,9 @@ nt_events = numel(int0.te);
 nt = nt_discrete + nt_events;
 
 t_all = [int0.t, int0.te];
-x_all = [int0.x, int0.xe];
-u_all = [int0.u, int0.ue];
-y_all = [int0.y, int0.ye];
+dxdT_all = [int0.dxdT, int0.dxedT];
+dudT_all = [int0.dudT, int0.duedT];
+dydT_all = [int0.dydT, int0.dyedT];
 
 % System results
 int.Type = 'Integration.Sensitivity.Simple';
@@ -49,10 +49,14 @@ int.x = int0.x;
 int.u = int0.u;
 int.y = int0.y;
 
+int.dxdT = int0.dxdT;
+int.dudT = int0.dudT;
+int.dydT = int0.dydT;
+
 % Change each parameter a bit and resimulate
-dxdT_all = zeros(nx*nT,nt);
-dudT_all = zeros(nu*nT,nt);
-dydT_all = zeros(ny*nT,nt);
+d2xdT2_all = zeros(nx*nT*nT,nt);
+d2udT2_all = zeros(nu*nT*nT,nt);
+d2ydT2_all = zeros(ny*nT*nT,nt);
 for iT = 1:nT
     % Set baseline parameters
     Ti = T0(iT);
@@ -68,25 +72,25 @@ for iT = 1:nT
     % Simulate difference
     T_up(iT) = T_up(iT) + diff;
     [m_up, con_up] = updateAll(m, con, T_up, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls});
-    int_up = integrateSysSimp(m_up, con_up, tF, eve, fin, t_all, opts);
+    int_up = integrateSensSimp(m_up, con_up, tF, eve, fin, t_all, opts);
     
     % Difference
-    ind_x_start = (iT-1)*nx+1;
-    ind_x_end = (iT-1)*nx+nx;
-    dxdT_all(ind_x_start:ind_x_end,:) = (int_up.x - x_all) ./ diff;
+    ind_xT_start = (iT-1)*nx*nT+1;
+    ind_xT_end = (iT-1)*nx*nT+nx*nT;
+    d2xdT2_all(ind_xT_start:ind_xT_end,:) = (int_up.dxdT - dxdT_all) ./ diff;
 
-    ind_u_start = (iT-1)*nu+1;
-    ind_u_end = (iT-1)*nu+nu;
-    dudT_all(ind_u_start:ind_u_end,:) = (int_up.u - u_all) ./ diff;
-
-    ind_y_start = (iT-1)*ny+1;
-    ind_y_end = (iT-1)*ny+ny;
-    dydT_all(ind_y_start:ind_y_end,:) = (int_up.y - y_all) ./ diff;
+    ind_uT_start = (iT-1)*nu*nT+1;
+    ind_uT_end = (iT-1)*nu*nT+nu*nT;
+    d2udT2_all(ind_uT_start:ind_uT_end,:) = (int_up.dudT - dudT_all) ./ diff;
+    
+    ind_yT_start = (iT-1)*ny*nT+1;
+    ind_yT_end = (iT-1)*ny*nT+ny*nT;
+    d2ydT2_all(ind_yT_start:ind_yT_end,:) = (int_up.dydT - dydT_all) ./ diff;
 end
 
-int.dxdT = dxdT_all(:,1:nt_discrete);
-int.dudT = dudT_all(:,1:nt_discrete);
-int.dydT = dydT_all(:,1:nt_discrete);
+int.d2xdT2 = d2xdT2_all(:,1:nt_discrete);
+int.d2udT2 = d2udT2_all(:,1:nt_discrete);
+int.d2ydT2 = d2ydT2_all(:,1:nt_discrete);
 
 int.ie = int0.ie;
 int.te = int0.te;
@@ -94,8 +98,12 @@ int.xe = int0.xe;
 int.ue = int0.ue;
 int.ye = int0.ye;
 
-int.dxedT = dxdT_all(:,nt_discrete+1:end);
-int.duedT = dudT_all(:,nt_discrete+1:end);
-int.dyedT = dydT_all(:,nt_discrete+1:end);
+int.dxedT = int0.dxedT;
+int.duedT = int0.duedT;
+int.dyedT = int0.dyedT;
+
+int.d2xedT2 = d2xdT2_all(:,nt_discrete+1:end);
+int.d2uedT2 = d2udT2_all(:,nt_discrete+1:end);
+int.d2yedT2 = d2ydT2_all(:,nt_discrete+1:end);
 
 int.sol = int0.sol;

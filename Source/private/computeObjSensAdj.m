@@ -13,6 +13,7 @@ n_con = numel(con);
 n_obj = size(obj,1);
 
 y = m.y;
+dydx = m.dydx;
 
 % Initialize variables
 G = 0;
@@ -174,7 +175,7 @@ for i_con = 1:n_con
     
     % Initial conditions
     lambda = -sol.y(1:nx,end);
-    curD(Tsind+1:Tsind+inTs) = curD(Tsind+1:Tsind+inTs) + m.dx0ds(:,UseSeeds_i).' * lambda;
+    curD(Tsind+1:Tsind+inTs) = vec(curD(Tsind+1:Tsind+inTs)) + m.dx0ds(:,UseSeeds_i).' * lambda;
     
     % Add to cumulative goal value
     D = D + curD;
@@ -210,17 +211,19 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         
         % Derivative of [lambda; D] with respect to time
         function val = derivative(t, joint)
-            ui = u(t);
-            x = deval(sol_sys, t, 1:nx);
+            u_i = u(t);
+            x_i = deval(sol_sys, t, 1:nx);
+            y_i = y(t, x_i, u_i);
+            dydx_i = dydx(t, x_i, u_i);
             l = joint(1:nx);
             
             % Sum continuous objective functions
             dgdx = zeros(nx,1);
             for i = 1:n_obj
-                dgdx = dgdx + opts.ObjWeights(i,i_con)*obj(i,i_con).dgdx(t,x,ui);
+                dgdx = dgdx + dydx_i.' * opts.ObjWeights(i,i_con)*obj(i,i_con).dgdy(t,y_i);
             end
             
-            val = [dgdx; zeros(inT,1)] - [dfdx(t,x,ui).'; dfdT(t,x,ui).'] * l;
+            val = [dgdx; zeros(inT,1)] - [dfdx(t,x_i,u_i).'; dfdT(t,x_i,u_i).'] * l;
         end
         
         % Jacobian of [lambda; D] derivative
@@ -234,14 +237,17 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         
         % Discrete effects of the objective function
         function val = delta(t, joint)
+            u_i = u(t);
+            x_i = deval(sol_sys, t, 1:nx);
+            dydx_i = dydx(t, x_i, u_i);
             dGdx = zeros(nx,1);
             dGdT = zeros(inT,1);
             for i = 1:n_obj
-                dGdx = dGdx + opts.ObjWeights(i,i_con)*obj(i,i_con).dGdx(t, int_sys(i));
-                dGdk = obj(i,i_con).dGdk(t, int_sys(i)); % k_ % partial dGdk(i)
-                dGds = obj(i,i_con).dGds(t, int_sys(i)); % s_ % partial dGds(i)
-                dGdq = obj(i,i_con).dGdq(t, int_sys(i)); % q_ % partial dGdq(i)
-                dGdh = obj(i,i_con).dGdh(t, int_sys(i)); % h_ % partial dGdq(i)
+                dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*obj(i,i_con).dGdy(t, int_sys(i));
+                dGdk = obj(i,i_con).dGdk(int_sys(i)); % k_ % partial dGdk(i)
+                dGds = obj(i,i_con).dGds(int_sys(i)); % s_ % partial dGds(i)
+                dGdq = obj(i,i_con).dGdq(int_sys(i)); % q_ % partial dGdq(i)
+                dGdh = obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdq(i)
                 dGdT = dGdT + opts.ObjWeights(i,i_con)*[dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseInputControls_i); dGdh(UseDoseControls_i)]; % T_ + (k_ -> T_) -> T_
             end
             

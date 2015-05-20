@@ -62,20 +62,20 @@ assert(nargin >= 3, 'KroneckerBio:ObjectiveGradient:TooFewInputs', 'ObjectiveGra
 assert(isscalar(m), 'KroneckerBio:ObjectiveGradient:MoreThanOneModel', 'The model structure must be scalar')
 
 % Default options
-defaultOpts.Verbose        = 1;
+defaultOpts.Verbose          = 1;
 
-defaultOpts.RelTol         = [];
-defaultOpts.AbsTol         = [];
+defaultOpts.RelTol           = [];
+defaultOpts.AbsTol           = [];
 
-defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseParams        = nan;
 defaultOpts.UseSeeds         = nan;
 defaultOpts.UseInputControls = nan;
 defaultOpts.UseDoseControls  = nan;
 
-defaultOpts.ObjWeights     = ones(size(obj));
+defaultOpts.ObjWeights       = ones(size(obj));
 
-defaultOpts.Normalized     = true;
-defaultOpts.UseAdjoint     = false;
+defaultOpts.Normalized       = true;
+defaultOpts.UseAdjoint       = false;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -83,17 +83,17 @@ opts = mergestruct(defaultOpts, opts);
 nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-nCon = numel(con);
+n_con = numel(con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
-[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
 nT = nTk + nTs + nTq + nTh;
 
@@ -107,10 +107,10 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, nCon, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Run main calculation
-[unused, D] = computeObjSens(m, con, obj, opts);
+[unused, D] = computeObjGrad(m, con, obj, opts);
 
 %% Normalization
 if opts.Normalized

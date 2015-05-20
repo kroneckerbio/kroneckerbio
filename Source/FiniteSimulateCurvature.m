@@ -1,4 +1,4 @@
-function sim = FiniteSimulateSensitivity(m, con, obs, opts)
+function sim = FiniteSimulateCurvature(m, con, obs, opts)
 %FiniteSimulateSensitivitySelect Approximate the sensitivities of every 
 %   species with respect to every parameter over all time returns the
 %   values at select time points
@@ -12,9 +12,6 @@ function sim = FiniteSimulateSensitivity(m, con, obs, opts)
 %       The KroneckerBio model that will be simulated
 %   con: [ experiment struct vector ]
 %       The experimental conditions under which the model will be simulated
-%   tGet: [ nonegative vector ]
-%       Indicates which time points will be returned. This does not need
-%       be sorted. Times larger than con.tF will return NaN for all values.
 %   opts: [ options struct scalar {} ]
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Indicates the kinetic parameters whose sensitivities are
@@ -76,10 +73,11 @@ defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
 defaultOpts.Normalized       = true;
-defaultOpts.UseParams        = 1:m.nk;
-defaultOpts.UseSeeds         = [];
-defaultOpts.UseInputControls = [];
-defaultOpts.UseDoseControls  = [];
+
+defaultOpts.UseParams        = nan;
+defaultOpts.UseSeeds         = nan;
+defaultOpts.UseInputControls = nan;
+defaultOpts.UseDoseControls  = nan;
 
 opts = mergestruct(defaultOpts, opts);
 
@@ -117,7 +115,7 @@ opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(n_con,1), nx, n_con, false, opts.U
 obs = fixObservation(con, obs);
 
 %% Run integration for each experiment
-sim = emptystruct([n_obs,n_obs], 'Type', 'Name', 't', 'x', 'u', 'y', 'dxdT', 'dudT', 'dydT', 'ie', 'te', 'xe', 'ue', 'ye', 'dxedT', 'duedT', 'dyedT', 'int');
+sim = emptystruct(n_con, 'Type', 'Name', 't', 'y', 'x', 'dxdT', 'dudT', 'dydT', 'd2xdT2', 'd2udT2', 'd2ydT2', 'ie', 'te', 'xe', 'ue', 'ye', 'dxedT', 'duedT', 'dyedT', 'd2xedT2', 'd2uedT2', 'd2yedT2', 'int');
 
 for i_con = 1:n_con
     % Modify opts structure
@@ -127,12 +125,12 @@ for i_con = 1:n_con
     opts_i.UseInputControls = opts.UseInputControls{i_con};
     opts_i.UseDoseControls = opts.UseDoseControls{i_con};
     
-    % Integrate [x] for each finitely perturbed parameter
-    if verbose; fprintf(['Integrating sensitivities for ' con(i_con).Name '...']); end
-    ints = integrateAllSens(m, con(i_con), obs(:,i_con), opts_i, true);
+    % Integrate [x; dx/dT] for each finitely perturbed parameter
+    if verbose; fprintf(['Integrating curvature for ' con(i_con).Name '...']); end
+    ints = integrateAllCurv(m, con(i_con), obs(:,i_con), opts_i, true);
     if verbose; fprintf('done.\n'); end
     
     for i_obs = 1:n_obs
-        sim(i_obs,i_con) = pastestruct(sim(i_obs), obs(i_obs).Sensitivity(ints(i_obs)));
+        sim(i_obs,i_con) = pastestruct(sim(i_obs), obs(i_obs).Curvature(ints(i_obs)));
     end
 end

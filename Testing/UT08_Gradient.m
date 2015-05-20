@@ -50,8 +50,6 @@ end
 
 function testObjectiveGradientSimple(a)
 [m, con, obj, opts] = simple_model();
-m = m.Update(rand(m.nk,1)+1);
-con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
 % Forward
