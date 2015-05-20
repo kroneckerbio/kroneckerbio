@@ -89,6 +89,7 @@ con.nh = numel(dos.h);
 con.s  = s;
 con.q  = inp.q;
 con.h  = dos.h;
+% Store input functions in a closure instead of leaving them in inp because accessing con.inp.u is slow
 [con.u,con.dudq,con.d2udq2] = getU(inp,m.nu);
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
