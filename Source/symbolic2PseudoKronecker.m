@@ -1027,7 +1027,7 @@ if verbose; fprintf('done.\n'); end
             
             % For zero-order derivatives, don't create a sparse matrix
             strelements = fastchar(dsym);
-            string_rep = strjoin(strelements,';');
+            string_rep = strjoin(row(strelements),';');
             
         else
     
@@ -1042,14 +1042,14 @@ if verbose; fprintf('done.\n'); end
             nzindices = find(nzlogical(:));
             strelements = fastchar(dsym(nzindices)); %#ok % Don't replace indices with logicals here. The conversion of the logical to sym takes too long.
             
-            strelements = strjoin(strelements,',');
+            strelements = strjoin(row(strelements),',');
             
             % Convert subscripts into strings
             [isubscripts,jsubscripts] = find(nzlogical);
             isubscriptstrs = strtrim(cellstr(num2str(isubscripts)));
             jsubscriptstrs = strtrim(cellstr(num2str(jsubscripts)));
-            isubstring = strjoin(isubscriptstrs,',');
-            jsubstring = strjoin(jsubscriptstrs,',');
+            isubstring = strjoin(row(isubscriptstrs),',');
+            jsubstring = strjoin(row(jsubscriptstrs),',');
             
             % Write sparse initialization string, which will fit in the
             % following expression:
