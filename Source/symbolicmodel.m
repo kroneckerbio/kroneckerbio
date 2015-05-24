@@ -117,14 +117,20 @@ reactiontable = {
 
 nr = size(reactiontable,1);
 r = sym(reactiontable(:,3));
+
+% Get indices of reactants and products in each reaction
 getspeciesindices = @(x)intersect(x,xuNames,'stable');
 [~,~,reactants] = cellfun(getspeciesindices,reactiontable(:,1),'UniformOutput',false);
 [~,~,products] = cellfun(getspeciesindices,reactiontable(:,2),'UniformOutput',false);
-getSindices = @(x,ri) sub2ind([nx+nu,nr],x,repmat(ri,size(x)));
+
+% Get linear indices of nonzero entries in the stoichiometric matrix
+getSindices = @(x,ri) sub2ind([nx+nu,nr],x,repmat(ri,size(x))); % index linearization function
 reactantindices = cellfun(getSindices,reactants,num2cell(1:nr)','UniformOutput',false);
 productindices = cellfun(getSindices,products,num2cell(1:nr)','UniformOutput',false);
+
 rNames = reactiontable(:,4);
 
+% Create stoichiometric matrix
 S = zeros(nx+nu,nr);
 S(vertcat(reactantindices{:})) = -1;
 S(vertcat(productindices{:})) = 1;
@@ -143,28 +149,6 @@ yNames = outputtable(:,1);
 m.y          = y;
 m.yNames     = yNames;
 
-% % Calculate the expected value of x at steady state
-% dxdt = S(~isu,:)*r;
-% L = null(S(~isu,:)','r');
-% eqns = [dxdt;L'*(m.xSyms-s)];
-% %assume(sym([kNames; uNames; xNames]) >= 0)
-% xss = solve(eqns,sym(xNames),'ReturnConditions',true);
-% if isstruct(xss)
-%     % Find applicable solution
-%     issol = isAlways(subs(xss.conditions,[m.kSyms;m.uSyms],[k;u]));
-%     % Convert to symbolic vector
-%     xss = struct2cell(xss);
-%     xss = horzcat(xss{1:end-2});
-%     xss = xss(issol,:)';
-% end
-% % Substitute values for parameters and inputs
-% xss = subs(xss,[m.kSyms;m.uSyms],[k;u]);
-% % Return steady state
-% xexpected = double(xss);
-% % Get expected output values
-% yexpected = double(subs(y,[m.xSyms;m.uSyms],[xexpected;u]));
-% 
-
 % Get expected values for expressions in model, if requested
 if nargout > 1
     
@@ -178,15 +162,19 @@ x = 2*m.s;
 u = 3*m.u;
 k = m.k;
 
+% Names of symbolic variables to be substituted for values
 subvars = [m.xSyms;m.uSyms;m.kSyms];
 
-subfun = @(expr) double(subs(expr,subvars,[x;u;k]));
-exprs = {f;r;y};
-exprvars = {'f';'r';'y'};
+subfun = @(expr) double(subs(expr,subvars,[x;u;k])); % sym-to-double function
+exprs = {f;r;y}; % Symbolic expressions
+exprvars = {'f';'r';'y'}; % short expressions representing which derivative is which, i.e., 'fxu' is d2f/dudx
 for oi = 0:norder
     if oi > 0
+        % Take symbolic derivatives and update names to
+        % reflect derivatives
         [exprs,exprvars] = getDerivatives(exprs,exprvars);
     end
+    % Substitute in values for symbolics to generate values
     exprvals{oi+1} = cellfun(subfun,exprs,'UniformOutput',false);
     exprnames{oi+1} = cellfun(@getDerivativeName,exprvars,'UniformOutput',false);
 end
@@ -208,9 +196,14 @@ expectedexprs.k = k;
 end
 
     function [dexprs,dexprvars] = getDerivatives(exprs,exprvars)
+        % Takes a list of symbolic expressions exprs and takes the
+        % derivatives of them wrt x, k, and u, returning them in a
+        % 3*length(exprs) cell array dexprs. Also takes a list of short names
+        % exprvars (i.e., fx) and updates them to reflect the names of the
+        % derivatives taken in dexprvars.
         dexprs = cell(3*length(exprs),1);
         dexprvars = cell(size(dexprs));
-        getder = @(expr,vars) jacobian(expr(:),vars);
+        getder = @(expr,vars) reshape(jacobian(expr(:),vars),numel(expr),numel(vars));
         for ei = 1:length(exprs)
             dexprs{3*(ei-1)+1} = getder(exprs{ei},m.xSyms);
             dexprvars{3*(ei-1)+1} = [exprvars{ei} 'x'];
@@ -222,6 +215,8 @@ end
     end
 
     function exprname = getDerivativeName(exprvar)
+        % Converts short representation of derivative name to full name,
+        % i.e., fxu -> d2fdudx
         dnum = length(exprvar)-1;
         if dnum == 0
             exprname = exprvar(1);
