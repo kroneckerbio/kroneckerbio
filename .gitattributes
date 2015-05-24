@@ -1,0 +1,12 @@
+*      text=auto
+
+# General
+*.txt  text
+*.md   text
+*.xml  text
+
+# Matlab
+*.m    text
+*.mu   text
+*.mat  binary
+*.mex* binary
