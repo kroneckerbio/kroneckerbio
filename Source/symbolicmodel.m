@@ -111,7 +111,7 @@ m.ns         = ns;
 reactiontable = {
     {'A'}       {'B'}       'kf*A'  'A -> B'
     {'B'}       {'A'}       'kr*B'  'B -> A'
-    {'B'}       {'C' 'DD'}   'koff*B' 'B -> C + DD'
+    {'B'}       {'C' 'DD'}   'pi*koff*B' 'B -> C + DD' % pi included in rate form to test behavior of predefined constants 
     {'C' 'DD'}   {'B'}       'kon*C*DD' 'C + DD -> B'
     };
 
