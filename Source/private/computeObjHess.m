@@ -3,6 +3,7 @@ verbose_all = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
+ny = m.ny;
 nTk = nnz(opts.UseParams);
 nTs = nnz(opts.UseSeeds);
 nTq = nnz(cat(1,opts.UseInputControls{:}));
@@ -90,11 +91,11 @@ for i_con = 1:n_con
         for i_disc = 1:n_disc
             ti = discrete_times_all{i_obj}(i_disc);
             if obj(i_obj).Complex
-                dydT_i = reshape(ints(i_obj).dydT(ti), nx,nT);
-                d2ydT2_i = reshape(ints(i_obj).d2ydT2(ti), nx,nT*nT);
+                dydT_i = reshape(ints(i_obj).dydT(ti), ny,nT);
+                d2ydT2_i = reshape(ints(i_obj).d2ydT2(ti), ny,nT*nT);
             else
-                dydT_i = reshape(ints(i_obj).dydT(:,i_disc), nx,nT);
-                d2ydT2_i = reshape(ints(i_obj).d2ydT2(:,i_disc), nx,nT*nT);
+                dydT_i = reshape(ints(i_obj).dydT(:,i_disc), ny,nT);
+                d2ydT2_i = reshape(ints(i_obj).d2ydT2(:,i_disc), ny,nT*nT);
             end
             
             dGdy_i = row(obj(i_obj,i_con).dGdy(ti, ints(i_obj)));
