@@ -50,6 +50,7 @@ obs = pastestruct(observationZero(), obs);
     end
 
     function obj = objective(measurements)
+        measurements = vec(measurements);
         assert(numel(measurements) == n , 'KroneckerBio:observationWeightedSumOfSquares:measurements', 'Input "measurements" must be a vector length of "outputlist"')
         obj = objectiveLinearWeightedSumOfSquares(outputlist, timelist, measurements, sd, name);
     end

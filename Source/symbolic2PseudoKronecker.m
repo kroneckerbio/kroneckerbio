@@ -434,7 +434,7 @@ nz('xs') = x0hass;
         
     end
 
-fprintf('\n')
+if verbose; fprintf('\n'); end
 
 %% Generate derivatives of desired order
 
