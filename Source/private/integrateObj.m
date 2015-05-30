@@ -8,7 +8,8 @@ nObj = numel(obj);
 [der, jac, del] = constructSystem();
 
 if ~con.SteadyState
-    x0 = m.dx0ds * con.s + m.x0c;
+    order = 0;
+    x0 = extractICs(m,con,opts,order);
     ic = [x0; 0];
 else
     x0 = steadystateSys(m, con, opts);
@@ -37,7 +38,7 @@ sol.h = con.h;
         dfdx  = m.dfdx;
         uf    = con.u;
         d     = con.d;
-        dx0ds = m.dx0ds;
+        dx0ds = m.dx0ds(con.s);
         
         der = @derivative;
         jac = @jacobian;

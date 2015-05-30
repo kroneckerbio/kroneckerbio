@@ -12,19 +12,8 @@ nT  = nTk + nTs + nTq + nTh;
 [der, jac, eve] = constructSystem();
 
 % Initial conditions [x0; vec(dxdT0)]
-x0 = m.dx0ds * con.s + m.x0c;
-
-% Initial effect of rates on sensitivities is 0
-dxdTk = zeros(nx, nTk); % Active rate parameters
-
-% Initial effect of seeds on states is dx0ds
-dxdTs = m.dx0ds(:,opts.UseSeeds);
-
-% Initial effect of qs on sensitivities is 0
-dxdTq = zeros(nx, nTq);
-
-% Combine them into a vector
-ic = [x0; vec([dxdTk, dxdTs, dxdTq])];
+order = 1;
+ic = extractICs(m,con,opts,order);
 
 % Integrate [f; dfdT] over time
 sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, [], 1);

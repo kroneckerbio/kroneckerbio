@@ -36,26 +36,8 @@ nt = numel(t_get);
 [der, jac, del] = constructSystem();
 
 if ~con.SteadyState
-    % Initial conditions [x0; vec(dxdT0)]
-    x0 = m.dx0ds * con.s + m.x0c;
-    
-    % Initial effect of rates on sensitivities is 0
-    dx0dTk = zeros(nx, nTk); % Active rate parameters
-    
-    % Initial effect of seeds on states is dx0ds
-    dx0dTs = m.dx0ds(:,opts.UseSeeds);
-    
-    % Initial effect of qs on sensitivities is 0
-    dx0dTq = zeros(nx, nTq);
-    
-    % Initial effect of hs on sensitivities is 0
-    dx0dTh = zeros(nx, nTh);
-
-    % Initial curavtures are zero
-    d2x0dT2 = zeros(nx*nT*nT,1);
-    
-    % Combine them into a vector
-    ic = [x0; vec([dx0dTk, dx0dTs, dx0dTq, dx0dTh]); d2x0dT2];
+    order = 2;
+    ic = extractICs(m,con,opts,order);
 else
     % Run to steady-state first
     ic = steadystateCurv(m, con, opts);
@@ -214,7 +196,7 @@ int.sol = sol;
         d       = con.d;
         dddh    = con.dddh;
         d2ddh2  = con.d2ddh2;
-        dx0ds   = m.dx0ds;
+        dx0ds   = m.dx0ds(con.s);
         
         der = @derivative;
         jac = @jacobian;

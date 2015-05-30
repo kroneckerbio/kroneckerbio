@@ -10,7 +10,8 @@ u = con.u;
 [der, jac, del] = constructSystem();
 
 if ~con.SteadyState
-    ic = m.dx0ds * con.s + m.x0c;
+    order = 0;
+    ic = extractICs(m,con,opts,order);
 else
     ic = steadystateSys(m, con, opts);
 end
@@ -61,7 +62,7 @@ int.sol = sol;
         dfdx  = m.dfdx;
         u    = con.u;
         d     = con.d;
-        dx0ds = m.dx0ds;
+        dx0ds = m.dx0ds(con.s);
         
         y = m.y;
         

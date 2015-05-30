@@ -118,11 +118,16 @@ function m = InitializeModel(name)
 %           The order of each reaction
 %       .krInd [ natural vector nr ]
 %           The indexes to the parameters associated with each reaction
-%       .dx0ds [ nonnegative matrix nx by ns ]
-%           Map of seeds onto species initial conditions
-%       .x0c [ nonnegative vector nx ]
-%           The values of the constant initial conditions of each state
-%           species
+%       .x0 [ function handle returning nonnegative vector nx ]
+%           The values of the initial conditions of each state species.
+%       .dx0ds [ function of seeds returning nonnegative matrix nx by ns ]
+%           First derivative of the initial conditions with respect to the
+%           seeds. Constant valued with respect to s for mass action
+%           models.
+%       .d2x0ds2 [ function of seeds returning nonnegative matrix
+%                  nx*ns-by-ns]
+%           Second derivative of the initial conditions with respect to the
+%           seeds. Zero matrix for mass action models.
 %       .A1 [ real matrix nx by nx]
 %           Map of how each state contributes to the mass action ODEs
 %       .A2 [ real matrix nx by nx*nx ]
@@ -347,8 +352,9 @@ m.vuInd  = zeros(0,1);
 m.rOrder = zeros(0,1);
 m.krInd  = zeros(0,1);
 
-m.dx0ds = zeros(0,0);
-m.x0c   = zeros(0,1);
+m.d2x0ds2   = @(s)zeros(0,0);
+m.dx0ds     = @(s)zeros(0,0);
+m.x0        = @(s)zeros(0,1);
 
 m.A1 = zeros(0,0);
 m.A2 = zeros(0,0);

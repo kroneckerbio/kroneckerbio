@@ -477,6 +477,10 @@ if order >= 1
     if verbose; fprintf('Calculating dydu...'); end
     dydu = calcDerivative(y, uSyms, 'y', {'u'});
     if verbose; fprintf('Done.\n'); end
+    
+    if verbose; fprintf('Calculating dx0ds...'); end
+    dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
+    if verbose; fprintf('Done.\n'); end
 
 else
     drdx = '';
@@ -485,6 +489,7 @@ else
     dfdk = '';
     dydx = '';
     dydu = '';
+    dx0ds = '';
 end
 
 if order >= 2
@@ -604,6 +609,10 @@ if order >= 2
     d2ydudx = calcDerivative(dydx, uSyms, 'y', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
+    if verbose; fprintf('Calculating d2x0ds2...'); end
+    d2x0ds2 = calcDerivative(dx0ds, sSyms, 'x', {'s','s'});
+    if verbose; fprintf('Done.\n'); end
+    
 else
     d2rdx2  = '';
     d2rdu2  = '';
@@ -627,14 +636,15 @@ else
     d2ydu2 = '';
     d2ydxdu = '';
     d2ydudx = '';
+    d2x0ds2 = '';
 end
 
 if order >= 3
     %Gradient of d2rdx2 with respect to x
-    d3rdx3 = calcDerivative(vec(d2rdx2), xSyms, 'r', {'x','x','x'});
+    d3rdx3 = calcDerivative(d2rdx2, xSyms, 'r', {'x','x','x'});
     
     %Gradient of d2rdx2 with respect to k
-    d3rdkdx2 = calcDerivative(vec(d2rdx2), kSyms, 'r', {'x','x','k'});
+    d3rdkdx2 = calcDerivative(d2rdx2, kSyms, 'r', {'x','x','k'});
     
     %Gradient of d2fdx2 with respect to x
     d3fdx3 = StoichiometricSym*reshapeDerivative(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
@@ -643,50 +653,56 @@ if order >= 3
     %Gradient of d2fdx2 with respect to k
     d3fdkdx2 = StoichiometricSym*reshapeDerivative(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
     d3fdkdx2 = reshapeDerivative(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
+    
+    % Gradient of d2x0ds2 with respect to s
+    d3x0ds3 = calcDerivative(d2x0ds2, sSyms, 'x', {'s','s','s'});
 else
     d3rdx3   = '';
     d3rdkdx2 = '';
     d3fdx3   = '';
     d3fdkdx2 = '';
+    d3x0ds3  = '';
 end
 
 %% Extract seed information
 
-% Take derivative of initial condition expressions with respect to seed
-% parameters
-dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
+initial_values = fastchar(fastsubs(x0,sSyms,sNames));
 
-% Convert nonzero terms to doubles (we currently expect only linear
-% combinations of seeds with added constant factors for each x0)
-dx0ds_logical = getNonZeroEntries('x','s');
-dx0ds_index = find(dx0ds_logical(:));
-dx0ds_nz = double(dx0ds(dx0ds_index));
-
-% Initialize sparse matrix with these double values
-[dx0ds_i,dx0ds_j] = find(dx0ds_logical);
-dx0ds = sparse(dx0ds_i,dx0ds_j,dx0ds_nz,nx,ns);
-
-% Calculate constant terms of ICs by setting seeds to 0
-x0c = double(fastsubs(x0,sSyms,zeros(size(sSyms))));
-
-% Store information about seeds and ICs
-initial_values = cell(nx,1);
-for ix = 1:nx
-    % Add constant value first
-    if x0c(ix)
-        values_i = {'', x0c(ix)};
-    else
-        values_i = cell(0,2);
-    end
-    
-    % Append seed parameters
-    nonzero_seed_indexes = logical(dx0ds(ix,:));
-    values_i = [values_i; 
-                vec(sStrs(nonzero_seed_indexes)), vec(num2cell(dx0ds(ix,nonzero_seed_indexes)))];
-    
-    % Store values
-    initial_values{ix} = values_i;
-end
+% % Take derivative of initial condition expressions with respect to seed
+% % parameters
+% dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
+%
+% % Convert nonzero terms to doubles (we currently expect only linear
+% % combinations of seeds with added constant factors for each x0)
+% dx0ds_logical = getNonZeroEntries('x','s');
+% dx0ds_index = find(dx0ds_logical(:));
+% dx0ds_nz = double(dx0ds(dx0ds_index));
+% 
+% % Initialize sparse matrix with these double values
+% [dx0ds_i,dx0ds_j] = find(dx0ds_logical);
+% dx0ds = sparse(dx0ds_i,dx0ds_j,dx0ds_nz,nx,ns);
+% 
+% % Calculate constant terms of ICs by setting seeds to 0
+% x0c = double(fastsubs(x0,sSyms,zeros(size(sSyms))));
+% 
+% % Store information about seeds and ICs
+% initial_values = cell(nx,1);
+% for ix = 1:nx
+%     % Add constant value first
+%     if x0c(ix)
+%         values_i = {'', x0c(ix)};
+%     else
+%         values_i = cell(0,2);
+%     end
+%     
+%     % Append seed parameters
+%     nonzero_seed_indexes = logical(dx0ds(ix,:));
+%     values_i = [values_i; 
+%                 vec(sStrs(nonzero_seed_indexes)), vec(num2cell(dx0ds(ix,nonzero_seed_indexes)))];
+%     
+%     % Store values
+%     initial_values{ix} = values_i;
+% end
 
 %% Replace symbolic names with systematic
 
@@ -704,6 +720,7 @@ if verbose; fprintf('Converting symbolics to functions...\n'); end
 f        = symbolic2function(f, 'f', {});
 r        = symbolic2function(r, 'r', {});
 y        = symbolic2function(y, 'y', {});
+x0       = symbolic2function(x0, 'x', {});
 
 if order >= 1
 %%% For now, models will only contain constant default values of inputs %%%
@@ -719,6 +736,8 @@ if order >= 1
     
     dydx     = symbolic2function(dydx, 'y', 'x');
     dydu     = symbolic2function(dydu, 'y', 'u');
+    
+    dx0ds    = symbolic2function(dx0ds, 'x', 's');
 end
 
 if order >= 2
@@ -746,11 +765,15 @@ if order >= 2
     d2ydu2   = symbolic2function(d2ydu2,  'y', {'u' 'u'});
     d2ydudx  = symbolic2function(d2ydudx, 'y', {'x' 'u'});
     d2ydxdu  = symbolic2function(d2ydxdu, 'y', {'u' 'x'});
+    
+    d2x0ds2  = symbolic2function(d2x0ds2, 'x', {'s' 's'});
 end
 
 if order >= 3
     d3fdx3   = symbolic2function(d3fdx3, 'f', {'x' 'x' 'x'});
     d3fdkdx2 = symbolic2function(d3fdkdx2, 'f', {'x' 'x' 'k'});
+    
+    d3x0ds3  = symbolic2function(d3x0ds3, 'x', {'s' 's' 's'});
 end
 
 if verbose; fprintf('   ...done.\n'); end
@@ -758,7 +781,7 @@ if verbose; fprintf('   ...done.\n'); end
 %% Set up model structure
 
 % Clear unnecessary variables from scope
-clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms x0 ...
+clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms ...
     vStrs kStrs sStrs qStrs xuStrs xStrs uStrs ...
     xNamesFull uNamesFull vxNames vuNames ...
     C1Entries C1Values C2Entries C2Values cEntries cValues ...
@@ -800,8 +823,7 @@ m.ny = ny;
 m.dv = dv;
 m.k  = k;
 m.s  = s;
-m.dx0ds = dx0ds;
-m.x0c = x0c;
+%m.x0c = x0c;
 
 %%% For now, models will only contain constant default values of inputs %%%
 % m.u    = setfun_u(u,q);
@@ -882,8 +904,21 @@ if order >= 2
     m.d2ydxdu   = setfun_y(d2ydxdu,false,ny,nk);
 end
 
+m.x0            = x0;
+
+if order >= 1
+    m.dx0ds     = dx0ds;
+end
+
+if order >= 2
+    m.d2x0ds2   = d2x0ds2;
+end
+
+if order >= 3
+    m.d3x0ds3   = d3x0ds3;
+end
+
 m.Ready  = true;
-%m.add
 m.Update = @update;
 
 if verbose; fprintf('done.\n'); end
@@ -991,6 +1026,14 @@ if verbose; fprintf('done.\n'); end
                 
             case 'mex'
 
+                % Don't create MEX functions for x0 functions, because they
+                % aren't called very many times
+                if strcmp(num,'x')
+                    string_rep = symbolic2string(dsym, num, dens);
+                    fun = string2fun(string_rep, num, dens);
+                    return
+                end
+                
                 % Prepare inputs to C code generation function
                 nzlogical = getNonZeroEntries(num, dens);
                 nzi = cell(ndims(nzlogical),1);
@@ -1020,6 +1063,7 @@ if verbose; fprintf('done.\n'); end
                 return
             else
                 string_rep = ['[],[],[],' dsymsize{1} ',' dsymsize{2}];
+                return
             end
         end
         
@@ -1053,9 +1097,7 @@ if verbose; fprintf('done.\n'); end
             
             % Write sparse initialization string, which will fit in the
             % following expression:
-            % '@(t,x,u,k) inf2big(nan2zero(sparse([' STRING_REP '])))'
-            % To fit this expression, note the square brackets are left off the
-            % left and right sides of string_rep.
+            % '@(t,x,u,k) sparse(' STRING_REP ')'
             string_rep = sprintf(['[' isubstring '],[' jsubstring '],[' strelements '],[' num2str(varsizes(1)) '],[' num2str(varsizes(2)) ']']);
             
         end
@@ -1082,7 +1124,14 @@ if verbose; fprintf('done.\n'); end
             kindexstring = textscan(kindexstring,'%s','Delimiter','\n');
             kindexstring = kindexstring{1};
         end
-        string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs], [xindexstring; uindexstring; kindexstring], 0);
+        if ns == 0
+            sindexstring = {};
+        else
+            sindexstring = sprintf('s(%d)\n', 1:ns);
+            sindexstring = textscan(sindexstring,'%s','Delimiter','\n');
+            sindexstring = sindexstring{1};
+        end
+        string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs; sStrs], [xindexstring; uindexstring; kindexstring; sindexstring], 0);
         
     end         
 
@@ -1187,17 +1236,29 @@ if verbose; fprintf('done.\n'); end
 
 end
 
-function fun = string2fun(string_rep, ~, dens)
+function fun = string2fun(string_rep, num, dens)
 % Note that string2fun is a subfunction instead of a nested function to
 % prevent the anonymous functions created here from saving copies of
 % the primary function workspace variables.
 
-% Set up the function handle by evaluating the string
-if isempty(dens)
-    fun = eval(['@(t,x,u,k) [' string_rep ']']);
+% If the dependent variable is x0, the input argument is s. Otherwise,
+% t,x,u,k.
+if strcmp(num,'x')
+    inputargstr = 's';
 else
-    fun = eval(['@(t,x,u,k) sparse(' string_rep ')']);
+    inputargstr = 't,x,u,k';
 end
+
+% If this isn't a derivative (no independent variables specified), make a
+% full array. Otherwise make a sparse array.
+if isempty(dens)
+    sparsestr = {'[' ']'};
+else
+    sparsestr = {'sparse(' ')'};
+end
+
+% Set up the function handle
+fun = eval(['@(' inputargstr ') ' sparsestr{1} string_rep sparsestr{2}]);
 
 % Convert function to and from function handle to ensure that
 % MATLAB recognizes and stores the workspace for the anonymous

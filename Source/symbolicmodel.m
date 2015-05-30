@@ -103,7 +103,7 @@ sNames = strcat(xNames,'_0');
 m.sSyms      = sym(sNames);
 m.sNames     = sNames;
 m.s          = s;
-m.x0         = sym(sNames);
+m.x0         = sym(sNames).^2;
 
 m.ns         = ns;
 
@@ -152,65 +152,103 @@ m.yNames     = yNames;
 % Get expected values for expressions in model, if requested
 if nargout > 1
     
-norder = 2;
-exprvals = cell(norder+1,1);
-exprnames = cell(norder+1,1);
+    norder = 2;
 
-f = S(~isu,:)*r;
+    f = S(~isu,:)*r;
+    x0 = m.x0;
 
-x = 2*m.s;
-u = 3*m.u;
-k = m.k;
+    x = 2*m.s;
+    u = 3*m.u;
+    k = m.k;
 
-% Names of symbolic variables to be substituted for values
-subvars = [m.xSyms;m.uSyms;m.kSyms];
+    %%% Get expected values for f, r, and y functions %%%
+    % Names of symbolic variables to be substituted for values
+    subvars = [m.xSyms;m.uSyms;m.kSyms];
 
-subfun = @(expr) double(subs(expr,subvars,[x;u;k])); % sym-to-double function
-exprs = {f;r;y}; % Symbolic expressions
-exprvars = {'f';'r';'y'}; % short expressions representing which derivative is which, i.e., 'fxu' is d2f/dudx
-for oi = 0:norder
-    if oi > 0
-        % Take symbolic derivatives and update names to
-        % reflect derivatives
-        [exprs,exprvars] = getDerivatives(exprs,exprvars);
+    subfun = @(expr) double(subs(expr,subvars,[x;u;k])); % sym-to-double function
+    exprvals = cell(norder+1,1);
+    exprnames = cell(norder+1,1);
+    exprs = {f;r;y}; % Symbolic expressions
+    exprvars = {'f';'r';'y'}; % short expressions representing which derivative is which, i.e., 'fxu' is d2f/dudx
+    for oi = 0:norder
+        if oi > 0
+            % Take symbolic derivatives and update names to
+            % reflect derivatives
+            [exprs,exprvars] = getDerivatives(exprs,exprvars);
+        end
+        % Substitute in values for symbolics to generate values
+        exprvals{oi+1} = cellfun(subfun,exprs,'UniformOutput',false);
+        exprnames{oi+1} = cellfun(@getDerivativeName,exprvars,'UniformOutput',false);
     end
-    % Substitute in values for symbolics to generate values
-    exprvals{oi+1} = cellfun(subfun,exprs,'UniformOutput',false);
-    exprnames{oi+1} = cellfun(@getDerivativeName,exprvars,'UniformOutput',false);
+    %%%
+    
+    %%% Get expected values for x0 functions %%%
+    subvars_x0 = m.sSyms;
+    
+    subfun_x0 = @(expr) double(subs(expr,subvars_x0,s)); % sym-to-double function
+    exprvals_x0 = cell(norder+1,1);
+    exprnames_x0 = cell(norder+1,1);
+    exprs_x0 = {x0};
+    exprvars_x0 = {'x'};
+    for oi = 0:norder
+        if oi > 0
+            % Take symbolic derivatives and update names to
+            % reflect derivatives
+            [exprs_x0,exprvars_x0] = getDerivatives(exprs_x0,exprvars_x0,true);
+        end
+        % Substitute in values for symbolics to generate values
+        exprvals_x0{oi+1} = cellfun(subfun_x0,exprs_x0,'UniformOutput',false);
+        exprnames_x0{oi+1} = cellfun(@getDerivativeName,exprvars_x0,'UniformOutput',false);
+    end
+    %%%
+    
+    % Concatenate f, r, y, and x0 function values and names
+    exprvals = vertcat(exprvals{:},exprvals_x0{:});
+    exprnames = vertcat(exprnames{:},exprnames_x0{:});
+
+    % Remove derivatives of y wrt k
+    isykexpr = ismember(exprnames,{'dydk';'d2ydk2';'d2ydkdx';'d2ydkdu';'d2ydxdk';'d2ydudk'});
+    exprvals(isykexpr) = [];
+    exprnames(isykexpr) = [];
+
+    expectedexprs = cell2struct(exprvals,exprnames,1);
+
+    expectedexprs.x = x;
+    expectedexprs.u = u;
+    expectedexprs.k = k;
+    expectedexprs.s = s;
+
 end
 
-exprvals = vertcat(exprvals{:});
-exprnames = vertcat(exprnames{:});
-
-% Remove derivatives of y wrt k
-isykexpr = ismember(exprnames,{'dydk';'d2ydk2';'d2ydkdx';'d2ydkdu';'d2ydxdk';'d2ydudk'});
-exprvals(isykexpr) = [];
-exprnames(isykexpr) = [];
-
-expectedexprs = cell2struct(exprvals,exprnames,1);
-
-expectedexprs.x = x;
-expectedexprs.u = u;
-expectedexprs.k = k;
-
-end
-
-    function [dexprs,dexprvars] = getDerivatives(exprs,exprvars)
+    function [dexprs,dexprvars] = getDerivatives(exprs,exprvars,isx0)
         % Takes a list of symbolic expressions exprs and takes the
-        % derivatives of them wrt x, k, and u, returning them in a
-        % 3*length(exprs) cell array dexprs. Also takes a list of short names
-        % exprvars (i.e., fx) and updates them to reflect the names of the
-        % derivatives taken in dexprvars.
-        dexprs = cell(3*length(exprs),1);
-        dexprvars = cell(size(dexprs));
+        % derivatives of them wrt x, k, and u (or s if isx0 is true),
+        % returning them in a 3*length(exprs) cell array dexprs. Also takes
+        % a list of short names exprvars (i.e., fx) and updates them to
+        % reflect the names of the derivatives taken in dexprvars.
+        if nargin < 3
+            isx0 = false;
+        end
+        
         getder = @(expr,vars) reshape(jacobian(expr(:),vars),numel(expr),numel(vars));
-        for ei = 1:length(exprs)
-            dexprs{3*(ei-1)+1} = getder(exprs{ei},m.xSyms);
-            dexprvars{3*(ei-1)+1} = [exprvars{ei} 'x'];
-            dexprs{3*(ei-1)+2} = getder(exprs{ei},m.kSyms);
-            dexprvars{3*(ei-1)+2} = [exprvars{ei} 'k'];
-            dexprs{3*(ei-1)+3} = getder(exprs{ei},m.uSyms);
-            dexprvars{3*(ei-1)+3} = [exprvars{ei} 'u'];
+        if isx0
+            dexprs = cell(length(exprs),1);
+            dexprvars = cell(size(dexprs));
+            for ei = 1:length(exprs)
+                dexprs{ei} = getder(exprs{ei},m.sSyms);
+                dexprvars{ei} = [exprvars{ei} 's'];
+            end
+        else
+            dexprs = cell(3*length(exprs),1);
+            dexprvars = cell(size(dexprs));
+            for ei = 1:length(exprs)
+                dexprs{3*(ei-1)+1} = getder(exprs{ei},m.xSyms);
+                dexprvars{3*(ei-1)+1} = [exprvars{ei} 'x'];
+                dexprs{3*(ei-1)+2} = getder(exprs{ei},m.kSyms);
+                dexprvars{3*(ei-1)+2} = [exprvars{ei} 'k'];
+                dexprs{3*(ei-1)+3} = getder(exprs{ei},m.uSyms);
+                dexprvars{3*(ei-1)+3} = [exprvars{ei} 'u'];
+            end
         end
     end
 
@@ -220,6 +258,7 @@ end
         dnum = length(exprvar)-1;
         if dnum == 0
             exprname = exprvar(1);
+            exprname = regexprep(exprname,'x','x0'); % Replace x with x0 (I use x as a single-character representation of x0)
             return
         elseif dnum == 1
             numstr = ['d' exprvar(1)];
@@ -236,6 +275,7 @@ end
         else
             error('Higher order deriviatives not currently supported.')
         end
+        numstr = regexprep(numstr,'x','x0'); % Replace x with x0 (I use x as a single-character representation of x0)
         exprname = [numstr denstr];
     end
 

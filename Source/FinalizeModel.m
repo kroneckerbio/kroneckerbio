@@ -434,8 +434,12 @@ end
 dx0dsEntries = dx0dsEntries(1:ndx0dsEntries,:);
 dx0dsValues = dx0dsValues(1:ndx0dsEntries);
 
-m.dx0ds = sparse(dx0dsEntries(:,1), dx0dsEntries(:,2), dx0dsValues, m.nx, m.ns);
-m.x0c = constant_state_IC;
+dx0ds_val = sparse(dx0dsEntries(:,1), dx0dsEntries(:,2), dx0dsValues, m.nx, m.ns);
+x0c = constant_state_IC;
+
+m.x0 = @x0;
+m.dx0ds = @dx0ds;
+m.d2x0ds2 = @d2x0ds2;
 
 %% Process inputs
 % Condense time varying inputs into u(t) function
@@ -1116,6 +1120,18 @@ m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3Use
 
     function val = d2ydxdu(t, x, u)
         val = zeros(ny*nu, nx);
+    end
+
+    function val = x0(s)
+        val = dx0ds_val*s + x0c;
+    end
+
+    function val = dx0ds(~)
+        val = dx0ds_val;
+    end
+
+    function val = d2x0ds2(~)
+        val = zeros(nx*ns, ns);
     end
 end
 

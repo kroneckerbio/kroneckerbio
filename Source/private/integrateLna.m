@@ -15,7 +15,8 @@ s = con.s;
 
 % V is symmetric. Only integrate the upper half of the matrix
 if ~con.SteadyState
-    x0 = m.dx0ds * s + m.x0c;
+    order = 0;
+    x0 = extractICs(m,con,opts,order);
     
     V0 = opts.V0(upperVInd);
 
@@ -48,7 +49,7 @@ sol.h = con.h;
         d2fdx2 = m.d2fdx2;
         uf    = con.u;
         d     = con.d;
-        dx0ds = m.dx0ds;
+        dx0ds = m.dx0ds(con.s);
         
         Ix = speye(nx);
         

@@ -59,7 +59,8 @@ for i_con = 1:n_con
         % Apply steady-state solution to initial conditions
         ic = ssSol.y(:,end);
     else
-        ic = m.dx0ds * s + m.x0c;
+        order = 0;
+        ic = extractICs(m,con(i_con),opts_i,order);
     end
     
     [tF, eve, fin] = collectObservations(m, con(i_con), obj(:,i_con));
@@ -175,7 +176,8 @@ for i_con = 1:n_con
     
     % Initial conditions
     lambda = -sol.y(1:nx,end);
-    curD(Tsind+1:Tsind+inTs) = vec(curD(Tsind+1:Tsind+inTs)) + m.dx0ds(:,UseSeeds_i).' * lambda;
+    dx0ds_val = m.dx0ds(con(i_con).s);
+    curD(Tsind+1:Tsind+inTs) = vec(curD(Tsind+1:Tsind+inTs)) + dx0ds_val(:,UseSeeds_i).' * lambda;
     
     % Add to cumulative goal value
     D = D + curD;
@@ -197,7 +199,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 %%%%% The system for integrating lambda and D %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructAdjointSystem()
-        dx0ds = m.dx0ds;
+        dx0ds = m.dx0ds(con(i_con).s);
         dfdx = m.dfdx;
         dfdu = m.dfdu;
         dfdk = m.dfdk;
@@ -311,7 +313,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
     function [der, jac, del] = constructObjectiveSystem()
         f     = m.f;
         dfdx  = m.dfdx;
-        dx0ds = m.dx0ds;
+        dx0ds = m.dx0ds(con(i_con).s);
         
         der = @derivative;
         jac = @jacobian;
@@ -355,7 +357,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
     function [der, jac, del] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
-        dx0ds = m.dx0ds;
+        dx0ds = m.dx0ds(con(i_con).s);
         
         der = @derivative;
         jac = @jacobian;
