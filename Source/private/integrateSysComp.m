@@ -38,9 +38,9 @@ int.dydx = m.dydx;
 int.dydu = m.dydu;
 
 int.t = sol.x;
-int.x = @(t)deval(sol, t);
+int.x = @(t)devals(sol, t);
 int.u = con.u;
-int.y = @(t)y(t, deval(sol, t), u(t));
+int.y = @(t)y(t, devals(sol, t), u(t));
 
 int.ie = sol.ie;
 int.te = sol.xe;

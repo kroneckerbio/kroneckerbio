@@ -50,6 +50,30 @@ a.verifyEqual(size(sim.xe,1), m.nx)
 a.verifyEqual(size(sim.ye,1), m.ny)
 end
 
+function testSimulateDifferent(a)
+[m, con, unused, opts] = simple_model();
+eve1 = eventDropsBelow(m, 10, 15);
+eve2 = eventDropsBelow(m, 1, 2);
+obs1 = observationEvents(6, [eve1;eve2]);
+obs2 = observationSelect(2:6);
+obs3 = observationAll(5);
+obs = [obs1;obs2;obs3];
+
+sim = SimulateSystem(m, con, obs, opts);
+
+a.verifyEqual(size(sim(1).ue,1), m.nu)
+a.verifyEqual(size(sim(1).xe,1), m.nx)
+a.verifyEqual(size(sim(1).ye,1), m.ny)
+
+a.verifyEqual(size(sim(2).x), [m.nx,5])
+a.verifyEqual(size(sim(2).u), [m.nu,5])
+a.verifyEqual(size(sim(2).y), [m.ny,5])
+
+a.verifyEqual(numel(sim(3).x(4)), m.nx)
+a.verifyEqual(numel(sim(3).u(4)), m.nu)
+a.verifyEqual(numel(sim(3).y(4)), m.ny)
+end
+
 function testLinearNoiseApproximationOnSimple(a)
 [m, con, unused, opts] = simple_model();
 opts.AbsTol = nan;

@@ -34,19 +34,21 @@ obs = pastestruct(observationZero(), obs);
         y_all = int.y;
         
         ybar = zeros(n,1);
+        yhat = zeros(n,1);
         for i = 1:n
             ind = discrete_times == timelist(i);
             ybar(i) = y_all(outputlist(i),ind);
-            ybar(i) = ybar(i) + randn * sd(timelist(i), outputlist(i), ybar(i));
+            yhat(i) = ybar(i) + randn * sd(timelist(i), outputlist(i), ybar(i));
         end
         
         sim.Type = 'Simulation.Data.LinearWeightedSumOfSquares';
         sim.Name = name;
-        sim.t = timelist;
-        sim.y = ybar;
-        sim.more.outputlist = outputlist;
-        sim.more.sd = sd;
         sim.int = int;
+        sim.outputlist = outputlist;
+        sim.timelist = timelist;
+        sim.true_measurements = ybar;
+        sim.measurements = yhat;
+        sim.sd = sd;
     end
 
     function obj = objective(measurements)
