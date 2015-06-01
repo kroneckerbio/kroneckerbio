@@ -61,8 +61,8 @@ function symModel = sbml2Symbolic(sbmlModel, opts)
 %           Natural names of the input species
 %       .uInd [ positive integer vector nu ]
 %           Index of the compartment to which the inputs belong
-%       .u: [ symbolic vector nu ]
-%           Symbolic representation of each input species
+%       .u: [ double vector nu ]
+%           Amount of each input species
 %       .xSyms: [ symbolic vector nx ]
 %           Symbolic name of each state species
 %       .xInd [ positive integer vector nx ]
@@ -82,6 +82,13 @@ function symModel = sbml2Symbolic(sbmlModel, opts)
 %       .Su [ matrix nx by nr ]
 %           A stoichiometry matrix of how the reactions are trying to alter
 %           the inputs
+%       .yNames [ cell vector of strings ny ]
+%           Output names
+%       .y [ symbolic vector ny ]
+%           Symbolic output expressions
+%       .yStrings [ cell vector of strings ny ]
+%           Human readable output expression strings, after symbolic
+%           interpretation
 
 % (c) 2013 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
@@ -526,9 +533,11 @@ sNames(found(found ~= 0)) = [];
 if opts.AddRulesAsOutputs
     y = valueSyms(makeoutput);
     yNames = arrayfun(@char, targetSyms, 'UniformOutput', false);
+    yStrings = arrayfun(@char, valueSyms, 'UniformOutput', false);
 else
     y = sym([]);
     yNames = {};
+    yStrings = {};
 end
 
 % Substitute values for initial assignments
@@ -605,8 +614,9 @@ symModel.r          = r;
 symModel.S          = S;
 symModel.Su         = Su;
 
-symModel.y          = y;
 symModel.yNames     = yNames;
+symModel.y          = y;
+symModel.yStrings   = yStrings;
 
 end
 
