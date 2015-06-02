@@ -109,7 +109,7 @@ opts.AbsTol = fixAbsTol(opts.AbsTol, 1, false(n_con,1), nx, n_con);
 obs = fixObservation(con, obs);
 
 %% Run integration for the experiment
-sim = emptystruct([n_obs,n_obs], 'Type', 'Name', 't', 'x', 'u', 'y', 'ie', 'te', 'xe', 'ue', 'ye', 'int');
+sim = emptystruct([n_obs,n_con]);
 
 for i_con = 1:n_con
     opts_i = opts;
@@ -120,6 +120,6 @@ for i_con = 1:n_con
     if verbose; fprintf('done.\n'); end
     
     for i_obs = 1:n_obs
-        sim(i_obs,i_con) = pastestruct(sim(i_obs), obs(i_obs).Simulation(ints(i_obs)));
+        sim = insertstruct(sim, obs(i_obs,i_con).Simulation(ints(i_obs)), i_obs,i_con);
     end
 end

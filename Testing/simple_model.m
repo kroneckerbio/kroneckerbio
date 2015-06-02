@@ -14,6 +14,7 @@ end
 % Build model
 m = LoadModelMassAction('Simple.txt');
 m = addStatesAsOutputs(m);
+m = AddOutput(m, 'all_ligand', 'ligand');
 m = FinalizeModel(m);
 
 ns = m.ns;

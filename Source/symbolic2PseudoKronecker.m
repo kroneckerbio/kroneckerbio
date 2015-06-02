@@ -222,13 +222,22 @@ else% ~VolumeToParameter
     y = subs(y, vSyms, v);
 end
 
+% Check original symbols for reserved MuPAD names
+old_symbols_strs = fastchar([kSyms; sSyms; xSyms; uSyms]);
+reservednames = {'pi','PI','eulergamma','EULER','catalan','CATALAN'};
+for rni = 1:length(reservednames)
+    isreservedname = strcmp(old_symbols_strs,reservednames{rni});
+    if any(isreservedname)
+        warning(['A symbolic variable in the model was named ' ...
+            reservednames{rni} ', which is a reserved variable name. ' ...
+            'This can cause undesired behavior in rate expressions. ' ...
+            'It is recommended to change the symbolic variable''s name.'])
+    end
+end
+
 % Sanitize symbols
 old_symbols = [kSyms; sSyms; xSyms; uSyms];
 new_symbols = sym('sy%dx',[nk+ns+nx+nu,1]);
-% new_symbols = sym(zeros(nk+ns+nx+nu,1));
-% for i = 1:nk+ns+nx+nu
-%     new_symbols(i) = sym(sprintf('sy%dx', i));
-% end
 
 kSyms = new_symbols(1:nk);
 sSyms = new_symbols(nk+1:nk+ns);
@@ -425,7 +434,7 @@ nz('xs') = x0hass;
         
     end
 
-fprintf('\n')
+if verbose; fprintf('\n'); end
 
 %% Generate derivatives of desired order
 

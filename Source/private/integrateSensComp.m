@@ -176,27 +176,15 @@ int.sol = sol;
     end
 
     function val = evaluate_state(sol, t)
-        if ~isempty(t)
-            val = deval(sol, t, 1:nx);
-        else
-            val = zeros(nx,0);
-        end
+        val = devals(sol, t, 1:nx);
     end
 
     function val = evaluate_output(sol, t)
-        if ~isempty(t)
-            val = y(t, deval(sol, t, 1:nx), u(t));
-        else
-            val = zeros(ny,0);
-        end
+        val = y(t, devals(sol, t, 1:nx), u(t));
     end
 
     function val = evaluate_state_sensitivity(sol, t)
-        if ~isempty(t)
-            val = deval(sol, t, dxdTStart:dxdTEnd);
-        else
-            val = zeros(nx*nT,0);
-        end
+        val = devals(sol, t, dxdTStart:dxdTEnd);
     end
 
     function val = evaluate_input_sensitivity(t)

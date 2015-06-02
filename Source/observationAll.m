@@ -11,11 +11,11 @@ obs = pastestruct(observationZero(), obs);
     function sim = simulation(int)
         sim.Type = 'Simulation.System.All';
         sim.Name = int.Name;
+        sim.int  = int;
         sim.t    = int.t;
         sim.x    = @(t, varargin)evaluate_states(int, t, varargin{:});
         sim.u    = @(t, varargin)evaluate_inputs(int, t, varargin{:});
         sim.y    = @(t, varargin)evaluate_outputs(int, t, varargin{:});
-        sim.int  = int;
     end
 
     function sim = sensitivity(int)

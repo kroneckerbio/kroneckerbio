@@ -8,7 +8,7 @@ e_end = cumsum(nes); % Last index of an obs's events
 [tF, eve, fin, t_get] = collectObservations(m, con, obs);
 
 if any([obs.Complex])
-    ints = integrateSysComp(m, con, tF,  eve, fin, opts);
+    ints = integrateSysComp(m, con, tF, eve, fin, opts);
     
     % Distribute times for each observation
     ints = repmat(ints, n_obs,1);

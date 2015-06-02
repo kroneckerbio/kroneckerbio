@@ -95,9 +95,9 @@ for i_con = 1:n_con
     int_sys.dydu = m.dydu;
     
     int_sys.t = sol_sys.x;
-    int_sys.x = @(t)deval(sol_sys, t);
+    int_sys.x = @(t)devals(sol_sys, t);
     int_sys.u = con.u;
-    int_sys.y = @(t)y(t, deval(sol_sys, t), u(t));
+    int_sys.y = @(t)y(t, devals(sol_sys, t), u(t));
     
     int_sys.ie = sol_sys.ie;
     int_sys.te = sol_sys.xe;

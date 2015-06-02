@@ -17,12 +17,12 @@ obs = pastestruct(observationZero(), obs);
     function sim = simulation(int)
         sim.Type = 'Simulation.System.Events';
         sim.Name = int.Name;
+        sim.int  = int;
         sim.ie   = int.ie;
         sim.te   = int.te;
         sim.xe   = int.xe;
         sim.ue   = int.ue;
         sim.ye   = int.ye;
-        sim.int  = int;
     end
 
     function sim = sensitivity(int)
