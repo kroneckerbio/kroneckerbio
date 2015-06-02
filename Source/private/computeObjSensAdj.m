@@ -199,13 +199,13 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 %%%%% The system for integrating lambda and D %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructAdjointSystem()
-        dx0ds = m.dx0ds(con(i_con).s);
-        dfdx = m.dfdx;
-        dfdu = m.dfdu;
-        dfdk = m.dfdk;
-        dfdT = @dfdTSub;
-        dudq = con(i_con).dudq;
-        dddh = con(i_con).dddh;
+        dx0dd   = m.dx0ds;
+        dfdx    = m.dfdx;
+        dfdu    = m.dfdu;
+        dfdk    = m.dfdk;
+        dfdT    = @dfdTSub;
+        dudq    = con(i_con).dudq;
+        dddh    = con(i_con).dddh;
         
         der = @derivative;
         jac = @jacobian;
@@ -254,9 +254,10 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             end
             
             lambda = -joint(1:nx,end) + dGdx; % Update current lambda
+            dx0dd_i = dx0dd(d(t));
             dddh_i = dddh(t);
             dddh_i = dddh_i(:,UseDoseControls_i);
-            dose_change = dddh_i.' * dx0ds.' * lambda;
+            dose_change = dddh_i.' * dx0dd_i.' * lambda;
             dGdT = dGdT + [zeros(nTk,1); zeros(nTs,1); zeros(nTq,1); dose_change];
             
             val = [dGdx; dGdT];
@@ -311,9 +312,10 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
     end
 
     function [der, jac, del] = constructObjectiveSystem()
-        f     = m.f;
-        dfdx  = m.dfdx;
-        dx0ds = m.dx0ds(con(i_con).s);
+        f       = m.f;
+        dfdx    = m.dfdx;
+        x0      = m.x0;
+        nd      = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -350,14 +352,15 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 
         % Dosing
         function val = delta(t, joint)
-            val = [dx0ds * d(t); 0];
+            val = [x0(d(t)) - x0(zeros(nd,1)); 0];
         end
     end
 
     function [der, jac, del] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
-        dx0ds = m.dx0ds(con(i_con).s);
+        x0    = m.x0;
+        nd    = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -377,7 +380,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         
         % Dosing
         function val = delta(t, x)
-            val = dx0ds * d(t);
+            val = x0(d(t)) - x0(zeros(nd,1));
         end
     end
 end

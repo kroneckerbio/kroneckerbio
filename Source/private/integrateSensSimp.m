@@ -124,7 +124,9 @@ int.sol = sol;
         dudq    = con.dudq;
         d       = con.d;
         dddh    = con.dddh;
-        dx0ds   = m.dx0ds(con.s);
+        dx0dd   = m.dx0ds;
+        x0      = m.x0;
+        nd      = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -160,9 +162,12 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, joint)
-            deltax = dx0ds * d(t);
+            d_i = d(t);
+            dx0dd_i = dx0dd(d_i);
             
-            ddeltaxdh = dx0ds * dddh(t);
+            deltax = x0(d_i) - x0(zeros(nd,1));
+            
+            ddeltaxdh = dx0dd_i * dddh(t);
             ddeltaxdT = [zeros(nx,nTk+nTs+nTq), ddeltaxdh(:,opts.UseDoseControls)];
             
             val = [deltax; vec(ddeltaxdT)];

@@ -162,7 +162,12 @@ int.sol = sol;
         d       = con.d;
         dddh    = con.dddh;
         d2ddh2  = con.d2ddh2;
-        dx0ds   = m.dx0ds(con.s);
+        x0      = m.x0;
+        dx0dd   = m.dx0ds;
+        d2x0dd2 = m.d2x0ds2;
+        
+        nd      = ns;
+        
         
         der = @derivative;
         jac = @jacobian;
@@ -235,17 +240,30 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, joint)
-            deltax = dx0ds * d(t);
+            % Get d and derivatives of x0 wrt d at requested time
+            d_i = d(t);
+            dx0dd_i = dx0dd(d_i);
+            d2x0dd2_i = d2x0dd2(d_i);
+            
+            % Get change in x from dose
+            deltax = x0(d_i) - x0(zeros(nd,1));
             
             % dxdh = dxdd *{d.d} dddh
             dddh_i = dddh(t); % s_h
-            dxdTh = dx0ds * dddh_i(:,opts.UseDoseControls); % x_s * (s_h -> s_H) -> x_H
+            dxdTh = dx0dd_i * dddh_i(:,opts.UseDoseControls); % x_s * (s_h -> s_H) -> x_H
             dxdT = [zeros(nx,nTk+nTs+nTq), dxdTh];
             
             % d2xdh2 = (dxdd2dd1 *{d.d} dd2dh2) *{d.d} dddh1 + dxdd *{d.d} d2ddh2dh1
-            % Currently, first term is gauranteed to be zero because x0 is linear
             d2dh2_i = d2ddh2(t); %sh_h
-            d2xTh2 = dx0ds * reshape(d2dh2_i(dhUseDoseControls, opts.UseDoseControls), ns,nTh*nTh); % x_s * (sh_h -> sH_H -> s_HH) -> x_HH
+            d2xTh2 = ...
+                reshape(...
+                        spermute132(...
+                            d2x0dd2_i*dddh_i(:,opts.UseDoseControls),...    % xd_d -> xd_H
+                        [nx nd nTh],[nx*nTh nd])...                         % -> xH_d
+                    *dddh_i(:,opts.UseDoseControls),...                     % -> xH_H
+                nx,nTh*nTh)...                                              % -> x_HH
+            +...
+                dx0dd_i * reshape(d2dh2_i(dhUseDoseControls, opts.UseDoseControls), nd,nTh*nTh); % x_s * (sh_h -> sH_H -> s_HH) -> x_HH
             d2xdT2 = [sparse(nx*(nTk+nTs+nTq),nT); sparse(nx*nTh,nTk+nTs+nTq), reshape(d2xTh2, [nx*nTh,nTh])];
             
             val = [deltax; vec(dxdT); vec(d2xdT2)];

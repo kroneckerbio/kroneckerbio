@@ -38,7 +38,8 @@ sol.h = con.h;
         dfdx  = m.dfdx;
         uf    = con.u;
         d     = con.d;
-        dx0ds = m.dx0ds(con.s);
+        x0    = m.x0;
+        nd    = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -75,7 +76,7 @@ sol.h = con.h;
 
         % Dosing
         function val = delta(t, joint)
-            val = [dx0ds * d(t); 0];
+            val = [x0(d(t)) - x0(zeros(nd,1)); 0];
         end
     end
 end

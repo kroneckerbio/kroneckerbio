@@ -60,9 +60,10 @@ int.sol = sol;
     function [der, jac, del] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
-        u    = con.u;
+        u     = con.u;
         d     = con.d;
-        dx0ds = m.dx0ds(con.s);
+        x0    = m.x0;
+        nd    = m.ns;
         
         y = m.y;
         
@@ -84,7 +85,7 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, x)
-            val = dx0ds * d(t);
+            val = x0(d(t)) - x0(zeros(nd,1));
         end
     end
 end
