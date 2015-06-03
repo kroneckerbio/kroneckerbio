@@ -13,3 +13,15 @@ function testObjectiveLogLikelihoodSimple(a)
 
 logp = ObjectiveLogLikelihood(m, con, obj, opts);
 end
+
+function testObjectiveProbabilityMichaelisMenten(a)
+[m, con, obj, opts] = michaelis_menten_model();
+
+p = ObjectiveProbability(m, con, obj, opts);
+end
+
+function testObjectiveLogLikelihoodMichaelisMenten(a)
+[m, con, obj, opts] = michaelis_menten_model();
+
+logp = ObjectiveLogLikelihood(m, con, obj, opts);
+end

@@ -7,3 +7,9 @@ function testObjectiveValueSimple(a)
 
 F1 = ObjectiveInformation(m, con, obj, opts);
 end
+
+function testObjectiveValueMichaelisMenten(a)
+[m, con, obj, opts] = michaelis_menten_model();
+
+F1 = ObjectiveInformation(m, con, obj, opts);
+end

@@ -48,8 +48,11 @@ if order >= 1
         d2x0ds2 = m.d2x0ds2(con.s);
         
         % Filter out non-fitted seeds
-        d2x0dT2_s = reshape(d2x0ds2,nx,ns,ns);
-        d2x0dT2_s = d2x0dT2_s(:,opts.UseSeeds,opts.UseSeeds);
+        d2x0dT2_s = reshape(d2x0ds2,nx,ns*ns);
+        UseSeeds_ss = false(ns,ns);
+        UseSeeds_ss(opts.UseSeeds,opts.UseSeeds) = true;
+        d2x0dT2_s = d2x0dT2_s(:,UseSeeds_ss(:));
+        d2x0dT2_s = reshape(d2x0dT2_s,nx*nTs,nTs);
         
         % Set nonzero elements of d2x0dT2
         d2x0dT2 = zeros(nx*nT*nT,1);
