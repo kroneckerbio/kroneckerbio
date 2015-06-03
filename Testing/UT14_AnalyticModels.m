@@ -322,7 +322,9 @@ m = symbolic2PseudoKronecker(m,buildopts);
 
 % Compile MEX functions, if necessary
 if useMEX
+    warning('off','MATLAB:mex:GccVersion_link');
     compileMEXFunctions(buildopts.MEXDirectory,false)
+    warning('on', 'MATLAB:mex:GccVersion_link');
 end
 
 end
