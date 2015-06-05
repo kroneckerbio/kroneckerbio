@@ -20,7 +20,7 @@ function m = LoadModelMassAction(files)
 %   will define that component's properties. All others by that same name
 %   will be silently overwritten.
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Initialize the model
@@ -86,14 +86,14 @@ for iFile = 1:nFiles
                 mode = 2;
                 
                 % Extract default compartment from payload
-                defaultCompartment = regexp(payload, '".*"|[^.,\s]*', 'match');
-                assert(numel(defaultCompartment) <= 1, 'KroneckerBio:LoadModelMassAction:MultipleSpeciesCompartments', 'Line %i in %s specified multiple compartments for a single section of species; a species section can have at most one default compartment: %s', lineNumber, files{iFile}, line)
+                compartment = regexp(payload, '".*"|[^.,\s]*', 'match');
+                assert(numel(compartment) == 1, 'KroneckerBio:LoadModelMassAction:SpeciesCompartments', 'Line %i in %s specified the beginning of an Input section but exactly one compartment was not provided: %s', lineNumber, files{iFile}, line)
                 
                 % Standardize compartment as a string
-                if isempty(defaultCompartment)
-                    defaultCompartment = '';
+                if isempty(compartment)
+                    compartment = '';
                 else
-                    defaultCompartment = defaultCompartment{1};
+                    compartment = compartment{1};
                 end
             elseif strcmpi(match, 'seeds')
                 % Switch mode
@@ -103,14 +103,14 @@ for iFile = 1:nFiles
                 mode = 4;
                                 
                 % Extract default compartment from payload
-                defaultCompartment = regexp(payload, '".*"|[^.,\s]*', 'match');
-                assert(numel(defaultCompartment) <= 1, 'KroneckerBio:LoadModelMassAction:MultipleSpeciesCompartments', 'Line %i in %s specified multiple compartments for a single section of species; a species section can have at most one default compartment: %s', lineNumber, files{iFile}, line)
+                compartment = regexp(payload, '".*"|[^.,\s]*', 'match');
+                assert(numel(compartment) == 1, 'KroneckerBio:LoadModelMassAction:SpeciesCompartments', 'Line %i in %s specified the beginning of an States section but exactly one compartment was not provided: %s', lineNumber, files{iFile}, line)
                 
                 % Standardize compartment as a string
-                if isempty(defaultCompartment)
-                    defaultCompartment = '';
+                if isempty(compartment)
+                    compartment = '';
                 else
-                    defaultCompartment = defaultCompartment{1};
+                    compartment = compartment{1};
                 end
 
             elseif strcmpi(match, 'outputs')
@@ -122,9 +122,6 @@ for iFile = 1:nFiles
             elseif strcmpi(match, 'reactions')
                 % Switch mode
                 mode = 7;
-
-                % Extract default compartments from payload
-                defaultCompartment = regexp(payload, '".*"|[^.,\s]*', 'match');
             else
                 error('KroneckerBio:LoadModelMassAction:UnrecognizedSectionHeader', 'Line %i in %s had an unrecognized section header: %s', lineNumber, files{iFile}, line)
             end
@@ -166,15 +163,6 @@ for iFile = 1:nFiles
                 % Extract name
                 assert(~isempty(regexp(tokens{1}, '^[^\s,]*\.?[^\s,]*$', 'once')), 'KroneckerBio:LoadModelMassAction:InvalidSpeciesName', 'Line %i in %s has an invalid species name: %s', lineNumber, files{iFile}, line)
                 name = tokens{1};
-                if isempty(regexp(name, '\.', 'once'))
-                    % Compartment is defualt compartment
-                    assert(~isempty(defaultCompartment), 'KroneckerBio:LoadModelMassAction:SpeciesWithNoCompartment', 'Line %i in %s has a species that is not associated with a compartment: %s', lineNumber, files{iFile}, line)
-                    compartment = defaultCompartment;
-                else
-                    % Compartment is specified within name
-                    compartment = regexp(name, '^[^.]*', 'match', 'once');
-                    name = regexp(name, '[^.]*$', 'match', 'once');
-                end
                 
                 % Second token is value
                 if numel(tokens) >= 2
@@ -223,15 +211,6 @@ for iFile = 1:nFiles
                 assert(~isempty(regexp(tokens{1}, '^[^\s,]*\.?[^\s,]*$', 'once')), 'KroneckerBio:LoadModelMassAction:InvalidName', 'Line %i in %s has an invalid species name: %s', lineNumber, files{iFile}, line)
                 name = tokens{1};
                 tokens = tokens(2:end);
-                if isempty(regexp(name, '\.', 'once'))
-                    % Compartment is defualt compartment
-                    assert(~isempty(defaultCompartment), 'KroneckerBio:LoadModelMassAction:SpeciesWithNoCompartment', 'Line %i in %s has a species that is not associated with a compartment: %s', lineNumber, files{iFile}, line)
-                    compartment = defaultCompartment;
-                else
-                    % Compartment is specified within name
-                    compartment = regexp(name, '^[^.]*', 'match', 'once');
-                    name = regexp(name, '[^.]*$', 'match', 'once');
-                end
                 
                 % Process seeds
                 n_seeds = numel(tokens);
@@ -341,7 +320,7 @@ for iFile = 1:nFiles
                     end
                     
                     % This is a normal line
-                    m = AddReaction(m, tokens(7:end), defaultCompartment, tokens{1}, tokens{2}, tokens{3}, tokens{4}, parameters(1,:), parameters(2,:));
+                    m = AddReaction(m, tokens(7:end), tokens{1}, tokens{2}, tokens{3}, tokens{4}, parameters(1,:), parameters(2,:));
                 else
                     % Split between the equal sign
                     parameter = regexp(tokens{end}, '=', 'split');
@@ -356,7 +335,7 @@ for iFile = 1:nFiles
                     end
                     
                     % This is the special syntax for a multi-product line
-                    m = AddLargeSizeReaction(m, [], defaultCompartment, tokens(2:3), tokens(4:end-1), parameter);
+                    m = AddLargeSizeReaction(m, [], tokens(2:3), tokens(4:end-1), parameter);
                 end
             else
                 error('KroneckerBio:LoadModelMassAction:SectionNotSpecified', 'Line %i in %s occurs before any section header: %s', lineNumber, files{iFile}, line)

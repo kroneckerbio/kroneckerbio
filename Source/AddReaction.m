@@ -1,7 +1,7 @@
-function m = AddReaction(m, name, compartment, reactant1, reactant2, product1, product2, kForward, kReverse)
+function m = AddReaction(m, name, reactant1, reactant2, product1, product2, kForward, kReverse)
 %AddReaction Add a reaction to a KroneckerBio model
 %
-%   m = AddReaction(m, name, compartment, reactant1, reactant2, product1,
+%   m = AddReaction(m, name, reactant1, reactant2, product1,
 %                   product2, kForward, kReverse)
 %
 %   A reaction is a conversion of one or two reactant species into one or
@@ -29,15 +29,8 @@ function m = AddReaction(m, name, compartment, reactant1, reactant2, product1, p
 %   name: [ string | cell vector 2 of strings ]
 %       A name for the reaction, or two different names for the forward and
 %       reverse reactions. Reaction names do not need to be unique, so if
-%       only one name is provided, it will be idnetical for the forward and
+%       only one name is provided, it will be identical for the forward and
 %       reverse reactions.
-%   compartment: [ string | cell vector of strings ]
-%       For all species that does not have a compartment specified, this
-%       compartment will be used as their compartments. If a cell array of
-%       strings is provided, a reaction will be added for each compartment
-%       given. If the string is empty, a reaction will be added to every
-%       compartment in the model. Note that if the compartment does not
-%       have the reatants for the reaction, the reaction will be ignored.
 %   reactant1: [ string ]
 %       This is a species full name in the model or just a species name
 %       that can accept a string in compartment as its compartment.
@@ -61,13 +54,13 @@ function m = AddReaction(m, name, compartment, reactant1, reactant2, product1, p
 %   m: [ model struct scalar ]
 %       The model with the new reaction added.
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 % Clean-up
-if nargin < 9
+if nargin < 8
     kReverse = [];
-    if nargin < 8
+    if nargin < 7
         kForward = [];
     end
 end
@@ -80,7 +73,6 @@ product1    = fixReactionSpecies(product1);
 product2    = fixReactionSpecies(product2);
 kForward    = fixReactionParameter(kForward);
 kReverse    = fixReactionParameter(kReverse);
-compartment = fixReactionCompartment(compartment);
 
 % Increment counter
 if ~isempty(kForward{1})
@@ -89,7 +81,6 @@ if ~isempty(kForward{1})
     m.add.Reactions = growReactions(m.add.Reactions, nr);
     
     m.add.Reactions(nr).Name = name1;
-    m.add.Reactions(nr).Compartment  = compartment;
     
     m.add.Reactions(nr).Reactants = cell(1,0);
     if ~isempty(reactant1)
@@ -118,7 +109,6 @@ if ~isempty(kReverse{1})
     m.add.Reactions = growReactions(m.add.Reactions, nr);
     
     m.add.Reactions(nr).Name = name2;
-    m.add.Reactions(nr).Compartment  = compartment;
     
     m.add.Reactions(nr).Reactants = cell(1,0);
     if ~isempty(product1)

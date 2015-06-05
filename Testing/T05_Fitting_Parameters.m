@@ -14,7 +14,7 @@ m = AddOutput(m, 'C', 'C');
 m = AddParameter(m, 'kf', 5);
 m = AddParameter(m, 'kr', 3);
 
-m = AddReaction(m, '', '', 'A', 'B', 'C', '', 'kf', 'kr');
+m = AddReaction(m, '', 'A', 'B', 'C', '', 'kf', 'kr');
 
 m = FinalizeModel(m);
 

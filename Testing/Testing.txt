@@ -32,33 +32,28 @@ v1     3    1e-6
 v2     2    1.2e-4
 v3     1    1e-3
 
-# As it stands right now, you can have anything in the Name of a
-# compartment except a "." or a ",". You should avoid starting the name with
+# As it stands right now, names can be arbitrary strings. You should avoid 
+# starting the name with
 # a "%", a "#", or other operator for reasons that should be obvious. The
 # Dimension of a comparment is whether the compartment is a point, a line,
 # an area, or a space. The volume is the size of the compartment.
 
 # The Species header (starting with a "%") declares that we are no longer 
-# defining compartments, but species now. The important word is "Species"
-# here, not case sensitive. The word following Species defines the default
-# comparment. Every species must be placed in a compartment. If the
-# compartment is not defined for a species, it will be placed in the 
-# default compartment. This makes it really easy to add species to 
-# multiple compartments, since you can make a list of species, copy it, and
-# simply change the default compartment on the header.
+# defining compartments, but species now. The important word is "States"
+# here, not case sensitive. The word following Species defines the
+# comparment. Every species must be placed in a compartment and it must be 
+# declared in the States header.
 
 % States v1
 
 # The format is:
 #Name  InitialAmount
-v1.x1  1e4
+x1  1e4
 
-# The full name of species is compartment.species. Here, the species is 
+# The name of species is species. Here, the species is 
 # being place in comparment v1. Compartment v1 does not need to be defined
 # yet, but it will have to be defined somewhere before you finalize the 
-# model. Because v1 is the default compartment, I could have easily written
-# this, and it would be the same:
-# x1  1e4
+# model.
 
 # The value is the initial amount of the species, not the concentration.
 # The default amount is 0, so a species can be defined with just a name.
@@ -69,12 +64,13 @@ x2
 x3  s1
 x4  s2
 
-# Amount for species in other compartments can also be defined here
-# though most people make a seperate section for each compartment
-v2.x6 
-v3.x7 1
+% States v2
+x6 
 
-# The Inputs header (starting with a "%") is the same as the Species header
+% States v3
+x7 1
+
+# The Inputs header (starting with a "%") is the same as the Staes header
 # because inputs are assigned to compartments just like states
 
 % Inputs v1
@@ -85,7 +81,7 @@ v3.x7 1
 # provided.
 # Name Default
 u4     2
-u5 5
+u5     5
 
 
 # Output headers do not take any additional parameters
@@ -100,15 +96,11 @@ y1    x=1
 # is identical to the previous line.
 # y1 x
 
-# Remember that the regular expressions match the full name of the species,
-# so including compartment names can match a subset of the species in a 
-# compartment. Do forget that "." means any character in a regular 
-# expression; use "\." to match the period after a compartment.
-y2 v1\.=1
+y2 x=1
 
 # Multiple expressions can contribute to the same output. If a species is
 # matched multiple times, the last expression prevails.
-y3 v2\.x4 u5
+y3 x4 u5
 
 # Values do not have to be integers
 y4 x3=1.2
@@ -120,18 +112,15 @@ y4 x3=1.2
 k1    1
 k2 1.3e-4
 
-# The Seeds section is just as simpel as the Parameters. There are no additional
+# The Seeds section is just as simple as the Parameters. There are no additional
 # parameters in the header.
 % Seeds
 #Name Value
 s1    1e6
 s2    20
 
-# The Reactions section takes a set of compartments that these reactions
-# take place in. If there is no compartment after "Reactions", it is
-# assumed that there is only one species with that name. These compartments
-# only apply to reactants and  products of the reaction that do not have 
-# the compartment specified.
+# The Reactions section takes no additional parameters. The format of the 
+# Reactions section is as follows.
 % Reactions v1
 #Reac1 Reac2 Prod1 Prod2 ParaFwd ParaRev Names
 x1     x2    x3    x4    k1      k2      r1 r2
@@ -146,13 +135,12 @@ x1     x2    x3    x4    k1      k2      r1 r2
 # reactions or products
 x1     0      x2   0     k2       k1
 
-# It is non necessary to provide both a reverse and forward parameter. 
+# It is not necessary to provide both a reverse and forward parameter. 
 # Irreversible reactions are defined like this.
-x3    u5     0     0     0         k1    r35
+x3    u5     0     0     k1         0    r35
 
-# Species of a specific compartment can be defined. The various compartments
-# will be tried on the other species.
-x3 v3.x7 x2 x2 k1 k1 r5 r6
+# Species in different compartment may react with each other.
+x3 x7 x2 x2 k1 k1 r5 r6
 
 # The rate parameters can also be modified with * for a specific reaction.
 # There are complicated reasons for this, but it isn't used much.

@@ -51,6 +51,34 @@ m = InitializeModel();
 a.verifyError(@()AddCompartment(m, 'test', 4, 1), 'KroneckerBio:Compartment:Dimension');
 end
 
+function [m, x0,u0] = model_with_some_species()
+m = InitializeModel();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddState(m, 'x1', 'v1', 2);
+m = AddState(m, 'x2', 'v1', 3);
+m = AddState(m, 'x3', 'v1', 5);
+m = AddState(m, 'x4', 'v1', 7);
+m = AddParameter(m, 'k1', 4);
+m = AddParameter(m, 'k2', 3);
+m = FinalizeModel(m);
+x0 = m.x0(m.s);
+u0 = vec([]);
+end
+
+function testAddReactionFwd(a)
+[m, x0, u0] = model_with_some_species();
+m = AddReaction(m, 'test', 'x1', 'x2', 'x3', '', 'k1');
+m = FinalizeModel(m);
+a.verifyEqual(m.f(0,x0,u0), [-24;-24;24;0])
+end
+
+function testAddReactionRev(a)
+[m, x0, u0] = model_with_some_species();
+m = AddReaction(m, 'test', 'x1', 'x2', 'x3', '', '', 'k2');
+m = FinalizeModel(m);
+a.verifyEqual(m.f(0,x0,u0), [15;15;-15;0])
+end
+
 function testsymbolic2PseudoKroneckerMM(a)
 syms Km kcat S0 E S P
 

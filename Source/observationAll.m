@@ -42,6 +42,7 @@ end
 function val = evaluate_states(int, t, ind)
 val = int.x(t);
 if nargin >= 3
+    ind = fixStateIndex(int, ind);
     val = val(ind,:);
 end
 end
@@ -49,6 +50,7 @@ end
 function val = evaluate_inputs(int, t, ind)
 val = int.u(t);
 if nargin >= 3
+    ind = fixInputIndex(int, ind);
     val = val(ind,:);
 end
 end
@@ -56,6 +58,7 @@ end
 function val = evaluate_outputs(int, t, ind)
 val = int.y(t);
 if nargin >= 3
+    ind = fixOutputIndex(int, ind);
     val = val(ind,:);
 end
 end
@@ -67,6 +70,7 @@ nt = numel(t);
 
 val = int.dxdT(t);
 if nargin >= 3
+    ind = fixStateIndex(int, ind);
     val = reshape(val, nx,nT*nt); % x_Tt
     val = val(ind,:); % x_Tt chopped out rows
     val = reshape(val, nnz(ind)*nT,nt); % xT_t
@@ -80,6 +84,7 @@ nt = numel(t);
 
 val = int.dudT(t);
 if nargin >= 3
+    ind = fixInputIndex(int, ind);
     val = reshape(val, nu,nT*nt); % u_Tt
     val = val(ind,:); % u_Tt chopped out rows
     val = reshape(val, nnz(ind)*nT,nt); % uT_t
@@ -93,6 +98,7 @@ nt = numel(t);
 
 val = int.dydT(t);
 if nargin >= 3
+    ind = fixOutputIndex(int, ind);
     val = reshape(val, ny,nT*nt); % y_Tt
     val = val(ind,:); % y_Tt chopped out rows
     val = reshape(val, nnz(ind)*nT,nt); % yT_t
@@ -106,6 +112,7 @@ nt = numel(t);
 
 val = int.d2xdT2(t);
 if nargin >= 3
+    ind = fixStateIndex(int, ind);
     val = reshape(val, nx,nT*nT*nt); % x_TTt
     val = val(ind,:); % x_TTt chopped out rows
     val = reshape(val, nnz(ind)*nT*nT,nt); % xTT_t
@@ -119,6 +126,7 @@ nt = numel(t);
 
 val = int.d2udT2(t);
 if nargin >= 3
+    ind = fixInputIndex(int, ind);
     val = reshape(val, nu,nT*nT*nt); % u_TTt
     val = val(ind,:); % u_TTt chopped out rows
     val = reshape(val, nnz(ind)*nT*nT,nt); % uTT_t
@@ -132,6 +140,7 @@ nt = numel(t);
 
 val = int.d2ydT2(t);
 if nargin >= 3
+    ind = fixOutputIndex(int, ind);
     val = reshape(val, ny,nT*nT*nt); % y_TTt
     val = val(ind,:); % y_TTt chopped out rows
     val = reshape(val, nnz(ind)*nT*nT,nt); % yTT_t

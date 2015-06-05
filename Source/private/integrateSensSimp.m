@@ -39,6 +39,12 @@ sol = accumulateOdeFwdSimp(der, jac, 0, tF, ic, con.Discontinuities, t_get, 1:nx
 int.Type = 'Integration.Sensitivity.Simple';
 int.Name = [m.Name ' in ' con.Name];
 
+int.x_names = vec({m.States.Name});
+int.u_names = vec({m.Inputs.Name});
+int.y_names = vec({m.Outputs.Name});
+int.k_names = vec({m.Parameters.Name});
+int.s_names = vec({m.Seeds.Name});
+
 int.nx = nx;
 int.ny = m.ny;
 int.nu = m.nu;
