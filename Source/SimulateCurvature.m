@@ -111,7 +111,6 @@ opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
-ny = m.ny;
 nk = m.nk;
 n_con = numel(con);
 n_obs = size(obs,1);
@@ -141,7 +140,7 @@ opts.AbsTol = fixAbsTol(opts.AbsTol, 3, false(n_con,1), nx, n_con, false, opts.U
 obs = fixObservation(con, obs);
 
 %% Run integration for each experiment
-sim = emptystruct(n_con, 'Type', 'Name', 't', 'y', 'x', 'dxdT', 'dudT', 'dydT', 'd2xdT2', 'd2udT2', 'd2ydT2', 'ie', 'te', 'xe', 'ue', 'ye', 'dxedT', 'duedT', 'dyedT', 'd2xedT2', 'd2uedT2', 'd2yedT2', 'int');
+sim = emptystruct([n_obs,n_con]);
 
 for i_con = 1:n_con
     % Modify opts structure
@@ -157,6 +156,6 @@ for i_con = 1:n_con
     if verbose; fprintf('done.\n'); end
     
     for i_obs = 1:n_obs
-        sim(i_obs,i_con) = pastestruct(sim(i_obs), obs(i_obs).Curvature(ints(i_obs)));
+        sim = insertstruct(sim, obs(i_obs,i_con).Curvature(ints(i_obs)), i_obs,i_con);
     end
 end

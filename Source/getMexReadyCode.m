@@ -34,8 +34,8 @@ if ~isempty(cstr)
     [indices,rctoirjc] = sortrows([rs,cs],2);
     ir = indices(:,1);
     jc = getjc(indices(:,2),n);
-    irstr = strjoin(strtrim(cellstr(int2str(ir))),',');
-    jcstr = strjoin(strtrim(cellstr(int2str(jc))),',');
+    irstr = strjoin(row(strtrim(cellstr(int2str(ir)))),',');
+    jcstr = strjoin(row(strtrim(cellstr(int2str(jc)))),',');
 
     % Reorder terms to coincide with ir-jc indices
     cstr = strtrim(strsplit(cstr,'\n'));
@@ -72,7 +72,7 @@ if ~isempty(cstr)
     cstr = regexprep(cstr,[xold;uold;kold],[xnew;unew;knew]);
     
     % Concatenate strings in cells
-    cstr = strjoin(cstr,'\n');
+    cstr = strjoin(row(cstr),'\n');
     
 else
     

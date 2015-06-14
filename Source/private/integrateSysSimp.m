@@ -10,7 +10,8 @@ u = con.u;
 [der, jac, del] = constructSystem();
 
 if ~con.SteadyState
-    ic = m.dx0ds * con.s + m.x0c;
+    order = 0;
+    ic = extractICs(m,con,opts,order);
 else
     ic = steadystateSys(m, con, opts);
 end
@@ -21,6 +22,12 @@ sol = accumulateOdeFwdSimp(der, jac, 0, tF, ic, con.Discontinuities, t_get, 1:nx
 % Work down
 int.Type = 'Integration.System.Simple';
 int.Name = [m.Name ' in ' con.Name];
+
+int.x_names = vec({m.States.Name});
+int.u_names = vec({m.Inputs.Name});
+int.y_names = vec({m.Outputs.Name});
+int.k_names = vec({m.Parameters.Name});
+int.s_names = vec({m.Seeds.Name});
 
 int.nx = nx;
 int.ny = m.ny;
@@ -59,9 +66,10 @@ int.sol = sol;
     function [der, jac, del] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
-        u    = con.u;
+        u     = con.u;
         d     = con.d;
-        dx0ds = m.dx0ds;
+        x0    = m.x0;
+        nd    = m.ns;
         
         y = m.y;
         
@@ -83,7 +91,7 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, x)
-            val = dx0ds * d(t);
+            val = x0(d(t)) - x0(zeros(nd,1));
         end
     end
 end

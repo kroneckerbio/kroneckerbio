@@ -8,7 +8,8 @@ nObj = numel(obj);
 [der, jac, del] = constructSystem();
 
 if ~con.SteadyState
-    x0 = m.dx0ds * con.s + m.x0c;
+    order = 0;
+    x0 = extractICs(m,con,opts,order);
     ic = [x0; 0];
 else
     x0 = steadystateSys(m, con, opts);
@@ -37,7 +38,8 @@ sol.h = con.h;
         dfdx  = m.dfdx;
         uf    = con.u;
         d     = con.d;
-        dx0ds = m.dx0ds;
+        x0    = m.x0;
+        nd    = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -74,7 +76,7 @@ sol.h = con.h;
 
         % Dosing
         function val = delta(t, joint)
-            val = [dx0ds * d(t); 0];
+            val = [x0(d(t)) - x0(zeros(nd,1)); 0];
         end
     end
 end

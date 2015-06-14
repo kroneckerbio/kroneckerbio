@@ -24,23 +24,9 @@ nt = numel(t_get);
 [der, jac, del] = constructSystem();
 
 if ~con.SteadyState
-    % Initial conditions [x0; vec(dxdT0)]
-    x0 = m.dx0ds * con.s + m.x0c;
-    
-    % Initial effect of rates on sensitivities is 0
-    dxdTk = zeros(nx, nTk); % Active rate parameters
-    
-    % Initial effect of seeds on states is dx0ds
-    dxdTs = m.dx0ds(:,opts.UseSeeds);
-    
-    % Initial effect of qs on sensitivities is 0
-    dxdTq = zeros(nx, nTq);
-    
-    % Initial effect of hs on sensitivities is 0
-    dxdTh = zeros(nx, nTh);
-
-    % Combine them into a vector
-    ic = [x0; vec([dxdTk, dxdTs, dxdTq, dxdTh])];
+    % Initial conditions
+    order = 1;
+    ic = extractICs(m,con,opts,order);
 else
     % Run to steady-state first
     ic = steadystateSens(m, con, opts);
@@ -52,6 +38,12 @@ sol = accumulateOdeFwdSimp(der, jac, 0, tF, ic, con.Discontinuities, t_get, 1:nx
 % Work down
 int.Type = 'Integration.Sensitivity.Simple';
 int.Name = [m.Name ' in ' con.Name];
+
+int.x_names = vec({m.States.Name});
+int.u_names = vec({m.Inputs.Name});
+int.y_names = vec({m.Outputs.Name});
+int.k_names = vec({m.Parameters.Name});
+int.s_names = vec({m.Seeds.Name});
 
 int.nx = nx;
 int.ny = m.ny;
@@ -138,7 +130,9 @@ int.sol = sol;
         dudq    = con.dudq;
         d       = con.d;
         dddh    = con.dddh;
-        dx0ds   = m.dx0ds;
+        dx0dd   = m.dx0ds;
+        x0      = m.x0;
+        nd      = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -174,9 +168,12 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, joint)
-            deltax = dx0ds * d(t);
+            d_i = d(t);
+            dx0dd_i = dx0dd(d_i);
             
-            ddeltaxdh = dx0ds * dddh(t);
+            deltax = x0(d_i) - x0(zeros(nd,1));
+            
+            ddeltaxdh = dx0dd_i * dddh(t);
             ddeltaxdT = [zeros(nx,nTk+nTs+nTq), ddeltaxdh(:,opts.UseDoseControls)];
             
             val = [deltax; vec(ddeltaxdT)];

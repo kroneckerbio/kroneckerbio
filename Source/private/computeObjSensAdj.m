@@ -59,7 +59,8 @@ for i_con = 1:n_con
         % Apply steady-state solution to initial conditions
         ic = ssSol.y(:,end);
     else
-        ic = m.dx0ds * s + m.x0c;
+        order = 0;
+        ic = extractICs(m,con(i_con),opts_i,order);
     end
     
     [tF, eve, fin] = collectObservations(m, con(i_con), obj(:,i_con));
@@ -94,9 +95,9 @@ for i_con = 1:n_con
     int_sys.dydu = m.dydu;
     
     int_sys.t = sol_sys.x;
-    int_sys.x = @(t)deval(sol_sys, t);
+    int_sys.x = @(t)devals(sol_sys, t);
     int_sys.u = con.u;
-    int_sys.y = @(t)y(t, deval(sol_sys, t), u(t));
+    int_sys.y = @(t)y(t, devals(sol_sys, t), u(t));
     
     int_sys.ie = sol_sys.ie;
     int_sys.te = sol_sys.xe;
@@ -175,7 +176,8 @@ for i_con = 1:n_con
     
     % Initial conditions
     lambda = -sol.y(1:nx,end);
-    curD(Tsind+1:Tsind+inTs) = vec(curD(Tsind+1:Tsind+inTs)) + m.dx0ds(:,UseSeeds_i).' * lambda;
+    dx0ds_val = m.dx0ds(con(i_con).s);
+    curD(Tsind+1:Tsind+inTs) = vec(curD(Tsind+1:Tsind+inTs)) + dx0ds_val(:,UseSeeds_i).' * lambda;
     
     % Add to cumulative goal value
     D = D + curD;
@@ -197,13 +199,13 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 %%%%% The system for integrating lambda and D %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructAdjointSystem()
-        dx0ds = m.dx0ds;
-        dfdx = m.dfdx;
-        dfdu = m.dfdu;
-        dfdk = m.dfdk;
-        dfdT = @dfdTSub;
-        dudq = con(i_con).dudq;
-        dddh = con(i_con).dddh;
+        dx0dd   = m.dx0ds;
+        dfdx    = m.dfdx;
+        dfdu    = m.dfdu;
+        dfdk    = m.dfdk;
+        dfdT    = @dfdTSub;
+        dudq    = con(i_con).dudq;
+        dddh    = con(i_con).dddh;
         
         der = @derivative;
         jac = @jacobian;
@@ -252,9 +254,10 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             end
             
             lambda = -joint(1:nx,end) + dGdx; % Update current lambda
+            dx0dd_i = dx0dd(d(t));
             dddh_i = dddh(t);
             dddh_i = dddh_i(:,UseDoseControls_i);
-            dose_change = dddh_i.' * dx0ds.' * lambda;
+            dose_change = dddh_i.' * dx0dd_i.' * lambda;
             dGdT = dGdT + [zeros(nTk,1); zeros(nTs,1); zeros(nTq,1); dose_change];
             
             val = [dGdx; dGdT];
@@ -309,9 +312,10 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
     end
 
     function [der, jac, del] = constructObjectiveSystem()
-        f     = m.f;
-        dfdx  = m.dfdx;
-        dx0ds = m.dx0ds;
+        f       = m.f;
+        dfdx    = m.dfdx;
+        x0      = m.x0;
+        nd      = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -348,14 +352,15 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 
         % Dosing
         function val = delta(t, joint)
-            val = [dx0ds * d(t); 0];
+            val = [x0(d(t)) - x0(zeros(nd,1)); 0];
         end
     end
 
     function [der, jac, del] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
-        dx0ds = m.dx0ds;
+        x0    = m.x0;
+        nd    = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -375,7 +380,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         
         % Dosing
         function val = delta(t, x)
-            val = dx0ds * d(t);
+            val = x0(d(t)) - x0(zeros(nd,1));
         end
     end
 end

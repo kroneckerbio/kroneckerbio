@@ -15,7 +15,8 @@ s = con.s;
 
 % V is symmetric. Only integrate the upper half of the matrix
 if ~con.SteadyState
-    x0 = m.dx0ds * s + m.x0c;
+    order = 0;
+    x0 = extractICs(m,con,opts,order);
     
     V0 = opts.V0(upperVInd);
 
@@ -40,15 +41,16 @@ sol.h = con.h;
 %%%%% The system for integrating the linear noise approximation %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructSystem()
-        S    = m.S;
-        r    = m.r;
-        drdx = m.drdx;
-        f    = m.f;
-        dfdx = m.dfdx;
-        d2fdx2 = m.d2fdx2;
-        uf    = con.u;
-        d     = con.d;
-        dx0ds = m.dx0ds;
+        S       = m.S;
+        r       = m.r;
+        drdx    = m.drdx;
+        f       = m.f;
+        dfdx    = m.dfdx;
+        d2fdx2  = m.d2fdx2;
+        uf      = con.u;
+        d       = con.d;
+        x0      = m.x0;
+        nd      = m.ns;
         
         Ix = speye(nx);
         
@@ -103,7 +105,7 @@ sol.h = con.h;
         
         % Dosing
         function val = delta(t, joint)
-            val = [dx0ds * d(t); zeros(numel(upperVInd),1)];
+            val = [x0(d(t)) - x0(zeros(nd,1)); zeros(numel(upperVInd),1)];
         end
 end
 end

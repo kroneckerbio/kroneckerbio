@@ -1,6 +1,7 @@
 fastchar := proc(f)
 begin
-    //return(coerce(f,DOM_STRING))
+    // Substitute MATLAB-style constant names for MuPAD-style constant names
+    f := subs(f, PI=pi, EULER=eulergamma, CATALAN=catalan);
     if testtype(f,Dom::Matrix()) then
         numberofterms := nops(f);
     else

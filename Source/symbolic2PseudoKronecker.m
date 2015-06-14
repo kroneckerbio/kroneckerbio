@@ -161,15 +161,20 @@ if isfield(SymModel, 'f')
         else
             rNames = repmat({''}, [nr,1]);
         end
+        
+        rprovided = true;
     else
         r = sym(zeros(0,1));
         StoichiometricMatrix = zeros(nx,0);
         StoichiometricSym = initSsym(StoichiometricMatrix);
         nr = 0;
         rNames = cell(0,1);
+        rprovided = false;
     end
 else
     % If there is no f, then r and S must be supplied
+    assert(isfield(SymModel,'r'), 'If no f is provided in SymModel, r must be provided.')
+    rprovided = true;
     r = SymModel.r;
     StoichiometricMatrix = SymModel.S;
     StoichiometricSym = initSsym(StoichiometricMatrix);
@@ -224,13 +229,22 @@ else% ~VolumeToParameter
     y = subs(y, vSyms, v);
 end
 
+% Check original symbols for reserved MuPAD names
+old_symbols_strs = fastchar([kSyms; sSyms; xSyms; uSyms]);
+reservednames = {'pi','PI','eulergamma','EULER','catalan','CATALAN'};
+for rni = 1:length(reservednames)
+    isreservedname = strcmp(old_symbols_strs,reservednames{rni});
+    if any(isreservedname)
+        warning(['A symbolic variable in the model was named ' ...
+            reservednames{rni} ', which is a reserved variable name. ' ...
+            'This can cause undesired behavior in rate expressions. ' ...
+            'It is recommended to change the symbolic variable''s name.'])
+    end
+end
+
 % Sanitize symbols
 oldSymbols = [kSyms; sSyms; xSyms; uSyms];
 newSymbols = sym('sy%dx',[nk+ns+nx+nu,1]);
-% new_symbols = sym(zeros(nk+ns+nx+nu,1));
-% for i = 1:nk+ns+nx+nu
-%     new_symbols(i) = sym(sprintf('sy%dx', i));
-% end
 
 kSyms = newSymbols(1:nk);
 sSyms = newSymbols(nk+1:nk+ns);
@@ -297,6 +311,13 @@ rhasx = exprhasvar(rstr,xStrs,nr,nx);
 rhasu = exprhasvar(rstr,uStrs,nr,nu);
 rhask = exprhasvar(rstr,kStrs,nr,nk);
 
+if ~rprovided
+    fstr = fastchar(f);
+    fhasx = exprhasvar(fstr,xStrs,nx,nx);
+    fhasu = exprhasvar(fstr,uStrs,nx,nu);
+    fhask = exprhasvar(fstr,kStrs,nx,nk);
+end
+
 yhasx = exprhasvar(ystr,xStrs,ny,nx);
 yhasu = exprhasvar(ystr,uStrs,ny,nu);
 yhask = exprhasvar(ystr,kStrs,ny,nk);
@@ -356,9 +377,15 @@ nz('y') = true(ny,1);
 nz('rx') = rhasx;
 nz('ru') = rhasu;
 nz('rk') = rhask;
-nz('fx') = logical(abs(StoichiometricMatrix)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
-nz('fu') = logical(abs(StoichiometricMatrix)*rhasu);
-nz('fk') = logical(abs(StoichiometricMatrix)*rhask);
+if rprovided
+    nz('fx') = logical(abs(StoichiometricMatrix)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
+    nz('fu') = logical(abs(StoichiometricMatrix)*rhasu);
+    nz('fk') = logical(abs(StoichiometricMatrix)*rhask);
+else
+    nz('fx') = fhasx;
+    nz('fu') = fhasu;
+    nz('fk') = fhask;
+end
 nz('yx') = yhasx;
 nz('yu') = yhasu;
 nz('yk') = yhask;
@@ -429,7 +456,7 @@ nz('xs') = x0hass;
         
     end
 
-fprintf('\n')
+if verbose; fprintf('\n'); end
 
 %% Generate derivatives of desired order
 
@@ -457,21 +484,42 @@ if order >= 1
     drdk = calcDerivative(r, kSyms, 'r', {'k'});
     if verbose; fprintf('Done.\n'); end
     
-    % Gradient of f with respect to x
-    if verbose; fprintf('Calculating dfdx...'); end
-    dfdx = StoichiometricSym*drdx;
-    if verbose; fprintf('Done.\n'); end
+    if rprovided
+        
+        % Gradient of f with respect to x
+        if verbose; fprintf('Calculating dfdx...'); end
+        dfdx = StoichiometricSym*drdx;
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of f with respect to u
+        if verbose; fprintf('Calculating dfdu...'); end
+        dfdu = StoichiometricSym*drdu;
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of f with respect to k
+        if verbose; fprintf('Calculating dfdk...'); end
+        dfdk = StoichiometricSym*drdk;
+        if verbose; fprintf('Done.\n'); end
     
-    % Gradient of f with respect to u
-    if verbose; fprintf('Calculating dfdu...'); end
-    dfdu = StoichiometricSym*drdu;
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of f with respect to k
-    if verbose; fprintf('Calculating dfdk...'); end
-    dfdk = StoichiometricSym*drdk;
-    if verbose; fprintf('Done.\n'); end
-    
+    else
+        
+        % Gradient of f with respect to x
+        if verbose; fprintf('Calculating dfdx...'); end
+        dfdx = calcDerivative(f, xSyms, 'f', {'x'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of f with respect to u
+        if verbose; fprintf('Calculating dfdu...'); end
+        dfdu = calcDerivative(f, uSyms, 'f', {'u'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of f with respect to k
+        if verbose; fprintf('Calculating dfdk...'); end
+        dfdk = calcDerivative(f, kSyms, 'f', {'k'});
+        if verbose; fprintf('Done.\n'); end
+        
+    end
+        
     % Gradient of y with respect to x
     if verbose; fprintf('Calculating dydx...'); end
     dydx = calcDerivative(y, xSyms, 'y', {'x'});
@@ -487,6 +535,11 @@ if order >= 1
     dydk = calcDerivative(y, kSyms, 'y', {'k'});
     if verbose; fprintf('Done.\n'); end
 
+    % Gradient of x0 with respect to s
+    if verbose; fprintf('Calculating dx0ds...'); end
+    dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
+    if verbose; fprintf('Done.\n'); end
+
 else
     drdx = '';
     drdk = '';
@@ -495,6 +548,7 @@ else
     dydx = '';
     dydu = '';
     dydk = '';
+    dx0ds = '';
 end
 
 if order >= 2
@@ -543,59 +597,110 @@ if order >= 2
     d2rdudk = calcDerivative(drdk, uSyms, 'r', {'k','u'});
     if verbose; fprintf('Done.\n'); end
     
-    % Gradient of dfdx with respect to x
-    if verbose; fprintf('Calculating d2fdx2...'); end
-    d2fdx2 = StoichiometricSym*reshapeDerivative(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
-    d2fdx2 = reshapeDerivative(d2fdx2, [nx*nx nx], 'f', {'x' 'x'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdu with respect to u
-    if verbose; fprintf('Calculating d2fdu2...'); end
-    d2fdu2 = StoichiometricSym*reshapeDerivative(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
-    d2fdu2 = reshapeDerivative(d2fdu2, [nx*nu,nu], 'f', {'u' 'u'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdu with respect to x
-    if verbose; fprintf('Calculating d2fdxdu...'); end
-    d2fdxdu = StoichiometricSym*reshapeDerivative(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
-    d2fdxdu = reshapeDerivative(d2fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdx with respect to u
-    if verbose; fprintf('Calculating d2fdudx...'); end
-    d2fdudx = StoichiometricSym*reshapeDerivative(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
-    d2fdudx = reshapeDerivative(d2fdudx, [nx*nx,nu], 'f', {'x' 'u'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdk with respect to k
-    if verbose; fprintf('Calculating d2fdk2...'); end
-    d2fdk2 = StoichiometricSym*reshapeDerivative(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
-    d2fdk2 = reshapeDerivative(d2fdk2, [nx*nk,nk], 'f', {'k' 'k'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdx with respect to k
-    if verbose; fprintf('Calculating d2fdkdx...'); end
-    d2fdkdx = StoichiometricSym*reshapeDerivative(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
-    d2fdkdx = reshapeDerivative(d2fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdu with respect to k
-    if verbose; fprintf('Calculating d2fdkdu...'); end
-    d2fdkdu = StoichiometricSym*reshapeDerivative(d2rdkdu, [nr,nu*nk], 'r', {'u' 'k'});
-    d2fdkdu = reshapeDerivative(d2fdkdu, [nx*nu,nk], 'f', {'u' 'k'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdk with respect to x
-    if verbose; fprintf('Calculating d2fdxdk...'); end
-    d2fdxdk = StoichiometricSym*reshapeDerivative(d2rdxdk, [nr,nk*nx], 'r', {'k' 'x'});
-    d2fdxdk = reshapeDerivative(d2fdxdk, [nx*nk,nx], 'f', {'k' 'x'});
-    if verbose; fprintf('Done.\n'); end
-    
-    % Gradient of dfdk with respect to u
-    if verbose; fprintf('Calculating d2fdudk...'); end
-    d2fdudk = StoichiometricSym*reshapeDerivative(d2rdudk, [nr,nk*nu], 'r', {'k' 'u'});
-    d2fdudk = reshapeDerivative(d2fdudk, [nx*nk,nu], 'f' ,{'k' 'u'});
-    if verbose; fprintf('Done.\n'); end
+    if rprovided
+        
+        % Gradient of dfdx with respect to x
+        if verbose; fprintf('Calculating d2fdx2...'); end
+        d2fdx2 = StoichiometricSym*reshapeDerivative(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
+        d2fdx2 = reshapeDerivative(d2fdx2, [nx*nx nx], 'f', {'x' 'x'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdu with respect to u
+        if verbose; fprintf('Calculating d2fdu2...'); end
+        d2fdu2 = StoichiometricSym*reshapeDerivative(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
+        d2fdu2 = reshapeDerivative(d2fdu2, [nx*nu,nu], 'f', {'u' 'u'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdu with respect to x
+        if verbose; fprintf('Calculating d2fdxdu...'); end
+        d2fdxdu = StoichiometricSym*reshapeDerivative(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
+        d2fdxdu = reshapeDerivative(d2fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdx with respect to u
+        if verbose; fprintf('Calculating d2fdudx...'); end
+        d2fdudx = StoichiometricSym*reshapeDerivative(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
+        d2fdudx = reshapeDerivative(d2fdudx, [nx*nx,nu], 'f', {'x' 'u'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdk with respect to k
+        if verbose; fprintf('Calculating d2fdk2...'); end
+        d2fdk2 = StoichiometricSym*reshapeDerivative(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
+        d2fdk2 = reshapeDerivative(d2fdk2, [nx*nk,nk], 'f', {'k' 'k'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdx with respect to k
+        if verbose; fprintf('Calculating d2fdkdx...'); end
+        d2fdkdx = StoichiometricSym*reshapeDerivative(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
+        d2fdkdx = reshapeDerivative(d2fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdu with respect to k
+        if verbose; fprintf('Calculating d2fdkdu...'); end
+        d2fdkdu = StoichiometricSym*reshapeDerivative(d2rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
+        d2fdkdu = reshapeDerivative(d2fdkdu, [nx*nu,nk], 'f',{'u' 'k'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdk with respect to x
+        if verbose; fprintf('Calculating d2fdxdk...'); end
+        d2fdxdk = StoichiometricSym*reshapeDerivative(d2rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
+        d2fdxdk = reshapeDerivative(d2fdxdk, [nx*nk,nx], 'f',{'k' 'x'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdk with respect to u
+        if verbose; fprintf('Calculating d2fdudk...'); end
+        d2fdudk = StoichiometricSym*reshapeDerivative(d2rdudk, [nr,nk*nu], 'r',{'k' 'u'});
+        d2fdudk = reshapeDerivative(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
+        if verbose; fprintf('Done.\n'); end
+        
+    else
+        
+        % Gradient of dfdx with respect to x
+        if verbose; fprintf('Calculating d2fdx2...'); end
+        d2fdx2 = calcDerivative(dfdx, xSyms, 'f', {'x','x'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdu with respect to u
+        if verbose; fprintf('Calculating d2fdu2...'); end
+        d2fdu2 = calcDerivative(dfdu, uSyms, 'f', {'u','u'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdu with respect to x
+        if verbose; fprintf('Calculating d2fdxdu...'); end
+        d2fdxdu = calcDerivative(dfdu, xSyms, 'f', {'u','x'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdx with respect to u
+        if verbose; fprintf('Calculating d2fdudx...'); end
+        d2fdudx = calcDerivative(dfdx, uSyms, 'f', {'x','u'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdk with respect to k
+        if verbose; fprintf('Calculating d2fdk2...'); end
+        d2fdk2 = calcDerivative(dfdk, kSyms, 'f', {'k','k'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdx with respect to k
+        if verbose; fprintf('Calculating d2fdkdx...'); end
+        d2fdkdx = calcDerivative(dfdx, kSyms, 'f', {'x','k'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdu with respect to k
+        if verbose; fprintf('Calculating d2fdkdu...'); end
+        d2fdkdu = calcDerivative(dfdu, kSyms, 'f', {'u','k'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdk with respect to x
+        if verbose; fprintf('Calculating d2fdxdk...'); end
+        d2fdxdk = calcDerivative(dfdk, xSyms, 'f', {'k','x'});
+        if verbose; fprintf('Done.\n'); end
+
+        % Gradient of dfdk with respect to u
+        if verbose; fprintf('Calculating d2fdudk...'); end
+        d2fdudk = calcDerivative(dfdk, uSyms, 'f', {'k','u'});
+        if verbose; fprintf('Done.\n'); end
+        
+    end
     
     % Output's second derivatives
     if verbose; fprintf('Calculating d2ydx2...'); end
@@ -633,6 +738,11 @@ if order >= 2
     if verbose; fprintf('Calculating d2ydudk...'); end
     d2ydudk = calcDerivative(dydk, uSyms, 'y', {'k','u'});
     if verbose; fprintf('Done.\n'); end
+
+    if verbose; fprintf('Calculating d2x0ds2...'); end
+    d2x0ds2 = calcDerivative(dx0ds, sSyms, 'x', {'s','s'});
+    if verbose; fprintf('Done.\n'); end
+    
 else
     d2rdx2  = '';
     d2rdu2  = '';
@@ -661,14 +771,15 @@ else
     d2ydkdu = '';
     d2ydxdk = '';
     d2ydudk = '';
+    d2x0ds2 = '';
 end
 
 if order >= 3
     %Gradient of d2rdx2 with respect to x
-    d3rdx3 = calcDerivative(vec(d2rdx2), xSyms, 'r', {'x','x','x'});
+    d3rdx3 = calcDerivative(d2rdx2, xSyms, 'r', {'x','x','x'});
     
     %Gradient of d2rdx2 with respect to k
-    d3rdkdx2 = calcDerivative(vec(d2rdx2), kSyms, 'r', {'x','x','k'});
+    d3rdkdx2 = calcDerivative(d2rdx2, kSyms, 'r', {'x','x','k'});
     
     %Gradient of d2fdx2 with respect to x
     d3fdx3 = StoichiometricSym*reshapeDerivative(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
@@ -677,52 +788,58 @@ if order >= 3
     %Gradient of d2fdx2 with respect to k
     d3fdkdx2 = StoichiometricSym*reshapeDerivative(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
     d3fdkdx2 = reshapeDerivative(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
+    
+    % Gradient of d2x0ds2 with respect to s
+    d3x0ds3 = calcDerivative(d2x0ds2, sSyms, 'x', {'s','s','s'});
 else
     d3rdx3   = '';
     d3rdkdx2 = '';
     d3fdx3   = '';
     d3fdkdx2 = '';
+    d3x0ds3  = '';
 end
 
 %% Extract seed information
 
-% Take derivative of initial condition expressions with respect to seed
-% parameters
-dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
+initial_values = fastchar(fastsubs(x0,sSyms,sNames));
 
-% Convert nonzero terms to doubles (we currently expect only linear
-% combinations of seeds with added constant factors for each x0)
-dx0ds_logical = getNonZeroEntries('x','s');
-dx0ds_index = find(dx0ds_logical(:));
-dx0ds_nz = double(dx0ds(dx0ds_index));
+% % Take derivative of initial condition expressions with respect to seed
+% % parameters
+% dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
+%
+% % Convert nonzero terms to doubles (we currently expect only linear
+% % combinations of seeds with added constant factors for each x0)
+% dx0ds_logical = getNonZeroEntries('x','s');
+% dx0ds_index = find(dx0ds_logical(:));
+% dx0ds_nz = double(dx0ds(dx0ds_index));
+% 
+% % Initialize sparse matrix with these double values
+% [dx0ds_i,dx0ds_j] = find(dx0ds_logical);
+% dx0ds = sparse(dx0ds_i,dx0ds_j,dx0ds_nz,nx,ns);
+% 
+% % Calculate constant terms of ICs by setting seeds to 0
+% x0c = double(fastsubs(x0,sSyms,zeros(size(sSyms))));
+% 
+% % Store information about seeds and ICs
+% initial_values = cell(nx,1);
+% for ix = 1:nx
+%     % Add constant value first
+%     if x0c(ix)
+%         values_i = {'', x0c(ix)};
+%     else
+%         values_i = cell(0,2);
+%     end
+%     
+%     % Append seed parameters
+%     nonzero_seed_indexes = logical(dx0ds(ix,:));
+%     values_i = [values_i; 
+%                 vec(sStrs(nonzero_seed_indexes)), vec(num2cell(dx0ds(ix,nonzero_seed_indexes)))];
+%     
+%     % Store values
+%     initial_values{ix} = values_i;
+% end
 
-% Initialize sparse matrix with these double values
-[dx0ds_i,dx0ds_j] = find(dx0ds_logical);
-dx0ds = sparse(dx0ds_i,dx0ds_j,dx0ds_nz,nx,ns);
-
-% Calculate constant terms of ICs by setting seeds to 0
-x0c = double(fastsubs(x0,sSyms,zeros(size(sSyms))));
-
-% Store information about seeds and ICs
-initial_values = cell(nx,1);
-for ix = 1:nx
-    % Add constant value first
-    if x0c(ix)
-        values_i = {'', x0c(ix)};
-    else
-        values_i = cell(0,2);
-    end
-    
-    % Append seed parameters
-    nonzero_seed_indexes = logical(dx0ds(ix,:));
-    values_i = [values_i; 
-                vec(sStrs(nonzero_seed_indexes)), vec(num2cell(dx0ds(ix,nonzero_seed_indexes)))];
-    
-    % Store values
-    initial_values{ix} = values_i;
-end
-
-%% Replace symbolic names with systematic
+%% Convert symbolic expressions to function handles
 
 if opts.UseMEX
     symbolic2stringmethod = 'mex';
@@ -738,6 +855,7 @@ if verbose; fprintf('Converting symbolics to functions...\n'); end
 f        = symbolic2function(f, 'f', {});
 r        = symbolic2function(r, 'r', {});
 y        = symbolic2function(y, 'y', {});
+x0       = symbolic2function(x0, 'x', {});
 
 if order >= 1
 %%% For now, models will only contain constant default values of inputs %%%
@@ -754,6 +872,8 @@ if order >= 1
     dydx     = symbolic2function(dydx, 'y', 'x');
     dydu     = symbolic2function(dydu, 'y', 'u');
     dydk     = symbolic2function(dydk, 'y', 'k');
+    
+    dx0ds    = symbolic2function(dx0ds, 'x', 's');
 end
 
 if order >= 2
@@ -786,11 +906,15 @@ if order >= 2
     d2ydkdu  = symbolic2function(d2ydkdu, 'y', {'u' 'k'});
     d2ydxdk  = symbolic2function(d2ydxdk, 'y', {'k' 'x'});
     d2ydudk  = symbolic2function(d2ydudk, 'y', {'k' 'u'});
+    
+    d2x0ds2  = symbolic2function(d2x0ds2, 'x', {'s' 's'});
 end
 
 if order >= 3
     d3fdx3   = symbolic2function(d3fdx3, 'f', {'x' 'x' 'x'});
     d3fdkdx2 = symbolic2function(d3fdkdx2, 'f', {'x' 'x' 'k'});
+    
+    d3x0ds3  = symbolic2function(d3x0ds3, 'x', {'s' 's' 's'});
 end
 
 if verbose; fprintf('   ...done.\n'); end
@@ -798,7 +922,7 @@ if verbose; fprintf('   ...done.\n'); end
 %% Set up model structure
 
 % Clear unnecessary variables from scope
-clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms x0 ...
+clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms ...
     vStrs kStrs sStrs qStrs xuStrs xStrs uStrs ...
     xNamesFull uNamesFull vxNames vuNames ...
     C1Entries C1Values C2Entries C2Values cEntries cValues ...
@@ -841,8 +965,7 @@ m.ny = ny;
 m.dv = dv;
 m.k  = k;
 m.s  = s;
-m.dx0ds = dx0ds;
-m.x0c = x0c;
+%m.x0c = x0c;
 
 %%% For now, models will only contain constant default values of inputs %%%
 % m.u    = setfun_u(u,q);
@@ -929,8 +1052,21 @@ if order >= 2
     m.d2ydudk   = setfun_y(d2ydudk,false,k,ny);
 end
 
+m.x0            = x0;
+
+if order >= 1
+    m.dx0ds     = dx0ds;
+end
+
+if order >= 2
+    m.d2x0ds2   = d2x0ds2;
+end
+
+if order >= 3
+    m.d3x0ds3   = d3x0ds3;
+end
+
 m.Ready  = true;
-%m.add
 m.Update = @update;
 
 if verbose; fprintf('done.\n'); end
@@ -1044,6 +1180,14 @@ if verbose; fprintf('done.\n'); end
                 
             case 'mex'
 
+                % Don't create MEX functions for x0 functions, because they
+                % aren't called very many times
+                if strcmp(num,'x')
+                    string_rep = symbolic2string(dsym, num, dens);
+                    fun = string2fun(string_rep, num, dens);
+                    return
+                end
+                
                 % Prepare inputs to C code generation function
                 nzlogical = getNonZeroEntries(num, dens);
                 nzi = cell(ndims(nzlogical),1);
@@ -1073,6 +1217,7 @@ if verbose; fprintf('done.\n'); end
                 return
             else
                 string_rep = ['[],[],[],' dsymsize{1} ',' dsymsize{2}];
+                return
             end
         end
         
@@ -1106,9 +1251,7 @@ if verbose; fprintf('done.\n'); end
             
             % Write sparse initialization string, which will fit in the
             % following expression:
-            % '@(t,x,u,k) inf2big(nan2zero(sparse([' STRING_REP '])))'
-            % To fit this expression, note the square brackets are left off the
-            % left and right sides of string_rep.
+            % '@(t,x,u,k) sparse(' STRING_REP ')'
             string_rep = sprintf(['[' isubstring '],[' jsubstring '],[' strelements '],[' num2str(varsizes(1)) '],[' num2str(varsizes(2)) ']']);
             
         end
@@ -1135,7 +1278,14 @@ if verbose; fprintf('done.\n'); end
             kindexstring = textscan(kindexstring,'%s','Delimiter','\n');
             kindexstring = kindexstring{1};
         end
-        string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs], [xindexstring; uindexstring; kindexstring], 0);
+        if ns == 0
+            sindexstring = {};
+        else
+            sindexstring = sprintf('s(%d)\n', 1:ns);
+            sindexstring = textscan(sindexstring,'%s','Delimiter','\n');
+            sindexstring = sindexstring{1};
+        end
+        string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs; sStrs], [xindexstring; uindexstring; kindexstring; sindexstring], 0);
         
     end         
 
@@ -1237,17 +1387,29 @@ if verbose; fprintf('done.\n'); end
 
 end
 
-function fun = string2fun(string_rep, ~, dens)
+function fun = string2fun(string_rep, num, dens)
 % Note that string2fun is a subfunction instead of a nested function to
 % prevent the anonymous functions created here from saving copies of
 % the primary function workspace variables.
 
-% Set up the function handle by evaluating the string
-if isempty(dens)
-    fun = eval(['@(t,x,u,k) [' string_rep ']']);
+% If the dependent variable is x0, the input argument is s. Otherwise,
+% t,x,u,k.
+if strcmp(num,'x')
+    inputargstr = 's';
 else
-    fun = eval(['@(t,x,u,k) sparse(' string_rep ')']);
+    inputargstr = 't,x,u,k';
 end
+
+% If this isn't a derivative (no independent variables specified), make a
+% full array. Otherwise make a sparse array.
+if isempty(dens)
+    sparsestr = {'[' ']'};
+else
+    sparsestr = {'sparse(' ')'};
+end
+
+% Set up the function handle
+fun = eval(['@(' inputargstr ') ' sparsestr{1} string_rep sparsestr{2}]);
 
 % Convert function to and from function handle to ensure that
 % MATLAB recognizes and stores the workspace for the anonymous

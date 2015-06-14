@@ -34,26 +34,8 @@ d2ydudx = m.d2ydudx;
 [der, jac, del] = constructSystem();
 
 if ~con.SteadyState
-    % Initial conditions [x0; vec(dxdT0)]
-    x0 = m.dx0ds * con.s + m.x0c;
-    
-    % Initial effect of rates on sensitivities is 0
-    dx0dTk = zeros(nx, nTk); % Active rate parameters
-    
-    % Initial effect of seeds on states is dx0ds
-    dx0dTs = m.dx0ds(:,opts.UseSeeds);
-    
-    % Initial effect of qs on sensitivities is 0
-    dx0dTq = zeros(nx, nTq);
-    
-    % Initial effect of hs on sensitivities is 0
-    dx0dTh = zeros(nx, nTh);
-
-    % Initial curavtures are zero
-    d2x0dT2 = zeros(nx*nT*nT,1);
-    
-    % Combine them into a vector
-    ic = [x0; vec([dx0dTk, dx0dTs, dx0dTq, dx0dTh]); d2x0dT2];
+    order = 2;
+    ic = extractICs(m,con,opts,order);
 else
     % Run to steady-state first
     ic = steadystateCurv(m, con, opts);
@@ -65,6 +47,12 @@ sol = accumulateOdeFwdComp(der, jac, 0, tF, ic, con.Discontinuities, 1:nx, opts.
 % Work down
 int.Type = 'Integration.Curvature.Complex';
 int.Name = [m.Name ' in ' con.Name];
+
+int.x_names = vec({m.States.Name});
+int.u_names = vec({m.Inputs.Name});
+int.y_names = vec({m.Outputs.Name});
+int.k_names = vec({m.Parameters.Name});
+int.s_names = vec({m.Seeds.Name});
 
 int.nx = nx;
 int.ny = m.ny;
@@ -180,7 +168,12 @@ int.sol = sol;
         d       = con.d;
         dddh    = con.dddh;
         d2ddh2  = con.d2ddh2;
-        dx0ds   = m.dx0ds;
+        x0      = m.x0;
+        dx0dd   = m.dx0ds;
+        d2x0dd2 = m.d2x0ds2;
+        
+        nd      = ns;
+        
         
         der = @derivative;
         jac = @jacobian;
@@ -253,17 +246,30 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, joint)
-            deltax = dx0ds * d(t);
+            % Get d and derivatives of x0 wrt d at requested time
+            d_i = d(t);
+            dx0dd_i = dx0dd(d_i);
+            d2x0dd2_i = d2x0dd2(d_i);
+            
+            % Get change in x from dose
+            deltax = x0(d_i) - x0(zeros(nd,1));
             
             % dxdh = dxdd *{d.d} dddh
             dddh_i = dddh(t); % s_h
-            dxdTh = dx0ds * dddh_i(:,opts.UseDoseControls); % x_s * (s_h -> s_H) -> x_H
+            dxdTh = dx0dd_i * dddh_i(:,opts.UseDoseControls); % x_s * (s_h -> s_H) -> x_H
             dxdT = [zeros(nx,nTk+nTs+nTq), dxdTh];
             
             % d2xdh2 = (dxdd2dd1 *{d.d} dd2dh2) *{d.d} dddh1 + dxdd *{d.d} d2ddh2dh1
-            % Currently, first term is gauranteed to be zero because x0 is linear
             d2dh2_i = d2ddh2(t); %sh_h
-            d2xTh2 = dx0ds * reshape(d2dh2_i(dhUseDoseControls, opts.UseDoseControls), ns,nTh*nTh); % x_s * (sh_h -> sH_H -> s_HH) -> x_HH
+            d2xTh2 = ...
+                reshape(...
+                        spermute132(...
+                            d2x0dd2_i*dddh_i(:,opts.UseDoseControls),...    % xd_d -> xd_H
+                        [nx nd nTh],[nx*nTh nd])...                         % -> xH_d
+                    *dddh_i(:,opts.UseDoseControls),...                     % -> xH_H
+                nx,nTh*nTh)...                                              % -> x_HH
+            +...
+                dx0dd_i * reshape(d2dh2_i(dhUseDoseControls, opts.UseDoseControls), nd,nTh*nTh); % x_s * (sh_h -> sH_H -> s_HH) -> x_HH
             d2xdT2 = [sparse(nx*(nTk+nTs+nTq),nT); sparse(nx*nTh,nTk+nTs+nTq), reshape(d2xTh2, [nx*nTh,nTh])];
             
             val = [deltax; vec(dxdT); vec(d2xdT2)];
@@ -314,28 +320,15 @@ int.sol = sol;
     end
 
     function val = evaluate_state(sol, t)
-        if ~isempty(t)
-            val = deval(sol, t, 1:nx);
-        else
-            val = zeros(nx,0);
-        end
+        val = devals(sol, t, 1:nx);
     end
 
     function val = evaluate_output(sol, t)
-        if ~isempty(t)
-            val = y(t, deval(sol, t, 1:nx), u(t));
-        else
-            val = zeros(ny,0);
-        end
+        val = y(t, devals(sol, t, 1:nx), u(t));
     end
 
     function val = evaluate_state_sensitivity(sol, t)
-        % Deval croaks on empty t
-        if ~isempty(t)
-            val = deval(sol, t, dxdTStart:dxdTEnd);
-        else
-            val = zeros(nx*nT,0);
-        end
+        val = devals(sol, t, dxdTStart:dxdTEnd);
     end
 
     function val = evaluate_input_sensitivity(t)
@@ -363,11 +356,7 @@ int.sol = sol;
     end
 
     function val = evaluate_state_curvature(sol, t)
-        if ~isempty(t)
-            val = deval(sol, t, d2xdT2Start:d2xdT2End);
-        else
-            val = zeros(nx*nT,0);
-        end
+        val = devals(sol, t, d2xdT2Start:d2xdT2End);
     end
 
     function val = evaluate_input_curvature(t)

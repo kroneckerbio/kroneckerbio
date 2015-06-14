@@ -41,6 +41,15 @@ obs = observationEvents(6, [eve1;eve2]);
 verifySensitivityEvent(a, m, con, obs, opts)
 end
 
+function testSimulateSensitivityMichaelisMenten(a)
+[m, con, ~, opts] = michaelis_menten_model();
+m = m.Update(rand(m.nk,1)+m.k+1);
+con = con.Update(rand(con.ns,1)+con.s+1, rand(con.nq,1)+con.q+1, rand(con.nh,1)+con.h+1);
+tGet = 1:10;
+
+verifySensitivity(a, m, con, tGet, opts)
+end
+
 function verifySensitivity(a, m, con, tGet, opts)
 obsSelect = observationSelect(tGet);
 

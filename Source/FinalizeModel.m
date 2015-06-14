@@ -23,7 +23,7 @@ function m = FinalizeModel(m)
 %   Outputs
 %   m: [ model struct scalar ]
 
-% (c) 2014 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
@@ -48,7 +48,7 @@ m.Compartments = [m.Compartments; m.add.Compartments(1:nvNew)];
 % Update count
 nv = numel(m.Compartments);
 m.nv = nv;
-vNames = vec({m.Compartments.Name});
+v_names = vec({m.Compartments.Name});
 
 %% Place seeds
 nsNew = m.add.ns;
@@ -68,23 +68,21 @@ m.Seeds = [m.Seeds; m.add.Seeds(1:nsNew)];
 % Update count
 ns = numel(m.Seeds);
 m.ns = ns;
-sNames = {m.Seeds.Name};
+s_names = {m.Seeds.Name};
 
 %% Place inputs
 nuNew = m.add.nu;
 
 % Assemble full names of states
-existing_full_names = strcat(vec({m.Inputs.Compartment}), '.', vec({m.Inputs.Name}));
-new_full_names = strcat(vec({m.add.Inputs.Compartment}), '.', vec({m.add.Inputs.Name}));
+existing_names = vec({m.Inputs.Name});
+new_names = vec({m.add.Inputs(1:nuNew).Name});
 
 % Check if a state by this name already exists
 for iu = 1:nuNew
-    compartment = m.add.Inputs(iu).Compartment;
     name = m.add.Inputs(iu).Name;
-    full_name = [compartment '.' name];
     
-    if any(strcmp(full_name, [existing_full_names, new_full_names(1:iu-1)]))
-        error('KroneckerBio:FinalizeModel:RepeatInput', 'There is already an input with the name %s in compartment %s (new input #%i)', name, compartment, iu)
+    if any(strcmp(name, [existing_names, new_names(1:iu-1)]))
+        error('KroneckerBio:FinalizeModel:RepeatSpecies', 'There is already an species with the name %s (new input #%i)', name, iu)
     end
 end
 
@@ -94,24 +92,22 @@ m.Inputs = [m.Inputs; m.add.Inputs(1:nuNew)];
 % Update count
 nu = numel(m.Inputs);
 m.nu = nu;
-uNamesFull = [existing_full_names; new_full_names];
-m.vuInd = lookup(vec({m.Inputs.Compartment}), vNames);
+u_names = [existing_names; new_names];
+m.vuInd = lookup(vec({m.Inputs.Compartment}), v_names);
 
 %% Place states
 nxNew = m.add.nx;
 
 % Assemble full names of states
-existing_full_names = strcat(vec({m.States.Compartment}), '.', vec({m.States.Name}));
-new_full_names = strcat(vec({m.add.States.Compartment}), '.', vec({m.add.States.Name}));
+existing_names = vec({m.States.Name});
+new_names = vec({m.add.States(1:nxNew).Name});
 
 % Check if a state by this name already exists
 for ix = 1:nxNew
-    compartment = m.add.States(ix).Compartment;
     name = m.add.States(ix).Name;
-    full_name = [compartment '.' name];
     
-    if any(strcmp(full_name, [existing_full_names; new_full_names(1:ix-1)]))
-        error('KroneckerBio:FinalizeModel:RepeatState', 'There is already a state with the name %s in compartment %s (new state #%i)', name, compartment, ix)
+    if any(strcmp(name, [u_names; existing_names; new_names(1:ix-1)]))
+        error('KroneckerBio:FinalizeModel:RepeatSpecies', 'There is already a species with the name %s (new state #%i)', name, ix)
     end
 end
 
@@ -120,9 +116,9 @@ m.States = [m.States; m.add.States(1:nxNew)];
 
 % Update count
 nx = numel(m.States);
-xNamesFull = [existing_full_names; new_full_names];
 m.nx = nx;
-m.vxInd = lookup(vec({m.States.Compartment}), vNames);
+x_names = [existing_names; new_names];
+m.vxInd = lookup(vec({m.States.Compartment}), v_names);
 
 %% Place outputs
 nyNew = m.add.ny;
@@ -161,84 +157,38 @@ m.Parameters = [m.Parameters; m.add.Parameters(1:nkNew)];
 % Update count
 nk = numel(m.Parameters);
 m.nk = nk;
-kNames = vec({m.Parameters.Name});
+k_names = vec({m.Parameters.Name});
 
 %% Place reactions
-xuNamesFull = [uNamesFull; xNamesFull];
+xu_names = [x_names; u_names];
 
 nrNew = m.add.nr; % Number of reaction specifications
-new_reactions = emptyReactions(nrNew);
 
 % Loop over added reaction specifications
 for ir = 1:nrNew
-    % Possible compartments as a cell vector of strings
-    if isempty(m.add.Reactions(ir).Compartment)
-        possible_comp = vNames;
-    else
-        possible_comp = m.add.Reactions(ir).Compartment;
-    end
+    n_reac = numel(m.add.Reactions(ir).Reactants);
+    n_prod = numel(m.add.Reactions(ir).Products);
     
-    nReac = numel(m.add.Reactions(ir).Reactants);
-    nProd = numel(m.add.Reactions(ir).Products);
-    
-    % Find full name for each reactant
-    full_reactant_names = cell(nReac,1);
-    for iReac = 1:nReac
-        incomplete_name = m.add.Reactions(ir).Reactants{iReac};
-        if any(incomplete_name == '.')
-            assert(nnz(strcmp(incomplete_name, xuNamesFull)) == 1, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iReac)
-
-            full_reactant_names{iReac} = incomplete_name;
-        else
-            potential_full_names = strcat(possible_comp, '.', incomplete_name);
-            species_index = lookup(xuNamesFull, potential_full_names);
-            
-            if nnz(species_index) < 1
-                error('KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iReac)
-            elseif nnz(species_index) > 1
-                error('KroneckerBio:FinalizeModel:AmbiguousReactant', 'Reaction %s (#%i) has reactant %s (#%i), which is a species in several compartments so it is ambiguous as to which one should be applied', m.add.Reactions(ir).Name, ir, incomplete_name, iReac)
-            end
-            
-            full_reactant_names{iReac} = xuNamesFull{logical(species_index)};
-        end
+    % Check name for each reactant
+    for i_reac = 1:n_reac
+        name = m.add.Reactions(ir).Reactants{i_reac};
+        assert(lookup(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
     end
 
     % Find full name for each product
-    full_product_names = cell(nProd,1);
-    for iProd = 1:nProd
-        incomplete_name = m.add.Reactions(ir).Products{iProd};
-        if any(incomplete_name == '.')
-            assert(nnz(strcmp(incomplete_name, xuNamesFull)) == 1, 'KroneckerBio:FinalizeModel:ProductNotFound', 'Reaction %s (#%i) has product %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iProd)
-
-            full_product_names{iProd} = incomplete_name;
-        else
-            potential_full_names = strcat(possible_comp, '.', incomplete_name);
-            species_index = lookup(xuNamesFull, potential_full_names);
-            
-            if nnz(species_index) < 1
-                error('KroneckerBio:FinalizeModel:ProductNotFound', 'Reaction %s (#%i) has product %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, incomplete_name, iProd)
-            elseif nnz(species_index) > 1
-                error('KroneckerBio:FinalizeModel:AmbiguousProduct', 'Reaction %s (#%i) has product %s (#%i), which is a species in several compartments so it is ambiguous as to which one should be applied', m.add.Reactions(ir).Name, ir, incomplete_name, iProd)
-            end
-            
-            full_product_names{iProd} = xuNamesFull{logical(species_index)};
-        end
+    for i_prod = 1:n_prod
+        name = m.add.Reactions(ir).Products{i_prod};
+        assert(lookup(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
     end
-    
-    % Add new reaction to model
-    new_reactions(ir).Name = m.add.Reactions(ir).Name;
-    new_reactions(ir).Reactants = row(full_reactant_names);
-    new_reactions(ir).Products = row(full_product_names);
-    new_reactions(ir).Parameter = m.add.Reactions(ir).Parameter;
 end
 
 % Append new items
-m.Reactions = [m.Reactions; new_reactions];
+m.Reactions = [m.Reactions; m.add.Reactions(1:nrNew)];
 
 % Update count
 nr = numel(m.Reactions);
 m.nr = nr;
-rNames = vec({m.Reactions.Name});
+r_names = vec({m.Reactions.Name});
 
 %% Warn on repeated reactions
 % It is necessary to sort the reactants and products first so that
@@ -257,7 +207,7 @@ for ir = 1:nr
                 strcmp(sorted_reactions{ir}{3}{1}, sorted_reactions{jr}{3}{1}) && ...
                 sorted_reactions{ir}{3}{2} == sorted_reactions{jr}{3}{2} && ...
                 strcmp(sorted_reactions{ir}{4}, sorted_reactions{jr}{4})
-            warning('KroneckerBio:FinalizeModel:IdenticalReactions', 'Reaction %s (#%i) is identical to reaction %s (#%i)', rNames{ir}, ir, rNames{jr}, jr)
+            warning('KroneckerBio:FinalizeModel:IdenticalReactions', 'Reaction %s (#%i) is identical to reaction %s (#%i)', r_names{ir}, ir, r_names{jr}, jr)
         end
     end
 end
@@ -301,7 +251,7 @@ for iv = 1:nv
         nExpr = size(m.Compartments(iv).Size,1);
         for iExpr = 1:nExpr
             % Find states that match the expression
-            match = find(~cellfun(@isempty, regexp(xNamesFull, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            match = find(~cellfun(@isempty, regexp(x_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
             nAdd = numel(match);
             nB1Entries = nB1Entries + nAdd;
             
@@ -319,7 +269,7 @@ for iv = 1:nv
             B1Values(nB1Entries-nAdd+1:nB1Entries) = m.Compartments(iv).Size{iExpr,2};
             
             % Find inputs that match the expression
-            match = find(~cellfun(@isempty, regexp(uNamesFull, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            match = find(~cellfun(@isempty, regexp(u_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
             nAdd = numel(match);
             nB2Entries = nB2Entries + nAdd;
             
@@ -412,8 +362,8 @@ for ix = 1:nx
     
     % Add seed entries
     for i = 1:size(seed_value,1)
-        seed_index = find(strcmp(seed_value{i,1}, sNames));
-        assert(numel(seed_index) == 1, 'KroneckerBio:FinalizeModel:InvalidSeedName', ['Species ' xNamesFull{ix} ' has an invalid seed ' seed_value])
+        seed_index = find(strcmp(seed_value{i,1}, s_names));
+        assert(numel(seed_index) == 1, 'KroneckerBio:FinalizeModel:InvalidSeedName', ['Species ' x_names{ix} ' has an invalid seed ' seed_value{i,1}])
         
         ndx0dsEntries = ndx0dsEntries + 1;
         
@@ -434,8 +384,12 @@ end
 dx0dsEntries = dx0dsEntries(1:ndx0dsEntries,:);
 dx0dsValues = dx0dsValues(1:ndx0dsEntries);
 
-m.dx0ds = sparse(dx0dsEntries(:,1), dx0dsEntries(:,2), dx0dsValues, m.nx, m.ns);
-m.x0c = constant_state_IC;
+dx0ds_val = sparse(dx0dsEntries(:,1), dx0dsEntries(:,2), dx0dsValues, m.nx, m.ns);
+x0c = constant_state_IC;
+
+m.x0 = @x0;
+m.dx0ds = @dx0ds;
+m.d2x0ds2 = @d2x0ds2;
 
 %% Process inputs
 % Condense time varying inputs into u(t) function
@@ -458,7 +412,7 @@ for iy = 1:ny
     nExpr = size(m.Outputs(iy).Expressions,1);
     for iExpr = 1:nExpr
         % Find states that match the expression
-        match = find(~cellfun(@isempty, regexp(xNamesFull, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
+        match = find(~cellfun(@isempty, regexp(x_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
         nAdd = numel(match);
         nC1Entries = nC1Entries + nAdd;
         
@@ -476,7 +430,7 @@ for iy = 1:ny
         C1Values(nC1Entries-nAdd+1:nC1Entries) = m.Outputs(iy).Expressions{iExpr,2};
         
         % Find inputs that match the expression
-        match = find(~cellfun(@isempty, regexp(uNamesFull, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
+        match = find(~cellfun(@isempty, regexp(u_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
         nAdd = numel(match);
         nC2Entries = nC2Entries + nAdd;
         
@@ -577,49 +531,49 @@ dddkValues   = zeros(0,1);
 
 for ir = 1:nr
     % Determine reaction type and species indexes
-    nReac = numel(m.Reactions(ir).Reactants);
-    nProd = numel(m.Reactions(ir).Products);
-    reactants          = zeros(nReac,1);
-    reactantsExist     = false(nReac,1);
-    reactantsAreStates = false(nReac,1);
-    products           = zeros(nProd,1);
-    productsAreStates  = false(nProd,1);
-    for iReac = 1:nReac
-        if isempty(m.Reactions(ir).Reactants{iReac})
-            reactantsExist(iReac) = false;
+    n_reac = numel(m.Reactions(ir).Reactants);
+    n_prod = numel(m.Reactions(ir).Products);
+    reactants          = zeros(n_reac,1);
+    reactantsExist     = false(n_reac,1);
+    reactantsAreStates = false(n_reac,1);
+    products           = zeros(n_prod,1);
+    productsAreStates  = false(n_prod,1);
+    for i_reac = 1:n_reac
+        if isempty(m.Reactions(ir).Reactants{i_reac})
+            reactantsExist(i_reac) = false;
         else
-            reactantsExist(iReac) = true;
-            reactantsAreStates(iReac) = true;
-            temp = find(strcmp(m.Reactions(ir).Reactants(iReac), xNamesFull), 1);
+            reactantsExist(i_reac) = true;
+            reactantsAreStates(i_reac) = true;
+            temp = find(strcmp(m.Reactions(ir).Reactants(i_reac), x_names), 1);
             if ~isempty(temp)
                 % Store index to state species
-                reactants(iReac) = temp;
-                reactantsAreStates(iReac) = true;
+                reactants(i_reac) = temp;
+                reactantsAreStates(i_reac) = true;
             else
                 % Store index to input species
-                reactants(iReac) = find(strcmp(m.Reactions(ir).Reactants(iReac), uNamesFull), 1);
-                reactantsAreStates(iReac) = false;
+                reactants(i_reac) = find(strcmp(m.Reactions(ir).Reactants(i_reac), u_names), 1);
+                reactantsAreStates(i_reac) = false;
             end
         end
     end
     
     m.rOrder(ir) = nnz(reactantsExist); % Store order
     
-    for iProd = 1:nProd
-        temp = find(strcmp(m.Reactions(ir).Products{iProd}, xNamesFull), 1);
+    for i_prod = 1:n_prod
+        temp = find(strcmp(m.Reactions(ir).Products{i_prod}, x_names), 1);
         if ~isempty(temp)
             % Store index to product only if it is a state
-            products(iProd) = temp;
-            productsAreStates(iProd) = true;
+            products(i_prod) = temp;
+            productsAreStates(i_prod) = true;
         else%it's an input
             % Redundant assignment
-            products(iProd) = 0;
-            productsAreStates(iProd) = false;
+            products(i_prod) = 0;
+            productsAreStates(i_prod) = false;
         end
     end
     
     % Extract parameter
-    parameter = find(strcmp(m.Reactions(ir).Parameter{1}, kNames));
+    parameter = find(strcmp(m.Reactions(ir).Parameter{1}, k_names));
     assert(~isempty(parameter), 'KroneckerBio:FinalizeModel:MissingReactionParameter', 'Reaction %s (#%i) requires parameter %s, but no parameter by that name was found', m.Reactions(ir).Name, ir, m.Reactions(ir).Parameter{1})
     m.krInd(ir) = parameter; % Store index
     
@@ -648,10 +602,10 @@ for ir = 1:nr
         
         % Add products
         productsAddedSoFar = cumsum(productsAreStates);
-        for iProd = 1:nProd
-            if productsAreStates(iProd)
-                Srow = nSEntries-nAdd+1+productsAddedSoFar(iProd);
-                SEntries(Srow,1) = products(iProd);
+        for i_prod = 1:n_prod
+            if productsAreStates(i_prod)
+                Srow = nSEntries-nAdd+1+productsAddedSoFar(i_prod);
+                SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
             end
@@ -703,10 +657,10 @@ for ir = 1:nr
 
         % Add products
         productsAddedSoFar = cumsum(productsAreStates);
-        for iProd = 1:nProd
-            if productsAreStates(iProd)
-                Srow = nSEntries-nAdd+2+productsAddedSoFar(iProd);
-                SEntries(Srow,1) = products(iProd);
+        for i_prod = 1:n_prod
+            if productsAreStates(i_prod)
+                Srow = nSEntries-nAdd+2+productsAddedSoFar(i_prod);
+                SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
             end
@@ -762,10 +716,10 @@ for ir = 1:nr
             
             % Add products
             productsAddedSoFar = cumsum(productsAreStates);
-            for iProd = 1:nProd
-                if productsAreStates(iProd)
-                    Srow = nSEntries-nAdd+1+productsAddedSoFar(iProd);
-                    SEntries(Srow,1) = products(iProd);
+            for i_prod = 1:n_prod
+                if productsAreStates(i_prod)
+                    Srow = nSEntries-nAdd+1+productsAddedSoFar(i_prod);
+                    SEntries(Srow,1) = products(i_prod);
                     SEntries(Srow,2) = ir;
                     SValues(Srow)    = 1;
                 end
@@ -807,10 +761,10 @@ for ir = 1:nr
             
             % Add products
             productsAddedSoFar = cumsum(productsAreStates);
-            for iProd = 1:nProd
-                if productsAreStates(iProd)
-                    Srow = nSEntries-nAdd+1+productsAddedSoFar(iProd);
-                    SEntries(Srow,1) = products(iProd);
+            for i_prod = 1:n_prod
+                if productsAreStates(i_prod)
+                    Srow = nSEntries-nAdd+1+productsAddedSoFar(i_prod);
+                    SEntries(Srow,1) = products(i_prod);
                     SEntries(Srow,2) = ir;
                     SValues(Srow)    = 1;
                 end
@@ -854,10 +808,10 @@ for ir = 1:nr
         
         % Add products
         productsAddedSoFar = cumsum(productsAreStates);
-        for iProd = 1:nProd
-            if productsAreStates(iProd)
-                Srow = nSEntries-nAdd+productsAddedSoFar(iProd);
-                SEntries(Srow,1) = products(iProd);
+        for i_prod = 1:n_prod
+            if productsAreStates(i_prod)
+                Srow = nSEntries-nAdd+productsAddedSoFar(i_prod);
+                SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
             end
@@ -894,10 +848,10 @@ for ir = 1:nr
         
         % Add products
         productsAddedSoFar = cumsum(productsAreStates);
-        for iProd = 1:nProd
-            if productsAreStates(iProd)
-                Srow = nSEntries-nAdd+productsAddedSoFar(iProd);
-                SEntries(Srow,1) = products(iProd);
+        for i_prod = 1:n_prod
+            if productsAreStates(i_prod)
+                Srow = nSEntries-nAdd+productsAddedSoFar(i_prod);
+                SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
             end
@@ -934,10 +888,10 @@ for ir = 1:nr
         
         % Add products
         productsAddedSoFar = cumsum(productsAreStates);
-        for iProd = 1:nProd
-            if productsAreStates(iProd)
-                Srow = nSEntries-nAdd+productsAddedSoFar(iProd);
-                SEntries(Srow,1) = products(iProd);
+        for i_prod = 1:n_prod
+            if productsAreStates(i_prod)
+                Srow = nSEntries-nAdd+productsAddedSoFar(i_prod);
+                SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
             end
@@ -1116,6 +1070,18 @@ m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3Use
 
     function val = d2ydxdu(t, x, u)
         val = zeros(ny*nu, nx);
+    end
+
+    function val = x0(s)
+        val = dx0ds_val*s + x0c;
+    end
+
+    function val = dx0ds(~)
+        val = dx0ds_val;
+    end
+
+    function val = d2x0ds2(~)
+        val = zeros(nx*ns, ns);
     end
 end
 

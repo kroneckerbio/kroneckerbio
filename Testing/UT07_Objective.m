@@ -29,6 +29,24 @@ t = 4;
 verifyDerivatives(a, obj, int, t)
 end
 
+function testObjectiveValueMichaelisMenten(a)
+[m, con, obj, opts] = michaelis_menten_model();
+
+G = ObjectiveValue(m, con, obj, opts);
+end
+
+function testObjectiveWeightedSumOfSquaresMichaelisMenten(a)
+[m, con, obj, opts] = michaelis_menten_model();
+
+obs = observationSelect(1:10);
+sim = SimulateSystem(m, con, obs, opts);
+
+int = sim.int;
+t = 1;
+verifyDerivatives(a, obj, int, t);
+
+end
+
 % function testObjectiveWeightedSumOfSquaresNonNeg(a)
 % [m, con, obj, opts] = simple_model('objectiveWeightedSumOfSquaresNonNeg');
 % 

@@ -60,7 +60,7 @@ assert(isnumeric(discontinuities) && all(discontinuities >= 0), 'KroneckerBio:In
 discontinuities = vec(discontinuities);
 
 % q
-assert(isnumeric(q) && all(q) > 0, 'KroneckerBio:Input:q', 'q must be a nonegative vector')
+assert(isnumeric(q) && all(q >= 0), 'KroneckerBio:Input:q', 'q must be a nonegative vector')
 q = vec(q);
 nq = numel(q);
 

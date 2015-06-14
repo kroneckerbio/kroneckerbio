@@ -8,8 +8,6 @@ kroneckerPath = fileparts(mfilename('fullpath'));
 addpath([kroneckerPath '/Source']);
 addpath([kroneckerPath '/External']);
 addpath([kroneckerPath '/External/ode15sf']);
-
-% libSBML path
 addpath([kroneckerPath '/External/libSBML-5.11.4-matlab']);
 
 % Compatibility paths

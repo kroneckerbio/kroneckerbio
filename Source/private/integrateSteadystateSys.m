@@ -6,7 +6,8 @@ nx = m.nx;
 % Construct system
 [der, jac, eve] = constructSystem();
 
-ic = m.dx0ds * con.s + m.x0c;
+order = 0;
+ic = extractICs(m,con,opts,order);
 
 % Integrate f over time
 sol = accumulateOdeFwd(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, [], 1);

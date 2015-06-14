@@ -6,9 +6,11 @@ cell_membrane 2 1
 cell          3 1
 dna           1 1
 
-% Inputs v1
-extracellular.ligand 10
-dna.gene             2
+% Inputs extracellular
+extracellular_ligand 10
+
+% Inputs dna
+gene 2
 
 % Seeds
 Inhibitor   20
@@ -16,7 +18,7 @@ Transporter 10
 Factor      12
 
 % States extracellular
-inhibitor Inhibitor
+extracellular_inhibitor Inhibitor
 
 % States cell_membrane
 transporter Transporter
@@ -51,9 +53,9 @@ destruction  4
 % Reactions
 gene                    0              product               0    production 0
 product                 0              0                     0    degradation
-extracellular.inhibitor pump           cell.inhibitor        pump pump_in 0
-extracellular.ligand    transporter    ligand:transporter    0    ligand_on ligand_off
-cell.ligand             transporter    ligand:transporter    0    ligand_on ligand_off
-cell.ligand             product        ligand:product        0    product_on product_off
+extracellular_inhibitor pump           inhibitor        pump pump_in 0
+extracellular_ligand    transporter    ligand:transporter    0    ligand_on ligand_off
+ligand                  transporter    ligand:transporter    0    ligand_on ligand_off
+ligand                  product        ligand:product        0    product_on product_off
 ligand:product          gene:factor    ligand:product:factor gene release capture
-ligand:product:factor   cell.inhibitor 0                     0    destruction 0
+ligand:product:factor   inhibitor      0                     0    destruction 0

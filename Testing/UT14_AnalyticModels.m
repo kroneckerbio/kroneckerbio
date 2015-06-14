@@ -322,7 +322,9 @@ m = symbolic2PseudoKronecker(m,buildopts);
 
 % Compile MEX functions, if necessary
 if useMEX
+    warning('off','MATLAB:mex:GccVersion_link');
     compileMEXFunctions(buildopts.MEXDirectory,false)
+    warning('on', 'MATLAB:mex:GccVersion_link');
 end
 
 end
@@ -335,24 +337,36 @@ end
 
 % Get model function names
 if order == 2
-    funnames = setdiff(fieldnames(expectedexprs),{'x','u','k'});
+    funnames = setdiff(fieldnames(expectedexprs),{'x','u','k','s','x0','dx0ds','d2x0ds2'});
+    funnames = funnames(:);
+    funnames_x0 = {'x0';'dx0ds';'d2x0ds2'};
 elseif order == 1
     funnames = {'f';'r';'y';'dfdx';'dfdk';'dfdu';'drdx';'drdk';'drdu';'dydx';'dydu'};
+    funnames_x0 = {'x0';'dx0ds'};
 elseif order == 0
     funnames = {'f';'r';'y'};
+    funnames_x0 = {'x0'};
 end
 
 % Get model function handles
 funlist = cellfun(@(fun)m.(fun),funnames,'UniformOutput',false);
+funlist_x0 = cellfun(@(fun)m.(fun),funnames_x0,'UniformOutput',false);
 
-% Get t, x, and u used in the tests
+% Get t, x, u, and s used in the tests
 t = 10; % doesn't matter what t is as long as f or r don't have t in their expressions
 x = expectedexprs.x;
 u = expectedexprs.u;
+s = expectedexprs.s;
 
 % Evaluate the functions
 evalfun = @(fun) fun(t,x,u);
 funvals = cellfun(evalfun,funlist,'UniformOutput',false);
+evalfun_x0 = @(fun) fun(s);
+funvals_x0 = cellfun(evalfun_x0,funlist_x0,'UniformOutput',false);
+
+% Concatenate f, r, y, and x0 functions
+funvals = [funvals; funvals_x0];
+funnames = [funnames; funnames_x0];
 
 % Rearrange the expected values in a cell array the same size as funvals
 expectedvals = cellfun(@(field)expectedexprs.(field),funnames,'UniformOutput',false);
