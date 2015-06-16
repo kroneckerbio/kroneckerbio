@@ -208,11 +208,6 @@ if nargout > 1
     exprvals = vertcat(exprvals{:},exprvals_x0{:});
     exprnames = vertcat(exprnames{:},exprnames_x0{:});
 
-    % Remove derivatives of y wrt k
-    isykexpr = ismember(exprnames,{'dydk';'d2ydk2';'d2ydkdx';'d2ydkdu';'d2ydxdk';'d2ydudk'});
-    exprvals(isykexpr) = [];
-    exprnames(isykexpr) = [];
-
     expectedexprs = cell2struct(exprvals,exprnames,1);
 
     expectedexprs.x = x;

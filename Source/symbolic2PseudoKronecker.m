@@ -1322,7 +1322,7 @@ if verbose; fprintf('done.\n'); end
         end
         
         % Take derivatives of the possibly nonzero entries
-        nzders = diff_vectorized(dydx1_(nzterms), x2Syms_(nzdens));
+        nzders = diff_vectorized(vec(dydx1_(nzterms)), vec(x2Syms_(nzdens)));
         
         % Of the supposedly nonzero derivatives, find the ones that are
         % actually nonzero, and only keep those
