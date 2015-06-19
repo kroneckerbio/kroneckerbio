@@ -490,10 +490,16 @@ m.c  = c;
 m.y       = @y;
 m.dydx    = @dydx;
 m.dydu    = @dydu;
+m.dydk    = @dydk;
 m.d2ydx2  = @d2ydx2;
 m.d2ydu2  = @d2ydu2;
+m.d2ydk2  = @d2ydk2;
 m.d2ydudx = @d2ydudx;
 m.d2ydxdu = @d2ydxdu;
+m.d2ydkdx = @d2ydkdx;
+m.d2ydxdk = @d2ydxdk;
+m.d2ydkdu = @d2ydkdu;
+m.d2ydudk = @d2ydudk;
 
 %% Process parameters
 % Put rate parameter into k vector
@@ -1056,6 +1062,10 @@ m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3Use
         val = C2;
     end
 
+    function val = dydk(t, x, u)
+        val = zeros(ny, nk);
+    end
+
     function val = d2ydx2(t, x, u)
         val = zeros(ny*nx, nx);
     end
@@ -1064,12 +1074,32 @@ m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3Use
         val = zeros(ny*nu, nu);
     end
 
+    function val = d2ydk2(t, x, u)
+        val = zeros(ny*nk, nk);
+    end
+
     function val = d2ydudx(t, x, u)
         val = zeros(ny*nx, nu);
     end
 
     function val = d2ydxdu(t, x, u)
         val = zeros(ny*nu, nx);
+    end
+
+    function val = d2ydkdx(t, x, u)
+        val = zeros(ny*nx, nk);
+    end
+
+    function val = d2ydxdk(t, x, u)
+        val = zeros(ny*nk, nx);
+    end
+
+    function val = d2ydkdu(t, x, u)
+        val = zeros(ny*nu, nk);
+    end
+
+    function val = d2ydudk(t, x, u)
+        val = zeros(ny*nk, nu);
     end
 
     function val = x0(s)

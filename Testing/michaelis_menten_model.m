@@ -1,4 +1,4 @@
-function [m_kron, con, obj, opts] = michaelis_menten_model()
+function [m_kron, con, obj, opts, eve] = michaelis_menten_model()
 
 % Build symbolic model
 syms Km kcat S0 E S P
@@ -35,8 +35,8 @@ m.vuInd = ones(m.nu,1);
 m.yNames = {};
 m.yStrings = {};
 m.y = sym([]);
-yNames = {'S','P'};
-yStrings = {'S','P'};
+yNames = {'S','P','r'};
+yStrings = {'S','P','kcat*E*S/(Km+S)'};
 m = AddOutputsToSymbolic(m, yNames, yStrings);
 
 % Convert symbolic model to analytic model
@@ -52,13 +52,17 @@ if nargout > 1
     con = experimentInitialValue(m_kron, [], inp, dos);
 
     sd = sdLinear(0.1, 1);
+    % Values approximately from simulation for k = [15;10], other parameters the same
     values = [
-        1   1   1.6
-        1   2.1 7
-        1   2.4 2.5 
-        2   3   44
-        2   5   52
-        2   8.5 70
+        1   1       15
+        1   2.5     12
+        1   4       3 
+        2   3       35
+        2   5       48
+        2   8.5     64
+        3   1.5     11
+        3   3       9.6
+        3   4.5     9.5
         ];
     obs = observationLinearWeightedSumOfSquares(values(:,1), values(:,2), sd, 'MichaelisMentenData');
     obj = obs.Objective(values(:,3));
@@ -72,6 +76,10 @@ if nargout > 1
     opts.UseDoseControls = [1];
 
     opts.AbsTol = GoodAbsTol(m_kron, con, sd, opts);
+    
+    eve1 = eventDropsBelow(m, 3, 1);
+    eve2 = eventDropsBelow(m, 1, 2);
+    eve = [eve1;eve2];
     
 end
 

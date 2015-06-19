@@ -14,6 +14,7 @@ n_obj = size(obj,1);
 
 y = m.y;
 dydx = m.dydx;
+dydk = m.dydk;
 
 % Initialize variables
 G = 0;
@@ -242,11 +243,12 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             u_i = u(t);
             x_i = deval(sol_sys, t, 1:nx);
             dydx_i = dydx(t, x_i, u_i);
+            dydk_i = dydk(t, x_i, u_i);
             dGdx = zeros(nx,1);
             dGdT = zeros(inT,1);
             for i = 1:n_obj
                 dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*obj(i,i_con).dGdy(t, int_sys(i));
-                dGdk = obj(i,i_con).dGdk(int_sys(i)); % k_ % partial dGdk(i)
+                dGdk = obj(i,i_con).dGdk(int_sys(i)) + dydk_i.' * obj(i,i_con).dGdy(t, int_sys(i)); % k_ % partial dGdk(i)
                 dGds = obj(i,i_con).dGds(int_sys(i)); % s_ % partial dGds(i)
                 dGdq = obj(i,i_con).dGdq(int_sys(i)); % q_ % partial dGdq(i)
                 dGdh = obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdq(i)

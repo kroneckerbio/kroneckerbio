@@ -154,12 +154,6 @@ function m = InitializeModel(name)
 %           compartment
 %       .b [ nonnegative vector nv ]
 %           Constituitive volume of each compartment
-%       .C1 [ nonnegative matrix ny by nx ]
-%           Contribution of each state species to each output
-%       .C2 [ nonnegative matrix ny by nu ]
-%           Contribution of each input species to each output
-%       .c [ nonnegative vector ny ]
-%           Constituitive value of each species
 %       .dA1dk [ real matrix nx*nx by nk] (fx_k)
 %           Derivative of A1 wrt k
 %       .dA2dk [ real matrix nx*nx*nx by nk ] (fxx_k)
@@ -367,10 +361,6 @@ m.a  = zeros(0,0);
 m.B1 = zeros(0,0);
 m.B2 = zeros(0,0);
 m.b  = zeros(0,1);
-
-m.C1 = zeros(0,0);
-m.C2 = zeros(0,0);
-m.c  = zeros(0,1);
 
 m.dA1dk = zeros(0,0);
 m.dA2dk = zeros(0,0);
