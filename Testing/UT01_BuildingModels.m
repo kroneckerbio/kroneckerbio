@@ -80,36 +80,14 @@ a.verifyEqual(m.f(0,x0,u0), [15;15;-15;0])
 end
 
 function testsymbolic2PseudoKroneckerMM(a)
-syms Km kcat S0 E S P
 
-m.kNames = {'Km';'kcat'};
-m.kSyms = [kcat;Km];
-m.k = [10;2];
-
-m.sNames = {'S0'};
-m.sSyms = S0;
-m.s = 30;
-
-m.uNames = {'E'};
-m.uSyms = E;
-m.u = 1;
-
-m.xNames = {'S';'P'};
-m.xSyms = [S;P];
-m.x0 = [S0;0];
-
-r = kcat*E*S/(Km+S);
-m.f = [-r;r];
-
-m.yNames = {'S','P'};
-m.y = [S;P];
-
-m_kron = symbolic2PseudoKronecker(m);
+m_kron = michaelis_menten_model();
 
 a.verifyEqual(m_kron.nv, 1)
 a.verifyEqual(m_kron.nk, 2)
 a.verifyEqual(m_kron.ns, 1)
 a.verifyEqual(m_kron.nu, 1)
 a.verifyEqual(m_kron.nx, 2)
-a.verifyEqual(m_kron.ny, 2)
+a.verifyEqual(m_kron.ny, 3)
+
 end

@@ -215,6 +215,8 @@ else
     end
 end
 
+yStrings = SymModel.yStrings;
+
 % Convert compartment volumes to parameters or constants
 if opts.VolumeToParameter
     nk = nk + nv;
@@ -241,17 +243,17 @@ for rni = 1:length(reservednames)
 end
 
 % Sanitize symbols
-old_symbols = [kSyms; sSyms; xSyms; uSyms];
-new_symbols = sym('sy%dx',[nk+ns+nx+nu,1]);
+oldSymbols = [kSyms; sSyms; xSyms; uSyms];
+newSymbols = sym('sy%dx',[nk+ns+nx+nu,1]);
 
-kSyms = new_symbols(1:nk);
-sSyms = new_symbols(nk+1:nk+ns);
-xSyms = new_symbols(nk+ns+1:nk+ns+nx);
-uSyms = new_symbols(nk+ns+nx+1:nk+ns+nx+nu);
-f = fastsubs(f, old_symbols, new_symbols);
-r = fastsubs(r, old_symbols, new_symbols);
-x0 = fastsubs(x0, old_symbols, new_symbols);
-y =  fastsubs(y, old_symbols, new_symbols);
+kSyms = newSymbols(1:nk);
+sSyms = newSymbols(nk+1:nk+ns);
+xSyms = newSymbols(nk+ns+1:nk+ns+nx);
+uSyms = newSymbols(nk+ns+nx+1:nk+ns+nx+nu);
+f  = fastsubs(f,  oldSymbols, newSymbols);
+r  = fastsubs(r,  oldSymbols, newSymbols);
+x0 = fastsubs(x0, oldSymbols, newSymbols);
+y  = fastsubs(y,  oldSymbols, newSymbols);
 
 % String representations that will be useful
 vStrs = fastchar(vSyms);
@@ -318,6 +320,7 @@ end
 
 yhasx = exprhasvar(ystr,xStrs,ny,nx);
 yhasu = exprhasvar(ystr,uStrs,ny,nu);
+yhask = exprhasvar(ystr,kStrs,ny,nk);
 
 x0hass = exprhasvar(x0str,sStrs,nx,ns);
 
@@ -326,24 +329,24 @@ x0hass = exprhasvar(x0str,sStrs,nx,ns);
 % uhasq = exprhasvar(ustr,qStrs,nu,nq);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function out = exprhasvar(exprStrs,varStrs,nexprs,nvars)
+    function out = exprhasvar(exprStrs, varStrs, nExprs, nVars)
         
         if isempty(exprStrs) || isempty(varStrs)
-            out = false(nexprs,nvars);
+            out = false(nExprs, nVars);
         else
         
             % Determine where the variable's substrings appear in the r
-            % expressions. Cell array varpositionsinr element i,j contains an
+            % expressions. Cell array varPositionsInExpr element i,j contains an
             % array indicating at what positions varStr(j) appears in r(i)
-            varpositionsinexpr = cellfun(@strfind,...
-                repmat(exprStrs,1,nvars),...
-                repmat(varStrs(:)',nexprs,1),...
-                'UniformOutput',false...
+            varPositionsInExpr = cellfun(@strfind,...
+                repmat(exprStrs, 1, nVars),...
+                repmat(varStrs(:)', nExprs, 1),...
+                'UniformOutput', false...
                 );
             
-            % Determine which elements are empty. If varpositionsinr{i,j} is
+            % Determine which elements are empty. If varPositionsInExpr{i,j} is
             % not empty, then reaction i contains variable j.
-            out = ~cellfun(@isempty,varpositionsinexpr);
+            out = ~cellfun(@isempty, varPositionsInExpr);
             
         end
         
@@ -385,6 +388,7 @@ else
 end
 nz('yx') = yhasx;
 nz('yu') = yhasu;
+nz('yk') = yhask;
 nz('xs') = x0hass;
 
 %%% For now, models will only contain constant default values of inputs %%%
@@ -392,21 +396,21 @@ nz('xs') = x0hass;
 % nz('uq') = uhasq;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function nzout = getNonZeroEntries(num,dens)
+    function nzout = getNonZeroEntries(num, dens)
         % Inputs:
         %   num: "numerator" of derivative, either 'r', 'f', 'u', or 'y'
         %   dens: "denominator" terms of derivative, any combination of 'x',
-        %   'u', and 'k' in a cell array for 'r' and 'f' numerators, 'q'
-        %   for 'u' numerators, and 'x' and 'u' for 'y' numerators
+        %       'u', and 'k' in a cell array for 'r' and 'f' numerators, 'q'
+        %       for 'u' numerators, and 'x', 'u', and 'k' for 'y' numerators
         % Outputs:
         %   nzout: a logical array of size n(r, f, u, or y)-by-n(x or u or
-        %   k)-by-n(x or u or k)-by-..., where nzout(i,j,k,...) is true if
-        %   d(r or f)/d(x or u or k)(x or u or k)... is potentially
-        %   nonzero, based on what terms are present in each of the
-        %   reaction or state first derivative terms. Note that the first term
-        %   appearing in the "denominator" string of the derivative is the
-        %   last dimension, since it is the derivative taken last. I.E.,
-        %   dr/dxdk has dimensions nr-by-nk-by-nx.
+        %       k)-by-n(x or u or k)-by-..., where nzout(i,j,k,...) is true if
+        %       d(r or f)/d(x or u or k)(x or u or k)... is potentially
+        %       nonzero, based on what terms are present in each of the
+        %       reaction or state first derivative terms. Note that the first term
+        %       appearing in the "denominator" string of the derivative is the
+        %       last dimension, since it is the derivative taken last. I.E.,
+        %       dr/dxdk has dimensions nr-by-nk-by-nx.
         %
         % Example:
         %   nzout = getNonZeroEntries('f',{'x','k'}) would return nzout,
@@ -526,6 +530,12 @@ if order >= 1
     dydu = calcDerivative(y, uSyms, 'y', {'u'});
     if verbose; fprintf('Done.\n'); end
     
+    % Gradient of y with respect to k
+    if verbose; fprintf('Calculating dydk...'); end
+    dydk = calcDerivative(y, kSyms, 'y', {'k'});
+    if verbose; fprintf('Done.\n'); end
+
+    % Gradient of x0 with respect to s
     if verbose; fprintf('Calculating dx0ds...'); end
     dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
     if verbose; fprintf('Done.\n'); end
@@ -537,6 +547,7 @@ else
     dfdk = '';
     dydx = '';
     dydu = '';
+    dydk = '';
     dx0ds = '';
 end
 
@@ -700,14 +711,34 @@ if order >= 2
     d2ydu2 = calcDerivative(dydu, uSyms, 'y', {'u','u'});
     if verbose; fprintf('Done.\n'); end
     
-    if verbose; fprintf('Calculating d2ydxdu...'); end
-    d2ydxdu = calcDerivative(dydu, xSyms, 'y', {'u','x'});
+    if verbose; fprintf('Calculating d2ydk2...'); end
+    d2ydk2 = calcDerivative(dydk, kSyms, 'y', {'k','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydudx...'); end
     d2ydudx = calcDerivative(dydx, uSyms, 'y', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
+    if verbose; fprintf('Calculating d2ydkdx...'); end
+    d2ydkdx = calcDerivative(dydx, kSyms, 'y', {'x','k'});
+    if verbose; fprintf('Done.\n'); end
+    
+    if verbose; fprintf('Calculating d2ydxdu...'); end
+    d2ydxdu = calcDerivative(dydu, xSyms, 'y', {'u','x'});
+    if verbose; fprintf('Done.\n'); end
+    
+    if verbose; fprintf('Calculating d2ydkdu...'); end
+    d2ydkdu = calcDerivative(dydu, kSyms, 'y', {'u','k'});
+    if verbose; fprintf('Done.\n'); end
+    
+    if verbose; fprintf('Calculating d2ydxdk...'); end
+    d2ydxdk = calcDerivative(dydk, xSyms, 'y', {'k','x'});
+    if verbose; fprintf('Done.\n'); end
+    
+    if verbose; fprintf('Calculating d2ydudk...'); end
+    d2ydudk = calcDerivative(dydk, uSyms, 'y', {'k','u'});
+    if verbose; fprintf('Done.\n'); end
+
     if verbose; fprintf('Calculating d2x0ds2...'); end
     d2x0ds2 = calcDerivative(dx0ds, sSyms, 'x', {'s','s'});
     if verbose; fprintf('Done.\n'); end
@@ -733,8 +764,13 @@ else
     d2fdudk = '';
     d2ydx2 = '';
     d2ydu2 = '';
-    d2ydxdu = '';
+    d2ydk2 = '';
     d2ydudx = '';
+    d2ydkdx = '';
+    d2ydxdu = '';
+    d2ydkdu = '';
+    d2ydxdk = '';
+    d2ydudk = '';
     d2x0ds2 = '';
 end
 
@@ -835,6 +871,7 @@ if order >= 1
     
     dydx     = symbolic2function(dydx, 'y', 'x');
     dydu     = symbolic2function(dydu, 'y', 'u');
+    dydk     = symbolic2function(dydk, 'y', 'k');
     
     dx0ds    = symbolic2function(dx0ds, 'x', 's');
 end
@@ -862,8 +899,13 @@ if order >= 2
     
     d2ydx2   = symbolic2function(d2ydx2,  'y', {'x' 'x'});
     d2ydu2   = symbolic2function(d2ydu2,  'y', {'u' 'u'});
+    d2ydk2   = symbolic2function(d2ydk2,  'y', {'k' 'k'});
     d2ydudx  = symbolic2function(d2ydudx, 'y', {'x' 'u'});
+    d2ydkdx  = symbolic2function(d2ydkdx, 'y', {'x' 'k'});
     d2ydxdu  = symbolic2function(d2ydxdu, 'y', {'u' 'x'});
+    d2ydkdu  = symbolic2function(d2ydkdu, 'y', {'u' 'k'});
+    d2ydxdk  = symbolic2function(d2ydxdk, 'y', {'k' 'x'});
+    d2ydudk  = symbolic2function(d2ydudk, 'y', {'k' 'u'});
     
     d2x0ds2  = symbolic2function(d2x0ds2, 'x', {'s' 's'});
 end
@@ -909,7 +951,8 @@ m.Reactions    = struct('Name', rNames);
 %     Expressions = mat2cell([vertcat(yMembers{:}), num2cell(vertcat(yValues{:}))], cellfun(@length,yMembers), 2);
 % end
 % m.Outputs      = struct('Name', yNames, 'Expressions', Expressions );
-m.Outputs      = struct('Name', yNames);
+% m.Outputs      = struct('Name', yNames);
+m.Outputs      = struct('Name', yNames, 'Expression', yStrings);
 
 m.nv = nv;
 m.nk = nk;
@@ -989,18 +1032,24 @@ if order >= 2
     m.d2rdudk   = setfun_rf(d2rdudk,k);
 end
 
-m.y = setfun_y(y,true,ny,nk);
+m.y = setfun_y(y,true,k,ny);
 
 if order >= 1
-    m.dydx      = setfun_y(dydx,false,ny,nk);
-    m.dydu      = setfun_y(dydu,false,ny,nk);
+    m.dydx      = setfun_y(dydx,false,k,ny);
+    m.dydu      = setfun_y(dydu,false,k,ny);
+    m.dydk      = setfun_y(dydk,false,k,ny);
 end
 
 if order >= 2
-    m.d2ydx2    = setfun_y(d2ydx2,false,ny,nk);
-    m.d2ydu2    = setfun_y(d2ydu2,false,ny,nk);
-    m.d2ydudx   = setfun_y(d2ydudx,false,ny,nk);
-    m.d2ydxdu   = setfun_y(d2ydxdu,false,ny,nk);
+    m.d2ydx2    = setfun_y(d2ydx2,false,k,ny);
+    m.d2ydu2    = setfun_y(d2ydu2,false,k,ny);
+    m.d2ydk2    = setfun_y(d2ydk2,false,k,ny);
+    m.d2ydudx   = setfun_y(d2ydudx,false,k,ny);
+    m.d2ydkdx   = setfun_y(d2ydkdx,false,k,ny);
+    m.d2ydxdu   = setfun_y(d2ydxdu,false,k,ny);
+    m.d2ydkdu   = setfun_y(d2ydkdu,false,k,ny);
+    m.d2ydxdk   = setfun_y(d2ydxdk,false,k,ny);
+    m.d2ydudk   = setfun_y(d2ydudk,false,k,ny);
 end
 
 m.x0            = x0;
@@ -1038,7 +1087,7 @@ if verbose; fprintf('done.\n'); end
         % Update function handles
         m.f             = setfun_rf(f,k);
         m.r             = setfun_rf(r,k);
-        m.y             = setfun_y(y,true,ny,nk);
+        m.y             = setfun_y(y,true,k,ny);
         
         if order >= 1
             m.dfdx      = setfun_rf(dfdx,k);
@@ -1047,8 +1096,9 @@ if verbose; fprintf('done.\n'); end
             m.drdx      = setfun_rf(drdx,k);
             m.drdk      = setfun_rf(drdk,k);
             m.drdu      = setfun_rf(drdu,k);
-            m.dydx      = setfun_y(dydx,false,ny,nk);
-            m.dydu      = setfun_y(dydu,false,ny,nk);
+            m.dydx      = setfun_y(dydx,false,k,ny);
+            m.dydu      = setfun_y(dydu,false,k,ny);
+            m.dydk      = setfun_y(dydk,false,k,ny);
         end
         
         if order >= 2
@@ -1070,10 +1120,15 @@ if verbose; fprintf('done.\n'); end
             m.d2rdkdu   = setfun_rf(d2rdkdu,k);
             m.d2rdxdk   = setfun_rf(d2rdxdk,k);
             m.d2rdudk   = setfun_rf(d2rdudk,k);
-            m.d2ydx2    = setfun_y(d2ydx2,false,ny,nk);
-            m.d2ydu2    = setfun_y(d2ydu2,false,ny,nk);
-            m.d2ydxdu   = setfun_y(d2ydxdu,false,ny,nk);
-            m.d2ydudx   = setfun_y(d2ydudx,false,ny,nk);
+            m.d2ydx2    = setfun_y(d2ydx2,false,k,ny);
+            m.d2ydu2    = setfun_y(d2ydu2,false,k,ny);
+            m.d2ydk2    = setfun_y(d2ydk2,false,k,ny);
+            m.d2ydudx   = setfun_y(d2ydudx,false,k,ny);
+            m.d2ydkdx   = setfun_y(d2ydkdx,false,k,ny);
+            m.d2ydxdu   = setfun_y(d2ydxdu,false,k,ny);
+            m.d2ydkdu   = setfun_y(d2ydkdu,false,k,ny);
+            m.d2ydxdk   = setfun_y(d2ydxdk,false,k,ny);
+            m.d2ydudk   = setfun_y(d2ydudk,false,k,ny);
         end
         
         if order >= 3
@@ -1234,22 +1289,19 @@ if verbose; fprintf('done.\n'); end
         
     end         
 
-    function d2rdkdx_ = calcDerivative(drdx_, kSyms_, num, dens)
-        % Note that in the input argument names here, I use the
-        % prototypical example of taking the derivative of drdx with
-        % respect to k. This means "r" stands for the variable whose
-        % derivative is being taken, "x" stands for the first derivative
-        % variable, and "k" stands for the second derivative variable.
-        %
+    function d2ydx2dx1_ = calcDerivative(dydx1_, x2Syms_, num, dens)
+        % y = dependent variable
+        % x1 = 1st derivative variable
+        % x2 = 2nd derivative variable
         % num and dens should be for the output derivative matrix.
         
-        nk_ = length(kSyms_);
-        nr_ = size(drdx_,1);
-        nxu_ = size(drdx_,2);
+        ny_  = size(dydx1_,1);
+        nx1_ = size(dydx1_,2);
+        nx2_ = length(x2Syms_);
         
         % If any dimensions are zero, return an empty derivative
-        if any([nk_ nr_ nxu_] == 0,2)
-            d2rdkdx_ = initializeMatrixMupad([],[],[],nr_*nxu_, nk_);
+        if any([nx1_ nx2_ ny_] == 0, 2)
+            d2ydx2dx1_ = initializeMatrixMupad([], [], [], ny_*nx1_, nx2_);
             return
         end
         
@@ -1258,36 +1310,36 @@ if verbose; fprintf('done.\n'); end
             dens = {dens};
         end
         
-        % Find the entries of d2rdkdx that might be nonzero
-        nze = getNonZeroEntries(num,dens);
-        nze = reshape(nze,nr_*nxu_,nk_);
-        [nzterms,nzdens] = find(nze);
+        % Find the entries of d2ydx2dx1_ that might be nonzero
+        nze = getNonZeroEntries(num, dens);
+        nze = reshape(nze, ny_*nx1_, nx2_);
+        [nzterms, nzdens] = find(nze);
         
         % If there aren't any nonzero terms, return an all-zero derivative
         if isempty(nzterms)
-            d2rdkdx_ = initializeMatrixMupad([],[],[],nr_*nxu_, nk_);
+            d2ydx2dx1_ = initializeMatrixMupad([], [], [], ny_*nx1_, nx2_);
             return
         end
         
         % Take derivatives of the possibly nonzero entries
-        nzders = diff_vectorized(drdx_(nzterms),kSyms_(nzdens));
+        nzders = diff_vectorized(vec(dydx1_(nzterms)), vec(x2Syms_(nzdens)));
         
         % Of the supposedly nonzero derivatives, find the ones that are
         % actually nonzero, and only keep those
         iszero = logical(nzders == 0);
-        nzeiszero = sub2ind([nr_*nxu_,nk_],nzterms(iszero),nzdens(iszero));
+        nzeiszero = sub2ind([ny_*nx1_, nx2_], nzterms(iszero), nzdens(iszero));
         nze(nzeiszero) = false;
         
-        % Get sizes of dependent (numerator) and dependent (denominator)
+        % Get sizes of dependent (numerator) and independent (denominator)
         % variables in the derivative
         numsize = sizes.(num);
-        densizes = zeros(1,length(dens));
+        densizes = zeros(1, length(dens));
         for di = 1:length(dens)
             densizes(di) = sizes.(dens{di});
         end
         
         % Reshape nonzero entries to n-dimensional matrix
-        nze = reshape(nze,[numsize,densizes]);
+        nze = reshape(nze, [numsize,densizes]);
         
         % Update the non-zero map to account for newly discovered zero
         % terms
@@ -1299,9 +1351,9 @@ if verbose; fprintf('done.\n'); end
             nzkey_f = strrep(nzkey,'r','f');
             % Only update the key for f if no information about this
             % particular derivative was previously stored in nz
-            if ~isKey(nz,nzkey_f)
-                nztemp = logical(abs(StoichiometricMatrix)*reshape(nze,[nr_,nxu_*nk_]));
-                nz(nzkey_f) = reshape(nztemp,[nx,nxu_,nk_]);
+            if ~isKey(nz, nzkey_f)
+                nztemp = logical(abs(StoichiometricMatrix)*reshape(nze, [ny_, nx1_*nx2_]));
+                nz(nzkey_f) = reshape(nztemp, [nx, nx1_, nx2_]);
             end
         end
         
@@ -1310,7 +1362,7 @@ if verbose; fprintf('done.\n'); end
         nzterms(iszero) = [];
         nzdens(iszero) = [];
         
-        d2rdkdx_ = initializeMatrixMupad(nzterms, nzdens, nzders, nr_*nxu_, nk_);
+        d2ydx2dx1_ = initializeMatrixMupad(nzterms, nzdens, nzders, ny_*nx1_, nx2_);
         
     end
 
@@ -1378,19 +1430,15 @@ end
 % end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function fun = setfun_y(basefun,is0order,ny,nk)
-% nk is needed to initialize a dummy k vector, which is needed to avoid
-% having to treat the y functions differently in the MEX generating code.
-% This could be done better. I will leave it like this to make it easier to
-% add k values to outputs later, if desired.
+function fun = setfun_y(basefun, is0order, k, ny)
     if is0order
-        fun = @(t,x,u) vectorize_y(basefun, t, x, u, ny, nk);
+        fun = @(t,x,u) vectorize_y(basefun, t, x, u, k, ny);
     else
-        fun = @(t,x,u) basefun(t,x,u,ones(nk,1)); % Currently, output dependence on k is not supported
+        fun = @(t,x,u) basefun(t, x, u, k);
     end
 end
 
-function val = vectorize_y(y, t, x, u, ny, nk)
+function val = vectorize_y(y, t, x, u, k, ny)
     nt = numel(t);
     val = zeros(ny,nt);
     if isempty(x)
@@ -1399,7 +1447,10 @@ function val = vectorize_y(y, t, x, u, ny, nk)
     if isempty(u)
         u = zeros(0,nt);
     end
+    if isempty(k)
+        k = 0; % doesn't change in time
+    end
     for it = 1:nt
-        val(:,it) = y(t(it), x(:,it), u(:,it), ones(nk,1));
+        val(:,it) = y(t(it), x(:,it), u(:,it), k);
     end
 end

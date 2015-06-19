@@ -3,6 +3,7 @@ function int = integrateSensSimp(m, con, tF, eve, fin, t_get, opts)
 nx = m.nx;
 nu = m.nu;
 ny = m.ny;
+nk = m.nk;
 nTk = sum(opts.UseParams);
 nTs = sum(opts.UseSeeds);
 nTq = sum(opts.UseInputControls);
@@ -17,6 +18,9 @@ u = con.u;
 dudq = con.dudq;
 dydx = m.dydx;
 dydu = m.dydu;
+dydk = m.dydk;
+
+dkdT = sparse(find(opts.UseParams),1:nTk,1,nk,nT);
 
 nt = numel(t_get);
 
@@ -82,8 +86,9 @@ for it = 1:nt
     
     dydx_i = dydx(int.t(it), int.x(:,it), int.u(:,it)); % y_x
     dydu_i = dydu(int.t(it), int.x(:,it), int.u(:,it)); % y_u
+    dydk_i = dydk(int.t(it), int.x(:,it), int.u(:,it)); % y_k
     dxdT_i = reshape(int.dxdT(:,it), nx,nT); % xT_ -> x_T
-    int.dydT(:,it) = vec(dydx_i * dxdT_i + dydu_i * dudT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
+    int.dydT(:,it) = vec(dydx_i * dxdT_i + dydu_i * dudT_i + dydk_i * dkdT); % y_x * x_T + y_u * u_T + y_k * k_T -> y_T -> yT_
 end
 
 nte = numel(sol.ie);
@@ -104,8 +109,9 @@ for it = 1:nte
 
     dyedx_i = dydx(int.te(it), int.xe(:,it), int.ue(:,it)); % y_x
     dyedu_i = dydu(int.te(it), int.xe(:,it), int.ue(:,it)); % y_u
+    dyedk_i = dydk(int.te(it), int.xe(:,it), int.ue(:,it)); % y_k
     dxedT_i = reshape(int.dxedT(:,it), nx,nT); % xT_ -> x_T
-    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
+    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i + dyedk_i * dkdT); % y_x * x_T + y_u * u_T + y_k * k_T -> y_T -> yT_
 end
 
 int.sol = sol;

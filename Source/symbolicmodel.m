@@ -142,12 +142,14 @@ m.S          = S(~isu,:);
 m.Su         = S(isu,:);
 
 % Outputs
+m.yNames = {};
+m.yStrings = {};
+m.y = sym([]);
 outputtable = opts.Outputs(:);
-y = sym(outputtable(:,1));
 yNames = outputtable(:,1);
-
-m.y          = y;
-m.yNames     = yNames;
+yStrings = outputtable(:,1);
+m = AddOutputsToSymbolic(m,yNames,yStrings);
+y = m.y;
 
 % Get expected values for expressions in model, if requested
 if nargout > 1
@@ -205,11 +207,6 @@ if nargout > 1
     % Concatenate f, r, y, and x0 function values and names
     exprvals = vertcat(exprvals{:},exprvals_x0{:});
     exprnames = vertcat(exprnames{:},exprnames_x0{:});
-
-    % Remove derivatives of y wrt k
-    isykexpr = ismember(exprnames,{'dydk';'d2ydk2';'d2ydkdx';'d2ydkdu';'d2ydxdk';'d2ydudk'});
-    exprvals(isykexpr) = [];
-    exprnames(isykexpr) = [];
 
     expectedexprs = cell2struct(exprvals,exprnames,1);
 

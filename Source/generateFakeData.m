@@ -1,5 +1,5 @@
-function [obj, data] = generateFakeData(m, con, outputs, lintimes, errorFunc, nonNegMeasurements, populate, seed, opts)
-%function [obj, data] = generateFakeData(m, con, outputs, lintimes, errorFunc, nonNegMeasurements, populate, seed, opts)
+function [obj, data, obs] = generateFakeData(m, con, outputs, lintimes, errorFunc, nonNegMeasurements, populate, seed, opts)
+%function [obj, data, obs] = generateFakeData(m, con, outputs, lintimes, errorFunc, nonNegMeasurements, populate, seed, opts)
 
 if nargin < 9
     opts = [];
@@ -61,16 +61,15 @@ if populate
 end
 
 if nonNegMeasurements
+    warning('Non-negative option is not yet implemented. Creating a linear weighted sum of squares observation/objective.')
+    obs = observationLinearWeightedSumOfSquares(outputList, timesList, errorFunc, 'Generated data');
     if populate
-        obj = objectiveWeightedSumOfSquaresNonNeg(outputList, timesList, errorFunc, measurements);
-    else
-        obj = objectiveWeightedSumOfSquaresNonNeg(outputList, timesList, errorFunc);
+        obj = obs.Objective(measurements);
     end
 else
+    obs = observationLinearWeightedSumOfSquares(outputList, timesList, errorFunc, 'Generated data');
     if populate
-        obj = objectiveWeightedSumOfSquares(outputList, timesList, errorFunc, measurements);
-    else
-        obj = objectiveWeightedSumOfSquares(outputList, timesList, errorFunc);
+        obj = obs.Objective(measurements);
     end
 end
 

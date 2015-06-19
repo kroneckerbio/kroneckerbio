@@ -1,3 +1,5 @@
+clear; close all; clc
+
 %% Options
 % Global
 opts.Verbose = 1;
@@ -69,7 +71,17 @@ yNames = {
     'PP2AActive'
     'Raf1PPtase'
     };
-m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', yNames, [], [], opts);
+
+yNames2 = {'Out1'; 'Out2'};
+yExprs2 = {'EGF + 2*NGF', '(RasGapActive + kSos*RapGapActive)/2 + sqrt(AktActive)^(kRap1ToBRaf)'};
+
+symModel = sbml2Symbolic('Brown_EGFNGF.xml', opts);
+
+% symModel = AddOutputsToSymbolic(symModel, yNames, [], opts);
+symModel = AddOutputsToSymbolic(symModel, yNames2, yExprs2, opts);
+
+% m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', yNames, [], [], opts);
+m = symbolic2PseudoKronecker(symModel, opts);
 
 if opts.UseMEX
     compileMEXFunctions(opts.MEXDirectory);
@@ -132,8 +144,8 @@ legend(statestoplot,'Location','Best')
     
 %% Generate data to fit model to
 
-% Choose to generate data for these three outputs in the model
-outputnames = {'Raf1Active';'MekActive';'ErkActive';'boundEGFReceptor';'boundNGFReceptor'};
+% Choose to generate data for these two outputs in the model
+outputnames = {'Out1';'Out2'};
 noutputstofit = length(outputnames);
 outputlist = {m.Outputs.Name};
 outputs = zeros(noutputstofit,1);
@@ -144,6 +156,7 @@ end
 % Generate 8 time points
 ntimesearly = 6;
 ntimeslate = 2;
+ntimes = ntimesearly + ntimeslate;
 tlate = linspace(20,tF,ntimeslate+1).';
 tlate = tlate(2:end);
 lintimes = [linspace(20/ntimesearly,20,ntimesearly).'; tlate]; % 6 time points early, where interesting dynamics exist, and 2 time points later
@@ -155,7 +168,7 @@ sd = @samplesd; % Standard deviation of measurement error is 5% floored at a val
 nonNegMeasurements = true; % Concentrations being fit will be non-negative
 populate = true; % I don't have the data points yet, so I want the function to perform the simulations for me
 seed = []; % Let the function generate the RNG seed for me
-[obj,dataFit] = generateFakeData(m, con, outputs, lintimes, sd, nonNegMeasurements, populate, seed, opts);
+[obj, dataFit, obs] = generateFakeData(m, con, outputs, lintimes, sd, nonNegMeasurements, populate, seed, opts);
 
 %% Scramble parameters and set lower and upper bounds
 
@@ -168,30 +181,32 @@ opts.LowerBound = zeros(nV,1) + min(m.k(opts.UseParams));
 opts.UpperBound = zeros(nV,1) + max(m.k(opts.UseParams));
 
 % Set up indices for classes of parameters
-konindex = [1;3];
-koffindex = [2;4];
-kcatindex  = 5:2:47;
-kmindex    = 6:2:48;
+konIndex = [1;3];
+koffIndex = [2;4];
+kcatIndex  = 5:2:47;
+KmIndex    = 6:2:48;
 
 roundtonearestoom = @(x) 10.^round(log10(x));
 kstart = m.k;
 kstart = roundtonearestoom(kstart);
 
 %kstart(konindex) = geomean(kstart(konindex));
-opts.LowerBound(konindex) = zeros(size(konindex)) + min(m.k(konindex)) / 1000;
-opts.UpperBound(konindex) = zeros(size(konindex)) + max(m.k(konindex)) * 1000;
+opts.LowerBound(konIndex) = zeros(size(konIndex)) + min(m.k(konIndex)) / 1000;
+opts.UpperBound(konIndex) = zeros(size(konIndex)) + max(m.k(konIndex)) * 1000;
 
 %kstart(koffindex) = geomean(kstart(koffindex));
-opts.LowerBound(koffindex) = zeros(size(koffindex)) + min(m.k(koffindex)) / 1000;
-opts.UpperBound(koffindex) = zeros(size(koffindex)) + max(m.k(koffindex)) * 1000;
+opts.LowerBound(koffIndex) = zeros(size(koffIndex)) + min(m.k(koffIndex)) / 1000;
+opts.UpperBound(koffIndex) = zeros(size(koffIndex)) + max(m.k(koffIndex)) * 1000;
 
 %kstart(kcatindex) = geomean(kstart(kcatindex));
-opts.LowerBound(kcatindex) = zeros(size(kcatindex)) + min(m.k(kcatindex)) / 1000;
-opts.UpperBound(kcatindex) = zeros(size(kcatindex)) + max(m.k(kcatindex)) * 1000;
+opts.LowerBound(kcatIndex) = zeros(size(kcatIndex)) + min(m.k(kcatIndex)) / 1000;
+opts.UpperBound(kcatIndex) = zeros(size(kcatIndex)) + max(m.k(kcatIndex)) * 1000;
 
 %kstart(kmindex) = geomean(kstart(kmindex));
-opts.LowerBound(kmindex) = zeros(size(kmindex)) + min(m.k(kmindex)) / 1000;
-opts.UpperBound(kmindex) = zeros(size(kmindex)) + max(m.k(kmindex)) * 1000;
+opts.LowerBound(KmIndex) = zeros(size(KmIndex)) + min(m.k(KmIndex)) / 1000;
+opts.UpperBound(KmIndex) = zeros(size(KmIndex)) + max(m.k(KmIndex)) * 1000;
+
+opts.MaxIter = 100;
 
 mstart = m.Update(kstart);
 
@@ -199,17 +214,17 @@ clear konindex koffindex kcatindex kmindex pstart
 
 %% Fit to the objective function to recover the original parameter values
 
-[mfit,confit,G,D] = FitObjective(mstart,con,obj,opts);
+[mfit, confit, G, D] = FitObjective(mstart,con,obj,opts);
 
 %% Plot the resulting fit
 
 % Get data being fit to
-ydata = reshape(dataFit.Measurements,noutputstofit,ntimes);
+ydata = reshape(dataFit.Measurements, noutputstofit, ntimes);
 t = dataFit.Times';
 
 % Get fitted model data
-simfit = Simulate(mfit,confit);
-ymodel = simfit.y(t,outputs);
+simfit = SimulateSystem(mfit, confit, obs);
+ymodel = reshape(simfit.true_measurements, noutputstofit, ntimes);
 
 % Get standard error values
 sigma = zeros(size(ymodel));

@@ -17,6 +17,9 @@ u = con.u;
 dudq = con.dudq;
 dydx = m.dydx;
 dydu = m.dydu;
+dydk = m.dydk;
+
+dkdT = sparse(find(opts.UseParams),1:nTk,1,m.nk,nT);
 
 % Construct system
 [der, jac, del] = constructSystem();
@@ -57,6 +60,7 @@ int.h = con.h;
 
 int.dydx = m.dydx;
 int.dydu = m.dydu;
+int.dydk = m.dydk;
 
 int.nT = nT;
 int.UseParams = opts.UseParams;
@@ -91,8 +95,9 @@ for it = 1:nte
 
     dyedx_i = dydx(int.te(it), int.xe(:,it), int.ue(:,it)); % y_x
     dyedu_i = dydu(int.te(it), int.xe(:,it), int.ue(:,it)); % y_u
+    dyedk_i = dydk(int.te(it), int.xe(:,it), int.ue(:,it)); % y_k
     dxedT_i = reshape(int.dxedT(:,it), nx,nT); % xT_ -> x_T
-    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
+    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i + dyedk_i * dkdT); % y_x * x_T + y_u * u_T * y_k * k_T -> y_T -> yT_
 end
 
 int.sol = sol;
@@ -213,7 +218,7 @@ int.sol = sol;
             u_i =  u(t(i)); % u_
             dxdT_i = reshape(deval(sol, t(i), dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
             dudT_i = reshape(evaluate_input_sensitivity(t(i)), nu,nT); % uT_ -> u_T
-            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
+            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i + dydk(t(i), x_i, u_i) * dkdT); % y_x * x_T + y_u * u_T * y_k * k_T -> y_T -> yT_
         end
     end
 end

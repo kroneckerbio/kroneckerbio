@@ -1,4 +1,5 @@
 function obs = observationEvents(tF, events)
+% obs = observationEvents(tF, events)
 
 ne = numel(events);
 

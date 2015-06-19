@@ -6,7 +6,7 @@ if nargin < 1
 end
 
 % Get function handles
-funnames = {'testBasicModel';'testNoStates';'testOneState';'testNoInputs';'testOneInput';'testNoOutputs';'testOneOutput';'testModelUpdate'};
+funnames = {'testBasicModel';'testNoStates';'testOneState';'testNoInputs';'testOneInput';'testNoOutputs';'testOneOutput';'testArbitraryOutput';'testModelUpdate'};
 if useMEX
     funnames = strcat(funnames,'MEX');
 end
@@ -119,6 +119,22 @@ function testOneOutput(a)
 useMEX = false;
 
 opts.Outputs = {'A+B'};
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
+function testArbitraryOutput(a)
+
+useMEX = false;
+
+opts.Outputs = {'koff^kon*(A^2+sqrt(B))/(C*DD)'};
 
 [m,expectedexprs] = getModel(opts,useMEX);
 
@@ -270,6 +286,22 @@ end
 
 end
 
+function testArbitraryOutputMEX(a)
+
+useMEX = true;
+
+opts.Outputs = {'koff^kon*(A^2+sqrt(B))/(C*DD)'};
+
+[m,expectedexprs] = getModel(opts,useMEX);
+
+[funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs);
+
+for vi = 1:length(funvals)
+    a.verifyEqual(full(funvals{vi}),expectedvals{vi},'AbsTol',1e-9,'RelTol',1e-6,[funnames{vi} ' differed from its expected value.']);  
+end
+
+end
+
 function testModelUpdateMEX(a)
 
 useMEX = true;
@@ -341,7 +373,7 @@ if order == 2
     funnames = funnames(:);
     funnames_x0 = {'x0';'dx0ds';'d2x0ds2'};
 elseif order == 1
-    funnames = {'f';'r';'y';'dfdx';'dfdk';'dfdu';'drdx';'drdk';'drdu';'dydx';'dydu'};
+    funnames = {'f';'r';'y';'dfdx';'dfdk';'dfdu';'drdx';'drdk';'drdu';'dydx';'dydu';'dydk'};
     funnames_x0 = {'x0';'dx0ds'};
 elseif order == 0
     funnames = {'f';'r';'y'};

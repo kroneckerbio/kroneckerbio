@@ -13,6 +13,9 @@ nTq = sum(opts.UseInputControls);
 nTh = sum(opts.UseDoseControls);
 nT  = nTk + nTs + nTq + nTh;
 
+dkdT = sparse(find(opts.UseParams), 1:nTk, 1, nk, nT);
+dkfitdT = dkdT(opts.UseParams,:);
+
 dxdTStart = nx+1;
 dxdTEnd   = nx+nx*nT;
 d2xdT2Start = nx+nx*nT+1;
@@ -26,9 +29,13 @@ dudq = con.dudq;
 d2udq2 = con.d2udq2;
 dydx = m.dydx;
 dydu = m.dydu;
+dydk = m.dydk;
 d2ydx2 = m.d2ydx2;
 d2ydu2 = m.d2ydu2;
+d2ydk2 = m.d2ydk2;
 d2ydudx = m.d2ydudx;
+d2ydkdx = m.d2ydkdx;
+d2ydkdu = m.d2ydkdu;
 
 % Construct system
 [der, jac, del] = constructSystem();
@@ -68,6 +75,7 @@ int.h = con.h;
 
 int.dydx = m.dydx;
 int.dydu = m.dydu;
+int.dydk = m.dydk;
 
 int.nT = nT;
 int.UseParams = opts.UseParams;
@@ -109,8 +117,9 @@ for it = 1:nte
 
     dyedx_i = dydx(int.te(it), int.xe(:,it), int.ue(:,it)); % y_x
     dyedu_i = dydu(int.te(it), int.xe(:,it), int.ue(:,it)); % y_u
+    dyedk_i = dydk(int.te(it), int.xe(:,it), int.ue(:,it)); % y_k
     dxedT_i = reshape(int.dxedT(:,it), nx,nT); % xT_ -> x_T
-    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
+    int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i + dyedk_i * dkdT); % y_x * x_T + y_u * u_T -> y_T -> yT_
     
     d2uedq2_i = d2udq2(int.te(it)); % uq_q
     d2uedq2_i = d2uedq2_i(uqUseInputControls,opts.UseInputControls); % uQ_Q
@@ -124,14 +133,27 @@ for it = 1:nte
     d2yedx2_i = d2ydx2(int.te(it), int.xe(:,it), int.ue(:,it)); % yx_x
     d2yedu2_i = d2ydu2(int.te(it), int.xe(:,it), int.ue(:,it)); % yx_x
     d2yedudx_i = d2ydudx(int.te(it), int.xe(:,it), int.ue(:,it)); % yx_u
-    temp1 = d2yedx2_i * dxedT_i; % yx_x * x_T -> yx_T
-    temp1 = reshape(spermute132(temp1, [ny,nx,nT], [ny*nT,nx]) * dxedT_i, ny,nT*nT); % (yx_T -> yT_x) * x_T -> yT_T -> y_TT
-    temp2 = d2yedu2_i * duedT_i; % yu_u * u_T -> yu_T
-    temp2 = reshape(spermute132(temp2, [ny,nu,nT], [ny*nT,nu]) * duedT_i, ny,nT*nT); % (yu_T -> yT_u) * u_T -> yT_T -> y_TT
-    temp3 = d2yedudx_i * duedT_i; % yx_u * u_T -> yx_T
-    temp3 = spermute132(temp3, [ny,nx,nT], [ny*nT,nx]) * dxedT_i; % (yx_T -> yT_x) * x_T -> yT_T
-    temp3 = reshape(temp3 + spermute132(temp3, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
-    d2yedT2 = dyedx_i * d2xedT2_i + dyedu_i * d2uedT2_i + temp1 + temp2 + temp3;
+    d2yedk2_i = d2ydk2(int.te(it), int.xe(:,it), int.ue(:,it));
+    d2yedkdx_i = d2ydkdx(int.te(it), int.xe(:,it), int.ue(:,it));
+    d2yedkdu_i = d2ydkdu(int.te(it), int.xe(:,it), int.ue(:,it));
+    temp1e = d2yedx2_i * dxedT_i; % yx_x * x_T -> yx_T
+    temp1e = reshape(spermute132(temp1e, [ny,nx,nT], [ny*nT,nx]) * dxedT_i, ny,nT*nT); % (yx_T -> yT_x) * x_T -> yT_T -> y_TT
+    temp2e = d2yedu2_i * duedT_i; % yu_u * u_T -> yu_T
+    temp2e = reshape(spermute132(temp2e, [ny,nu,nT], [ny*nT,nu]) * duedT_i, ny,nT*nT); % (yu_T -> yT_u) * u_T -> yT_T -> y_TT
+    temp3e = d2yedk2_i * dkdT; % yk_k * k_T -> yk_T
+    temp3e = reshape(spermute132(temp3e, [ny,nk,nT], [ny*nT,nk]) * dkdT, ny,nT*nT); % (yk_T -> yT_k) * k_T -> yT_T -> y_TT
+    temp4e = d2yedudx_i * duedT_i; % yx_u * u_T -> yx_T
+    temp4e = spermute132(temp4e, [ny,nx,nT], [ny*nT,nx]) * dxedT_i; % (yx_T -> yT_x) * x_T -> yT_T
+    temp4e = reshape(temp4e + spermute132(temp4e, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
+    temp5e = d2yedkdx_i * dkdT; % yx_k * k_T -> yx_T
+    temp5e = spermute132(temp5e, [ny,nx,nT], [ny*nT,nx]) * dxedT_i; % (yx_T -> yT_x) * x_T -> yT_T
+    temp5e = reshape(temp5e + spermute132(temp5e, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
+    temp6e = d2yedkdu_i * dkdT; % yu_k * k_T -> yu_T
+    temp6e = spermute132(temp6e, [ny,nu,nT], [ny*nT,nu]) * duedT_i; % (yu_T -> yT_u) * u_T -> yT_T
+    temp6e = reshape(temp6e + spermute132(temp6e, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
+    
+    % Note d2kdT2 is zero, so dydk_i * d2kdT2 term is zero
+    d2yedT2 = dyedx_i * d2xedT2_i + dyedu_i * d2uedT2_i + temp1e + temp2e + temp3e + temp4e + temp5e + temp6e;
     int.d2yedT2(:,it) = vec(d2yedT2);
 end
 
@@ -351,7 +373,7 @@ int.sol = sol;
             u_i =  u(t(i)); % u_
             dxdT_i = reshape(deval(sol, t(i), dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
             dudT_i = reshape(evaluate_input_sensitivity(t(i)), nu,nT); % uT_ -> u_T
-            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i); % y_x * x_T + y_u * u_T -> y_T -> yT_
+            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i + dydk(t(i), x_i, u_i) * dkdT); % y_x * x_T + y_u * u_T + y_k * k_T -> y_T -> yT_
         end
     end
 
@@ -383,6 +405,7 @@ int.sol = sol;
             u_i =  u(t(i)); % u_
             dydx_i = dydx(t(i), x_i, u_i); % y_x
             dydu_i = dydu(t(i), x_i, u_i); % y_u
+            dydk_i = dydk(t(i), x_i, u_i); % y_k
             dxdT_i = reshape(deval(sol, t(i), dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
             dudT_i = reshape(evaluate_input_sensitivity(t(i)), nu,nT); % uT_ -> u_T
             d2xdT2_i = reshape(deval(sol, t(i), d2xdT2Start:d2xdT2End), nx,nT*nT); % xT_T -> x_TT
@@ -390,14 +413,27 @@ int.sol = sol;
             d2ydx2_i = d2ydx2(t(i), x_i, u_i); % yx_x
             d2ydu2_i = d2ydu2(t(i), x_i, u_i); % yx_x
             d2ydudx_i = d2ydudx(t(i), x_i, u_i); % yx_u
+            d2ydk2_i = d2ydk2(t(i), x_i, u_i); % yk_k
+            d2ydkdx_i = d2ydkdx(t(i), x_i, u_i); % yx_k
+            d2ydkdu_i = d2ydkdu(t(i), x_i, u_i); % yu_k
             temp1 = d2ydx2_i * dxdT_i; % yx_x * x_T -> yx_T
             temp1 = reshape(spermute132(temp1, [ny,nx,nT], [ny*nT,nx]) * dxdT_i, ny,nT*nT); % (yx_T -> yT_x) * x_T -> yT_T -> y_TT
             temp2 = d2ydu2_i * dudT_i; % yu_u * u_T -> yu_T
             temp2 = reshape(spermute132(temp2, [ny,nu,nT], [ny*nT,nu]) * dudT_i, ny,nT*nT); % (yu_T -> yT_u) * u_T -> yT_T -> y_TT
-            temp3 = d2ydudx_i * dudT_i; % yx_u * u_T -> yx_T
-            temp3 = spermute132(temp3, [ny,nx,nT], [ny*nT,nx]) * dxdT_i; % (yx_T -> yT_x) * x_T -> yT_T
-            temp3 = reshape(temp3 + spermute132(temp3, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
-            d2ydT2 = dydx_i * d2xdT2_i + dydu_i * d2udT2_i + temp1 + temp2 + temp3;
+            temp3 = d2ydk2_i * dkdT; % yk_k * k_T -> yk_T
+            temp3 = reshape(spermute132(temp3, [ny,nk,nT], [ny*nT,nk]) * dkdT, ny,nT*nT); % (yk_T -> yT_k) * k_T -> yT_T -> y_TT
+            temp4 = d2ydudx_i * dudT_i; % yx_u * u_T -> yx_T
+            temp4 = spermute132(temp4, [ny,nx,nT], [ny*nT,nx]) * dxdT_i; % (yx_T -> yT_x) * x_T -> yT_T
+            temp4 = reshape(temp4 + spermute132(temp4, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
+            temp5 = d2ydkdx_i * dkdT; % yx_k * k_T -> yx_T
+            temp5 = spermute132(temp5, [ny,nx,nT], [ny*nT,nx]) * dxdT_i; % (yx_T -> yT_x) * x_T -> yT_T
+            temp5 = reshape(temp5 + spermute132(temp5, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
+            temp6 = d2ydkdu_i * dkdT; % yu_k * k_T -> yu_T
+            temp6 = spermute132(temp6, [ny,nu,nT], [ny*nT,nu]) * dudT_i; % (yu_T -> yT_u) * u_T -> yT_T
+            temp6 = reshape(temp6 + spermute132(temp6, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
+            
+            % Note d2kdT2 is zero, so dydk_i * d2kdT2 term is zero
+            d2ydT2 = dydx_i * d2xdT2_i + dydu_i * d2udT2_i + temp1 + temp2 + temp3 + temp4 + temp5 + temp6;
             val(:,i) = vec(d2ydT2);
         end
     end
