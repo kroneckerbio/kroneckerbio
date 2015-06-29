@@ -1,27 +1,31 @@
 function symModel = AddOutputsToSymbolic(symModel, yNames, yExprs, opts)
-%AddOutputsToSymbolic Add outputs to symbolic model before comverting to
+%AddOutputsToSymbolic Add outputs to symbolic model before converting to
 %   symbolic.
 % 
 %   AddOutputsToSymbolic(symModel, yNames, yExprs)
 %
 %   Inputs
-%   symModel: [symbolic model struct]
-%       
-%   yNames: [ string | cell array of strings {} ]
+%   symModel [symbolic model struct]
+%       Symbolic model in which to add outputs
+%   yNames [ string | cell array of strings {} ]
 %       If yNames in nonempty and yExprs is empty, attempts to convert selected
 %       expression in states/inputs given in yNames to outputs.
 %       If single string, have only 1 output.
-%   yExprs: [ string | cell array of strings {} ]
-%       Mathematical expressions for yNames.
-%   opts: struct of options
-%       Verbose: [ integer {0} ]
+%   yExprs [ string | cell array of strings {} ]
+%       Mathematical expressions for yNames. Species names with invalid
+%       Matlab variable names should be enclosed in double quotes ("").
+%       Non-default compartments or compartments for species that appear in
+%       multiple compartments should be specified as compartment.species.
+%   opts [ struct ]
+%       Options struct allowing the following fields:
+%       .Verbose: [ integer {0} ]
 %           Level of logging detail.
-%       DefaultCompartment: [ string {} ]
-%           Name of default compartment for species expressions. I blank, the
+%       .DefaultCompartment: [ string {1st compartment in symModel} ]
+%           Name of default compartment for species expressions. If blank, the
 %           1st compartment is the default.
 %
 %   Outputs
-%   symModel: [symbolic model struct]
+%   symModel [ symbolic model struct ]
 %       Contains added outputs
 %
 % Note: make idempotent/give warning, add additional outputs; maybe make default
@@ -77,10 +81,12 @@ yStrings = cell(ny,1); % maintains readable expression and double checking symbo
 for i = 1:ny
     yExpr = yExprs{i};
     
+    % Replace all expressions in quotes with cleaned versions
+    yExpr = cleanExpr(yExpr);
+    
     % Get terms to convert to symbolics
-    % Note: doesn't allow species names' that start with
-    %   numbers (shouldn't be allowed anyway); parts with mathematical symbols
-    %   (would be ambiguous anyway)
+    % Note: captures cruft like blanks, numbers, operators, and invalid
+    %   names, which must be checked/removed later
     C = strsplit(yExpr, delimiter, 'DelimiterType', 'RegularExpression');
     
     % Get valid identifiers from tokens: species (x and u) and rate constants (k)
@@ -116,16 +122,21 @@ function [id, status] = getIDFromName(name, symModel, defaultCompartment)
 %   If no compartment, either corresponding compartment (unique name) or default
 %   compartment (appears in multiple compartments)
 % Inputs:
-%   name: string of putative model component: parameter or species
-%   symModel: symbolic model struct
-%   defaultCompartment: string of default compartment for species (optional)
-%       Ignored for parameters
+%   name [ string ]
+%       Putative model component: parameter or species
+%   symModel [ symbolic model struct ]
+%       Symbolic model in which to search for component
+%   defaultCompartment [ string {1st compartment in symModel} ]
+%       Default compartment in which to search for species; ignored for
+%       parameters
 % Outputs:
-%   id: symbolic var of model component
-%   status: code for id type:
-%       0: parameter
-%       1: species (state or input)
-%       -1: error
+%   id [ symbolic var ]
+%       Unique model component symbolic variable
+%   status [ integer -1,0,1 ] 
+%       Code for id type:
+%           0: parameter
+%           1: species (state or input)
+%           -1: error
 
 % Clean up inputs; add default compartment
 if nargin < 3
@@ -148,8 +159,20 @@ end
 % Try species lookup
 try
     [compartment, species] = cleanSpeciesName(name, symModel, defaultCompartment);
-catch
-    % TODO: handle different errors differently
+catch err
+    % Rethrow fatal errors
+    % InvalidNameFormat means spaces, operators, etc. - ignore these
+    % TODO: handle CleanSpeciesName:SpeciesNotFoundAny more elegantly -
+    %   currently also matches mathematical exressions and other
+    %   non-species but valid names
+    switch err.identifier
+        case 'CleanSpeciesName:SpeciesNotFound'
+            throw(err)
+        case 'CleanSpeciesName:CompartmentNotFound'
+            throw(err)
+        case 'CleanSpeciesName:TooManyParts'
+            throw(err)
+    end
     id = defaultId;
     status = -1;
     return
@@ -175,18 +198,25 @@ end
 allSpeciesSyms = [symModel.xSyms; symModel.uSyms];
 id = allSpeciesSyms(speciesMask);
 status = 1;
-
 end
 
 function [compartment, species] = cleanSpeciesName(name, symModel, defaultCompartment)
-% Check and clean up species compartment and name in model.
+% Check and clean up species compartment and name in model. Uses cleaned up
+% names in quotes with underscores.
 % Inputs:
-%   name: string "name" or "compartment.name"
-%   symModel:
-%   defaultCompartment
+%   name [ string ]
+%       "name" or "compartment.name"
+%   symModel [ symbolic model struct ]
+%       Symbolic model in which to search for species
+%   defaultCompartment [ string {1st compartment in symModel} ]
+%       Default compartment in which to search for species
 % Outputs:
-%   compartment: string of compartment name
-%   species: string of species name
+%   compartment [ string ]
+%       Compartment name
+%   species [ string ]
+%       Species name
+% Throws: various errors indicating invalid symbols to ignore and invalid
+%   species names to warn user about
 % TODO: clean up error handling
 
 % Clean up inputs; add default compartment
@@ -198,6 +228,11 @@ allSpecies = [symModel.xNames; symModel.uNames];
 allCompartments = symModel.vNames;
 allSpeciesCompartmentInds = [symModel.vxInd; symModel.vuInd];
 
+% Cleaned up versions of species names
+invalid = '[^a-zA-Z0-9_\".]'; % any invalid character
+allSpecies = regexprep(allSpecies, invalid, '_');
+
+% Split into compartment.species components and look up in model
 C = strsplit(name, '.');
 nC = length(C);
 switch nC
@@ -209,7 +244,7 @@ switch nC
         nSpeciesOcurrences = sum(speciesMask);
         switch nSpeciesOcurrences
             case 0 % not found
-                error('CleanSpeciesName:SpeciesNotFoundAny: Species %s not found in any compartment', species)
+                error('CleanSpeciesName:SpeciesNotFoundAny', 'Species %s not found in any compartment', species)
             case 1 % unique species in 1 compartment
                 compartment = allCompartments{allSpeciesCompartmentInds(speciesMask)};
             otherwise % > 1, non-unique species in multiple compartments; use default
@@ -223,8 +258,7 @@ switch nC
         % Verify compartment exists
         compartmentMask = ismember(allCompartments, compartment);
         if ~any(compartmentMask)
-            error('CleanSpeciesName:InvalidCompartment: Compartment %s not found compartment')
-            
+            error('CleanSpeciesName:CompartmentNotFound', 'Compartment %s not found', compartment)
         end
         
         % Verify species is in compartment
@@ -232,9 +266,30 @@ switch nC
         allSpeciesInCompartment = allSpecies(allSpeciesCompartmentInds == compartmentInd);
         speciesMask = ismember(allSpeciesInCompartment, species);
         if ~any(speciesMask)
-            error('CleanSpeciesName:SpeciesNotFound: Species %s not found in compartment %s', species, compartment)
+            error('CleanSpeciesName:SpeciesNotFound', 'Species %s not found in compartment %s', species, compartment)
         end
-    otherwise
-        error('CleanSpeciesName:InvalidNameFormat: Invalid name')
+    otherwise % Invalid names with x.x.x format or more
+        error('CleanSpeciesName:TooManyParts', 'Invalid name %s', name)
+end
+end
+
+function expr = cleanExpr(expr)
+% Clean up rate form expression, replacing invalid characters in double-quoted
+% names with valid names with underscores and no quotes.
+% Inputs:
+%   expr [ string ]
+%       Input expression to be cleaned up
+% Outputs:
+%   expr [ string ]
+%       Cleaned up input expression
+inQuotes = '"(.*?)"'; % anything inside double quotes, no nested quotes
+invalid = '[^a-zA-Z0-9_\".]'; % any invalid character
+
+qExprs = regexp(expr, inQuotes, 'match');
+nQ = length(qExprs);
+for i = 1:nQ
+    qExpr = qExprs{i};
+    cleanedExpr = strrep(regexprep(qExpr, invalid, '_'), '"', '');
+    expr = regexprep(expr, regexptranslate('escape', qExpr), cleanedExpr);
 end
 end
