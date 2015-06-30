@@ -58,6 +58,9 @@ if verbose; fprintf('Adding outputs to symbolic model...\n'); end
 if ischar(yNames) 
     yNames = {yNames};
 end
+if ischar(yExprs)
+    yExprs = {yExprs};
+end
 
 % Make col vectors
 [~, nCol] = size(yNames);
@@ -161,15 +164,14 @@ try
     [compartment, species] = cleanSpeciesName(name, symModel, defaultCompartment);
 catch err
     % Rethrow fatal errors
-    % InvalidNameFormat means spaces, operators, etc. - ignore these
-    % TODO: handle CleanSpeciesName:SpeciesNotFoundAny more elegantly -
-    %   currently also matches mathematical exressions and other
-    %   non-species but valid names
+    % TODO: the following error types also match random bits of expressions:
+    %   CleanSpeciesName:InvalidNameFormat
+    %   CleanSpeciesName:SpeciesNotFoundAny
+    %   CleanSpeciesName:SpeciesNotFound
+    %   CleanSpeciesName:CompartmentNotFound
+    % Fix the parser to warn the user of invalid species and not numbers,
+    % mathematical functions, blank spaces, etc.
     switch err.identifier
-        case 'CleanSpeciesName:SpeciesNotFound'
-            throw(err)
-        case 'CleanSpeciesName:CompartmentNotFound'
-            throw(err)
         case 'CleanSpeciesName:TooManyParts'
             throw(err)
     end
@@ -181,6 +183,8 @@ end
 
 % Get list of species in right compartment
 allSpecies = [symModel.xNames; symModel.uNames];
+invalid = '[^a-zA-Z0-9_\".]'; % any invalid character
+allSpecies = regexprep(allSpecies, invalid, '_');
 allCompartments = symModel.vNames;
 allSpeciesCompartmentInds = [symModel.vxInd; symModel.vuInd];
 compartmentInd = find(ismember(allCompartments, compartment));
