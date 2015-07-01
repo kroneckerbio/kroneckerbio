@@ -37,11 +37,11 @@ for i_con = 1:n_con
     inTs = nnz(UseSeeds_i);
     
     UseInputControls_i = opts.UseInputControls{i_con};
-    opts_i.UseControls = UseInputControls_i;
+    opts_i.UseInputControls = UseInputControls_i;
     inTq = nnz(UseInputControls_i);
     
     UseDoseControls_i = opts.UseDoseControls{i_con};
-    opts_i.UseControls = UseDoseControls_i;
+    opts_i.UseDoseControls = UseDoseControls_i;
     inTh = nnz(UseDoseControls_i);
     
     inT = nTk + inTs + inTq + inTh;
