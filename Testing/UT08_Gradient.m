@@ -67,8 +67,8 @@ a.verifyEqual(size(Dfwd), [nT,1])
 a.verifyEqual(size(Dadj), [nT,1])
 a.verifyEqual(size(Ddisc), [nT,1])
 
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
-a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001)
+a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
 end
 
 function testObjectiveGradientMichaelisMenten(a)

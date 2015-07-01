@@ -30,11 +30,10 @@ input = Input(m, @u, border1, q, @dudq, @d2udq2);
 h = [2;1;3];
 nh = numel(h);
 border2 = 3;
-% dose = Dose(m, @d, border2, h, @dddh, @d2ddh2);
-dose = doseConstant(m, 3:5, 1:6);
+border3 = 10;
+dose = Dose(m, @d, 0:border3, h, @dddh, @d2ddh2);
 
 % Experiment
-tF = 6;
 con = experimentInitialValue(m, [], input, dose, 'SimpleExperiment');
 
 % Objective
@@ -101,7 +100,7 @@ opts.AbsTol = GoodAbsTol(m, con, sd, opts);
         if floor(t) == t
             if t < border2
                 val = [h(1); 0; 0];
-            else
+            elseif t <= border3
                 val = [h(2)*h(3)+h(3); 0; 0];
             end
         else
@@ -113,7 +112,7 @@ opts.AbsTol = GoodAbsTol(m, con, sd, opts);
         if floor(t) == t
             if t < border2
                 val = [1, 0, 0; sparse(ns-1,nh)];
-            else
+            elseif t <= border3
                 val = [0, h(3), h(2)+1; sparse(ns-1,nh)];
             end
         else
@@ -125,7 +124,7 @@ opts.AbsTol = GoodAbsTol(m, con, sd, opts);
         if floor(t) == t
             if t < border2
                 val = sparse(ns*nh,nh);
-            else
+            elseif t <= border3
                 val = sparse(ns*nh,nh);
                 val(4,3) = 1;
                 val(7,2) = 1;
