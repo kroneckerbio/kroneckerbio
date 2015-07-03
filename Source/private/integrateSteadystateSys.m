@@ -13,9 +13,6 @@ ic = extractICs(m,con,opts,order);
 %     accumulateOdeFwdComp(der, jac, t0, tF, ic, discontinuities, nonnegative, RelTol, AbsTol, delta, events, is_finished)
 sol = accumulateOdeFwdComp(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
 sol.u = con.u;
-sol.C1 = m.C1;
-sol.C2 = m.C2;
-sol.c  = m.c;
 sol.k = m.k;
 sol.s = con.s;
 sol.q = con.q;
