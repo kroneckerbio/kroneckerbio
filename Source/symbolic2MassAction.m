@@ -80,7 +80,7 @@ assert(all(vec(fix(S) == S)) && all(vec(abs(S) <= 2)), 'KroneckerBio:symbolic2Ma
 
 %% Initialize model
 % Basic structure
-m = InitializeModel(name);
+m = InitializeModelMassActionAmount(name);
 
 %% Loop over compartments
 for iv = 1:nv

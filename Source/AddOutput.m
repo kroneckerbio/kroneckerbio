@@ -1,46 +1,29 @@
-function m = AddOutput(m, name, expressions)
+function m = AddOutput(m, varargin)
 %AddOutput Add an output to a KroneckerBio model
 %
-%   m = AddOutput(m, name, expressions)
+%   m = AddOutput(m, ...)
 %
-%   Outputs are linear combinations of species. In Kronecker, they take
-%   advantage of species naming schemes by being defined by regular
-%   expressions. Each regular expression of the output has a corresponding
-%   value indicating how much each species with a matching substring
-%   contributes to this output. The value of the output is the sum of all
-%   matches times their values. If a species is matched more than once, the
-%   last match is used.
+%   This is a generic function. Select the appropriate help file below
+%   depending on the type of the model.
 %
-%   See regexp for help on how to write Matlab regular expressions.
+%   Model.MassActionAmount
+%       help addOutputMassActionAmount
 %
-%   Inputs
-%   m: [ model struct scalar ]
-%       The model to which the output will be added
-%   name: [ string ]
-%       A name for the output
-%   expressions: [ string | nonnegative scalar | cell vector of strings
-%                 | cell matrix {0} ]
-%       The expressions list is a ? by 2 cell matrix where the elements in
-%       the first column contain a regular expression and the elements in
-%       the second column contain a scalar. If just a string is given, the
-%       default scalar is 1. If just a scalar is given or a scalar is
-%       paired with an empty string, then that is assumed to be a
-%       constitutive amount added to the output value.
+%   Model.MassActionConcentration
+%       help addOutputMassActionConcentration
 %
-%   Outputs
-%   m: [ model struct scalar ]
-%       The model with the new output added.
+%   Model.Analytic
+%       help addOutputAnalytic
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-% Increment counter
-ny = m.add.ny + 1;
-m.add.ny = ny;
-m.add.Outputs = growOutputs(m.add.Outputs, ny);
-
-% Add item
-m.add.Outputs(ny).Name = fixOutputName(name);
-m.add.Outputs(ny).Expressions = fixOutputExpressions(expressions);
-
-m.Ready = false;
+if is(m, 'Model.MassActionAmount')
+    m = addOutputMassActionAmount(m, varargin{:});
+elseif is(m, 'Model.MassActionConcentration')
+    m = addOutputMassActionConcentration(m, varargin{:});
+elseif is(m, 'Model.Analytic')
+    m = addOutputAnalytic(m, varargin{:});
+else
+    error('KroneckerBio:AddOutput:m', 'm must be a model')
+end

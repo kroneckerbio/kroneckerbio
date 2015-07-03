@@ -24,7 +24,7 @@ function m = LoadModelMassAction(files)
 % This work is released under the MIT license.
 
 %% Initialize the model
-m = InitializeModel('');
+m = InitializeModelMassActionAmount('');
 
 % Standardize files a cell vector of strings
 if ischar(files)

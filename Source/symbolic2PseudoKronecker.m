@@ -933,7 +933,7 @@ clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms ...
     uqi qsinui nz sizes symbolic2stringmethod...
     thistime defaultMEXdirectory
 
-m = InitializeModel();
+m = InitializeModelMassActionAmount();
 
 m.Type = 'Model.AnalyticReactions';
 m.Name = name;

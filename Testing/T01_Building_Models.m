@@ -1,5 +1,5 @@
 %% Initialize Model
-m = InitializeModel('Testing');
+m = InitializeModelMassActionAmount('Testing');
 
 %% Add Compartments
 % All different dimensions

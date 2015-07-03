@@ -1,5 +1,5 @@
 function [m, con, obj, opts] = trivial_seed_model()
-m = InitializeModel('Trivial');
+m = InitializeModelMassActionAmount('Trivial');
 m = AddCompartment(m, 'v', 3, 1);
 m = AddState(m, 'x', 'v', 's');
 m = AddSeed(m, 's', 1);

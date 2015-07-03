@@ -1,5 +1,5 @@
 %% Construct equilibrium experiment A + B <-> C
-m = InitializeModel('Equilibrium');
+m = InitializeModelMassActionAmount('Equilibrium');
 
 m = AddCompartment(m, 'Solution', 3, 1);
 

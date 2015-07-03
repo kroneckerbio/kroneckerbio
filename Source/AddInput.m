@@ -1,39 +1,29 @@
-function m = AddInput(m, name, compartment, default)
-%AddInput Add an input species to a KroneckerBio model
+function m = AddInput(m, varargin)
+%AddInput Add an input species to a generic model
 %
-%   m = AddInput(m, name, compartment, default)
+%   m = AddInput(m, ...)
 %
-%   Inputs
-%   m: [ model struct scalar ]
-%       The model to which the input species will be added
-%   name: [ string ]
-%       A name for the input. This is the name by which reactions will
-%       refer to it.
-%   compartment: [ string ]
-%       The name of the compartment to which it will be added.
-%   default: [ nonnegative scalar {0} ]
-%       The default value for this input.
+%   This is a generic function. Select the appropriate help file below
+%   depending on the type of the model.
 %
-%   Outputs
-%   m: [ model struct scalar ]
-%       The model with the new input added.
+%   Model.MassActionAmount
+%       help addInputMassActionAmount
+%
+%   Model.MassActionConcentration
+%       help addInputMassActionConcentration
+%
+%   Model.Analytic
+%       help addInputAnalytic
 
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-% Clean-up inputs
-if nargin < 4
-    default = [];
+if is(m, 'Model.MassActionAmount')
+    m = addInputMassActionAmount(m, varargin{:});
+elseif is(m, 'Model.MassActionConcentration')
+    m = addInputMassActionConcentration(m, varargin{:});
+elseif is(m, 'Model.Analytic')
+    m = addInputAnalytic(m, varargin{:});
+else
+    error('KroneckerBio:AddInput:m', 'm must be a model')
 end
-
-% Increment counter
-nu = m.add.nu + 1;
-m.add.nu = nu;
-m.add.Inputs = growInputs(m.add.Inputs, nu);
-
-% Add item
-m.add.Inputs(nu).Name = fixSpeciesName(name);
-m.add.Inputs(nu).Compartment = fixCompartmentName(compartment);
-m.add.Inputs(nu).DefaultValue = fixInputDefaultValue(default);
-
-m.Ready = false;

@@ -1,7 +1,7 @@
-function m = InitializeModel(name)
-%InitializeModel Create an empty mass action Kronecker model structure
-%   which can then have compartment, species, outputs, parameters, and
-%   reactions added to it.
+function m = InitializeModelMassActionAmount(name)
+%InitializeModelMassActionAmount Create an empty mass action Kronecker
+%   model structure which can then have compartment, species, outputs,
+%   parameters, and reactions added to it.
 %
 %   m = InitializeModel(name)
 %
@@ -317,7 +317,7 @@ if nargin < 1
     name = [];
 end
 
-m.Type = 'Model.MassActionKronecker';
+m.Type = 'Model.MassActionAmount';
 m.Name = fixModelName(name);
 
 m.Compartments = emptyCompartments(0);
@@ -361,6 +361,10 @@ m.a  = zeros(0,0);
 m.B1 = zeros(0,0);
 m.B2 = zeros(0,0);
 m.b  = zeros(0,1);
+
+m.C1      = zeros(0,0);
+m.C2      = zeros(0,0);
+m.c       = zeros(0,1);
 
 m.dA1dk = zeros(0,0);
 m.dA2dk = zeros(0,0);
@@ -441,12 +445,20 @@ m.d2vdudx = @(t,x,u)(zeros(0,0));
 m.d2vdxdu = @(t,x,u)(zeros(0,0));
 
 m.y       = @(t,x,u)(zeros(0,1));
+
 m.dydx    = @(t,x,u)(zeros(0,0));
 m.dydu    = @(t,x,u)(zeros(0,0));
+m.dydk    = @(t,x,u)(zeros(0,0));
+
 m.d2ydx2  = @(t,x,u)(zeros(0,0));
 m.d2ydu2  = @(t,x,u)(zeros(0,0));
+m.d2ydk2  = @(t,x,u)(zeros(0,0));
 m.d2ydudx = @(t,x,u)(zeros(0,0));
 m.d2ydxdu = @(t,x,u)(zeros(0,0));
+m.d2ydkdx = @(t,x,u)(zeros(0,0));
+m.d2ydxdk = @(t,x,u)(zeros(0,0));
+m.d2ydkdu = @(t,x,u)(zeros(0,0));
+m.d2ydudk = @(t,x,u)(zeros(0,0));
 
 m.Ready  = true;
 m.add    = struct;
