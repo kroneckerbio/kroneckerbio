@@ -73,7 +73,8 @@ yNames = {
     };
 
 yNames2 = {'Out1'; 'Out2'};
-yExprs2 = {'EGF + 2*NGF', '(RasGapActive + kSos*RapGapActive)/2 + sqrt(AktActive)^(kRap1ToBRaf)'};
+% yExprs2 = {'EGF + 2*NGF', '(RasGapActive + kSos*RapGapActive)/2 + sqrt(AktActive)^(kRap1ToBRaf)'};
+yExprs2 = {'("RasGapActive" + kSos*RapGapActive)/2 + sqrt(AktActive)^(kRap1ToBRaf)', 'EGF + 2*NGF'};
 
 symModel = sbml2Symbolic('Brown_EGFNGF.xml', opts);
 

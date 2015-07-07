@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbml xmlns="http://www.sbml.org/sbml/level2/version4" level="2" version="4">
+  <annotation>
+    <SimBiology xmlns="http://www.mathworks.com">
+      <Version Major="5" Minor="2" Point="0"/>
+    </SimBiology>
+  </annotation>
+  <model id="mwa5cf4740_0f98_4f05_b6de_02a1ad67c02a" name="enzyme-catalysis-basic">
+    <listOfCompartments>
+      <compartment id="mw638e889e_1acf_49f6_a1e7_33b986e7d424" name="cell" size="1"/>
+    </listOfCompartments>
+    <listOfSpecies>
+      <species id="mw293e0ff1_2819_4497_896f_c5c01a84c7c1" name="E" compartment="mw638e889e_1acf_49f6_a1e7_33b986e7d424" initialAmount="1"/>
+      <species id="mw430a79b8_4a88_4b05_9a1e_d597ef1c9315" name="E:S" compartment="mw638e889e_1acf_49f6_a1e7_33b986e7d424" initialAmount="0"/>
+      <species id="mw43a730c4_7e47_41c9_af54_9d05902e78ea" name="S" compartment="mw638e889e_1acf_49f6_a1e7_33b986e7d424" initialAmount="100"/>
+      <species id="mwa31ff37a_96ba_44eb_8f34_050d071d8d12" name="S#P" compartment="mw638e889e_1acf_49f6_a1e7_33b986e7d424" initialAmount="0"/>
+    </listOfSpecies>
+    <listOfReactions>
+      <reaction id="mw9a16da76_5a72_4f5e_a5d5_4fb66a04fb08" name="r1" fast="false">
+        <listOfReactants>
+          <speciesReference species="mw293e0ff1_2819_4497_896f_c5c01a84c7c1"/>
+          <speciesReference species="mw43a730c4_7e47_41c9_af54_9d05902e78ea"/>
+        </listOfReactants>
+        <listOfProducts>
+          <speciesReference species="mw430a79b8_4a88_4b05_9a1e_d597ef1c9315"/>
+        </listOfProducts>
+        <kineticLaw>
+          <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <apply>
+              <minus/>
+              <apply>
+                <times/>
+                <ci> mw9b3a0f01_d218_410d_97d0_048ce5d05053 </ci>
+                <ci> mw293e0ff1_2819_4497_896f_c5c01a84c7c1 </ci>
+                <ci> mw43a730c4_7e47_41c9_af54_9d05902e78ea </ci>
+              </apply>
+              <apply>
+                <times/>
+                <ci> mw66ea9d94_dc6b_4867_a44c_a7ab5ceec35f </ci>
+                <ci> mw430a79b8_4a88_4b05_9a1e_d597ef1c9315 </ci>
+              </apply>
+            </apply>
+          </math>
+          <listOfParameters>
+            <parameter id="mw9b3a0f01_d218_410d_97d0_048ce5d05053" name="kf" value="20"/>
+            <parameter id="mw66ea9d94_dc6b_4867_a44c_a7ab5ceec35f" name="kr" value="10"/>
+          </listOfParameters>
+        </kineticLaw>
+      </reaction>
+      <reaction id="mwc73de884_6dcd_4c4f_a8a5_22b3591510ba" name="r2" reversible="false" fast="false">
+        <listOfReactants>
+          <speciesReference species="mw430a79b8_4a88_4b05_9a1e_d597ef1c9315"/>
+        </listOfReactants>
+        <listOfProducts>
+          <speciesReference species="mwa31ff37a_96ba_44eb_8f34_050d071d8d12"/>
+          <speciesReference species="mw293e0ff1_2819_4497_896f_c5c01a84c7c1"/>
+        </listOfProducts>
+        <kineticLaw>
+          <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <apply>
+              <times/>
+              <ci> mwd430ff6a_f67e_4338_a8bb_28e50bac5dc6 </ci>
+              <ci> mw430a79b8_4a88_4b05_9a1e_d597ef1c9315 </ci>
+            </apply>
+          </math>
+          <listOfParameters>
+            <parameter id="mwd430ff6a_f67e_4338_a8bb_28e50bac5dc6" name="kcat" value="10"/>
+          </listOfParameters>
+        </kineticLaw>
+      </reaction>
+    </listOfReactions>
+  </model>
+</sbml>
