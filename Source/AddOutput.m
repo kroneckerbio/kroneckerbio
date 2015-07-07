@@ -1,5 +1,5 @@
 function m = AddOutput(m, varargin)
-%AddOutput Add an output to a KroneckerBio model
+%AddOutput Add an output to a generic model
 %
 %   m = AddOutput(m, ...)
 %
@@ -15,7 +15,7 @@ function m = AddOutput(m, varargin)
 %   Model.Analytic
 %       help addOutputAnalytic
 
-% (c) 2015 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen
 % This work is released under the MIT license.
 
 if is(m, 'Model.MassActionAmount')

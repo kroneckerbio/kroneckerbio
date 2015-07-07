@@ -15,7 +15,7 @@ function m = AddReaction(m, varargin)
 %   Model.Analytic
 %       help addReactionAnalytic
 
-% (c) 2015 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen
 % This work is released under the MIT license.
 
 if is(m, 'Model.MassActionAmount')
@@ -25,5 +25,5 @@ elseif is(m, 'Model.MassActionConcentration')
 elseif is(m, 'Model.Analytic')
     m = addReactionAnalytic(m, varargin{:});
 else
-    error('KroneckerBio:AddOutput:m', 'm must be a model')
+    error('KroneckerBio:AddReaction:m', 'm must be a model')
 end
