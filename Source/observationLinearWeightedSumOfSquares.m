@@ -22,7 +22,7 @@ obs.Type = 'Observation.Data.LinearWeightedSumOfSquares';
 obs.Name = name;
 obs.Complex = false;
 
-obs.tF = max(timelist);
+obs.tF = max([0;timelist]);
 obs.DiscreteTimes = discrete_times;
 
 obs.Simulation = @simulation;

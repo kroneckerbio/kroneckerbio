@@ -130,7 +130,7 @@ else
 end
 
 % Make non-events solutions compatible with those that expect them
-if isempty(events) || isempty(cum_sol.ie)
+if isempty(events) || ~isfield(cum_sol, 'ie') || isempty(cum_sol.ie)
     cum_sol.xe = zeros(1,0);
     cum_sol.ye = zeros(size(cum_sol.y,1),0);
     cum_sol.ie = zeros(1,0);
