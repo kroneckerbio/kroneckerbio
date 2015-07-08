@@ -78,7 +78,7 @@ function testLinearNoiseApproximationOnSimple(a)
 [m, con, ~, opts] = simple_model();
 opts.AbsTol = nan;
 
-sim = SimulateLna(m, con, opts);
+sim = SimulateLna(m, con, 10, opts);
 
 Vy = sim.Vy([2;4]);
 a.verifyEqual(size(Vy), [m.ny^2,2])
