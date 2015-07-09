@@ -297,6 +297,42 @@ That = T0;
 Gbest = inf;
 Tbest = T0;
 
+    function optimoptionsinput = getOptionsCellArray(globalOpts, optimoptionsfields)
+        % This function converts the globalOpts structure into a
+        % 2-by-noptions cell array of input arguments for the options
+        % generation functions that can be passed easily with curly
+        % brackets.
+        %
+        % Inputs:
+        %   globalOpts
+        %       The global fitting options provided by the user.
+        %   optimoptionsfields
+        %       The names of all possible options expected by the options
+        %       generation function.
+        %
+        % Outputs:
+        %   optimoptionsinput
+        %       A 2-by-noptions cell array in which the first row is the
+        %       names of the provided options and the second row are the
+        %       values. This allows one to generate options by calling
+        %       optimoptions(optimoptionsinput{:}) or some similar variant
+        %       depending on the optimization algorithm.
+        
+        % Identify which of the global options are those needed by the
+        % options generation function
+        [specifiedoptimoptions, globalOptsi] = intersect(fieldnames(globalOpts), optimoptionsfields, 'stable');
+        
+        % Convert the global options struct's values into a cell array
+        optimoptionsinput = struct2cell(globalOpts);
+        
+        % Concatenate the option names and values in a 2-by-noptions cell
+        % array
+        optimoptionsinput = [
+            specifiedoptimoptions(:)'
+            optimoptionsinput(globalOptsi,:)'
+            ];
+    end
+
 for iRestart = 1:opts.Restart+1
     % Init abort parameters
     aborted = false;
@@ -310,11 +346,13 @@ for iRestart = 1:opts.Restart+1
     switch globalOpts.Algorithm
         case 'particleswarm'
             
-            optionInputArgs = {
-                'UseParallel'   globalOpts.UseParallel
-                };
-            localOpts = optimoptions('particleswarm',optionInputArgs{:});
+            % Convert globalOpts into a form specific for the optimization
+            % method
+            optimoptionsfields = fieldnames(optimoptions('particleswarm'));
+            optimoptionsinput = getOptionsCellArray(globalOpts, optimoptionsfields);
+            localOpts = optimoptions('particleswarm',optimoptionsinput{:});
             
+            % Set up the optimization problem input arguments
             problemInputArgs = {
                 'solver'        'particleswarm'
                 'objective'     @objective
@@ -323,13 +361,19 @@ for iRestart = 1:opts.Restart+1
                 'ub'            opts.UpperBound 
                 'options'       localOpts
                 }';
-            
             problemflag = 1;
             
         case 'geneticalgorithm'
             
+            % Convert globalOpts into a form specific for the optimization
+            % method
+            optimoptionsfields = fieldnames(gaoptimset);
+            optimoptionsinput = getOptionsCellArray(globalOpts, optimoptionsfields);
+            localOpts = gaoptimset(optimoptionsinput{:});
+            
+            % Set up the optimization problem input arguments
             problemInputArgs = {...
-                'solve'         'ga'
+                'solver'        'ga'
                 'fitnessfcn'    @objective
                 'nvars'         nT 
                 'Aeq'           opts.Aeq
@@ -338,11 +382,13 @@ for iRestart = 1:opts.Restart+1
                 'ub'            opts.UpperBound
                 'options'       localOpts
                 }';
-            
             problemflag = 1;
             
         otherwise
             
+            % localOpts are already set up
+            
+            % Set up the optimization problem input arguments
             problemInputArgs = {...
                 'objective'     @objective
                 'x0'            That 
@@ -352,19 +398,15 @@ for iRestart = 1:opts.Restart+1
                 'ub'            opts.UpperBound
                 'options'       localOpts
                 }';
-            
             problemflag = 2;
     end
     
-    if problemflag == 1
+    % Create the optimization problem
+    if problemflag == 1 % non-fmincon variants
         localProblem = cell2struct(problemInputArgs(2,:),problemInputArgs(1,:),2);
-    elseif problemflag == 2
+    elseif problemflag == 2 % fmincon variants
         localProblem = createOptimProblem('fmincon',problemInputArgs{:});
     end
-    
-    % Create local optimization problem
-    %   Always needed - used as a subset/refinement of global optimization
-    
     
     % Run specified optimization
     if opts.GlobalOptimization
@@ -393,7 +435,7 @@ for iRestart = 1:opts.Restart+1
                 error('Error:KroneckerBio:FitObjective: %s global optimization algorithm not recognized.', globalOpts.Algorithm)
         end
         
-        [~, D] = objective(That); % since global solvers don't return gradient at endpoint
+        [G, D] = objective(That); % since global solvers don't return gradient at endpoint
         
     else
         
