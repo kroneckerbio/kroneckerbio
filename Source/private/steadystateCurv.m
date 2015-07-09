@@ -3,11 +3,14 @@ function ic = steadystateCurv(m, con, opts)
 nx = m.nx;
 nu = m.nu;
 nk = m.nk;
+nq = con.nq;
 nTk = sum(opts.UseParams);
 nTs = sum(opts.UseSeeds);
 nTq = sum(opts.UseInputControls);
 nTh = sum(opts.UseDoseControls);
 nT  = nTk + nTs + nTq + nTh;
+
+uqUseInputControls = linearslicer([nu,nq], true(nu,1), opts.UseInputControls);
 
 % Construct system
 [der, jac, eve] = constructSystem();
@@ -17,7 +20,7 @@ order = 2;
 ic = extractICs(m,con,opts,order);
 
 % Integrate [f; dfdT] over time
-sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT+nx*nT*nT), [], eve, [], 1);
+sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT+nx*nT*nT), [], eve, @(cum_sol)true);
 
 % Return steady-state value
 ic = sol.ye;
@@ -33,7 +36,7 @@ ic = sol.ye;
         IT = speye(nT);
         IT2 = speye(nT*nT);
         TPermuteInd = vec(permute(reshape(1:nx*nT*nT, nx,nT,nT), [1,3,2])); % indexes that permute the last two T of fTT_
-        fkUseParams = reshape(1:nx*nTk, nx,nTk);
+        fkUseParams = reshape(1:nx*nk, nx,nk);
         fkUseParams = vec(fkUseParams(:,opts.UseParams)); % indexes that remove inactive k from fk_
 %         fqUseControls = reshape(1:nx*nTq, nx,nTq);
 %         fqUseControls = vec(fqUseControls(:,opts.UseControls{1})); % indexes that remove inactive q from fq_
@@ -43,16 +46,36 @@ ic = sol.ye;
         d2xdT2Start = nx+nx*nT+1;
         d2xdT2End   = nx+nx*nT+nx*nT*nT;
         
+%         f       = m.f;
+%         dfdx    = m.dfdx;
+%         dfdu    = m.dfdu;
+%         dfdk    = m.dfdk;
+%         dfdT    = @dfdTSub;
+%         d2fdx2  = m.d2fdx2;
+%         d2fdkdx = m.d2fdkdx;
+%         d2fdT2  = @d2fdT2Sub;
+%         d2fdudx = m.d2fdudx;
+%         d2fdTdx = @d2fdTdxSub;
+%         d2fdxdT = @d2fdxdTSub;
+
+        
         f       = m.f;
         dfdx    = m.dfdx;
         dfdu    = m.dfdu;
+        dfdk    = m.dfdk;
         dfdT    = @dfdTSub;
         d2fdx2  = m.d2fdx2;
         d2fdT2  = @d2fdT2Sub;
         d2fdudx = m.d2fdudx;
         d2fdTdx = @d2fdTdxSub;
+        d2fdxdT = @d2fdxdTSub;
+        d2fdu2  = m.d2fdu2;
+        d2fdk2  = m.d2fdk2;
+        d2fdudk = m.d2fdudk;
+        d2fdkdx = m.d2fdkdx;
         uf      = con.u;
         dudq    = con.dudq;
+        d2udq2  = con.d2udq2;
         
         der = @derivative;
         jac = @jacobian;
@@ -112,35 +135,40 @@ ic = sol.ye;
         
         % Modifies dfdk to relate only to the parameters of interest
         function val = dfdTSub(t, x, u)
-            val = m.dfdk(t,x,u);
-            dfdq = dfdu(t,x,u) * dudq(t);
-            val = [val(:,opts.UseParams) sparse(nx, nTx) dfdq(:,opts.UseControls{1})];
+            val = dfdk(t,x,u); % f_k
+            dudq_i = dudq(t); % u_q
+            dfdTq = dfdu(t,x,u) * dudq_i(:,opts.UseInputControls); % f_u * (u_q -> u_Q) -> f_Q
+            val = [val(:,opts.UseParams), sparse(nx,nTs), dfdTq, sparse(nx,nTh)]; % f_T
         end
         
         % Modifies d2fdkdk to relate only to the parameters of interest
         function val = d2fdT2Sub(t, x, u)
-            val = m.d2fdk2(t,x,u);
+            val = d2fdk2(t,x,u); % fk_k
             
-            d2fdq2 = m.d2fdu2(t,x,u) * dudq(t); % fu_u * u_q -> fu_q
-            d2fdq2 = d2fdq2(:,opts.UseControls{1}); % fu_q -> fu_q(T)
-            d2fdq2 = spermute132(d2fdq2, [nx,nu,nTq], [nx*nTq,nu]); % (fu_q -> fq_u) * u_q -> fq_q
-            d2fdq2 = d2fdq2(:,opts.UseControls{1}); % fq_q -> fq_q(T)
+            dudq_i = dudq(t); % u_q
+            dudq_i = dudq_i(:,opts.UseInputControls); % u_q -> u_Q
             
-            d2fdkdq = m.d2fdudk(t,x,u) * dudq(t); % fk_u * u_q -> fk_q
-            d2fdkdq = d2fdkdq(:,opts.UseControls{1}); % fk_q -> fk_q(T)
-            d2fdkdq = spermute132(d2fdkdq, [nx,nk,nTq], [nx*nTq,nk]); % fk_q -> fq_k
-            d2fdkdq = d2fdkdq(:,opts.UseParams); % fq_k -> fq_k(T)
+            d2udQ2_i = d2udq2(t); % uq_q
+            d2udQ2_i = reshape(d2udQ2_i(uqUseInputControls,opts.UseInputControls), [nu,nTq*nTq]); % uq_q -> uQ_Q -> u_QQ
             
-            val = [val(fkUseParams,opts.UseParams), sparse(nx*nTk, nTx+nTq), spermute132(d2fdkdq, [nx,nTq,nTk], [nx*nTk,nTq]);
-                   sparse(nx*nTx, nTk+nTx+nTq);
-                   d2fdkdq,                         sparse(nx*nTq, nTx),     d2fdq2];
+            d2fdq2 = d2fdu2(t,x,u) * dudq_i; % fu_u * u_Q -> fu_Q
+            d2fdq2 = spermute132(d2fdq2, [nx,nu,nTq], [nx*nTq,nu]) * dudq_i + reshape(dfdu(t,x,u) * d2udQ2_i, [nx*nTq,nTq]); % ((fu_Q -> fQ_u) * u_Q -> fQ_Q) + (f_u * u_QQ -> f_QQ -> fQ_Q) -> fQ_Q
+            
+            d2fdqdk = d2fdudk(t,x,u); % fk_u
+            d2fdqdk = d2fdqdk(fkUseParams,:) * dudq_i; % (fk_u -> fK_u) * u_Q -> fK_Q
+            
+            val = [val(fkUseParams,opts.UseParams),                  sparse(nx*nTk, nTs), d2fdqdk, sparse(nx*nTk,nTh);
+                   sparse(nx*nTs, nTk+nTs+nTq+nTh);
+                   spermute132(d2fdqdk, [nx,nTk,nTq], [nx*nTq,nTk]), sparse(nx*nTq, nTs), d2fdq2,  sparse(nx*nTh,nTh);
+                   sparse(nx*nTh, nTk+nTs+nTq+nTh)];
+               % fT_T
         end
         
         % Modifies d2fdkdx to relate only to the parameters of interest
         function val = d2fdTdxSub(t, x, u)
-            val = m.d2fdkdx(t,x,u); % fx_k
+            val = d2fdkdx(t,x,u); % fx_k
             d2fdqdx = d2fdudx(t,x,u) * dudq(t); % fx_u * u_q -> fx_q
-            val = [val(:,opts.UseParams) sparse(nx*nx, nTx) d2fdqdx(:,opts.UseControls{1})]; % fx_T
+            val = [val(:,opts.UseParams), sparse(nx*nx, nTs), d2fdqdx(:,opts.UseInputControls), sparse(nx*nx,nTh)]; % fx_T
         end
         
         % Modifies d2fdxdk to relate only to the parameters of interest
@@ -154,7 +182,7 @@ ic = sol.ye;
             x = joint(1:nx); % x_
 
             % Absolute change
-            absDiff = con.tF * f(-1,x,u); % Change over an entire simulation
+            absDiff = con.private.TimeScale * f(-1,x,u); % Change over an entire simulation
             
             % Relative change
             relDiff = absDiff ./ x;

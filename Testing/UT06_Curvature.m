@@ -45,6 +45,16 @@ obs = observationEvents(6, [eve1;eve2]);
 verifyCurvatureEvent(a, m, con, obs, opts)
 end
 
+function testSimulateCurvatureSimpleSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, unused, opts] = simple_model(simpleopts);
+% m = m.Update(rand(m.nk,1)+1);
+% con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+tGet = 1:6;
+
+verifyCurvature(a, m, con, tGet, opts)
+end
+
 function testSimulateCurvatureMichaelisMenten(a)
 [m, con, ~, opts] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+m.k+1);

@@ -19,6 +19,18 @@ t = 1;
 verifyDerivatives(a, obj, int, t)
 end
 
+function testObjectiveWeightedSumOfSquaresSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, obj, opts] = simple_model(simpleopts); % objectiveWeightedSumOfSquares is the default obj fun
+
+obs = observationSelect(1:6);
+sim = SimulateSystem(m, con, obs, opts);
+
+int = sim.int;
+t = 1;
+verifyDerivatives(a, obj, int, t)
+end
+
 function testObjectiveWeightSumOfSquaresDose(a)
 [m, con, obj, opts] = dose_model();
 
@@ -48,7 +60,8 @@ verifyDerivatives(a, obj, int, t);
 end
 
 % function testObjectiveWeightedSumOfSquaresNonNeg(a)
-% [m, con, obj, opts] = simple_model('objectiveWeightedSumOfSquaresNonNeg');
+% simpleopts.objectiveFun = 'objectiveWeightedSumOfSquaresNonNeg';
+% [m, con, obj, opts] = simple_model(simpleopts);
 % 
 % obs = observationSelect(1:6);
 % sim = SimulateSystem(m, con, obs, opts);

@@ -16,7 +16,7 @@ order = 1;
 ic = extractICs(m,con,opts,order);
 
 % Integrate [f; dfdT] over time
-sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, [], 1);
+sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, @(cum_sol)true);
 
 % Return steady-state value
 ic = sol.ye;
@@ -96,7 +96,7 @@ ic = sol.ye;
             x = joint(1:nx); % x_
 
             % Absolute change
-            absDiff = con.tF * f(-1,x,u); % Change over an entire simulation
+            absDiff = con.private.TimeScale * f(-1,x,u); % Change over an entire simulation
             
             % Relative change
             relDiff = absDiff ./ x;

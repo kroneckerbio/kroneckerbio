@@ -37,6 +37,17 @@ a.verifyEqual(size(sim.u), [m.nu,2])
 a.verifyEqual(size(sim.y), [m.ny,2])
 end
 
+function testSimulateSimpleSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, ~, opts] = simple_model(simpleopts);
+
+sim = SimulateSystem(m, con, 6, opts);
+
+a.verifyEqual(numel(sim.x(4)), m.nx)
+a.verifyEqual(numel(sim.u(4)), m.nu)
+a.verifyEqual(numel(sim.y(4)), m.ny)
+end
+
 function testSimulateEvent(a)
 [m, con, ~, opts] = simple_model();
 eve1 = eventDropsBelow(m, 10, 15);

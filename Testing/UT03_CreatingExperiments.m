@@ -21,7 +21,7 @@ a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
 end
 
-function testExperimentInputConstant(a)
+function testInitialValueExperimentInputConstant(a)
 m = simple_model();
 u = rand(m.nu,1);
 con = experimentInitialValue(m, [], u);
@@ -30,7 +30,7 @@ a.verifyEqual(con.u(5), u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
 end
 
-function testExperimentDoseConstant(a)
+function testInitialValueExperimentDoseConstant(a)
 m = simple_model();
 d = rand(m.ns,1);
 dos = doseConstant(m, d, 1:10);
@@ -39,6 +39,75 @@ a.verifyEqual(con.s, m.s);
 a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), d)
 a.verifyEqual(con.d(1.5), zeros(m.ns,1))
+end
+
+function testSteadyStateExperimentBlank(a)
+m = simple_model();
+con = experimentSteadyState(m);
+a.verifyEqual(con.s, m.s);
+a.verifyEqual(con.u(1), m.u);
+a.verifyEqual(con.d(1), zeros(m.ns,1));
+a.verifyEqual(con.private.BasalInput.u(5), m.u);
+a.verifyEqual(con.private.TimeScale, 10);
+a.verifyEqual(con.Periodic, false);
+a.verifyEqual(con.SteadyState, true);
+end
+
+function testSteadyStateExperimentSeed(a)
+m = simple_model();
+s = rand(m.ns,1);
+con = experimentSteadyState(m, s);
+a.verifyEqual(con.s, s);
+a.verifyEqual(con.u(1), m.u);
+a.verifyEqual(con.d(1), zeros(m.ns,1));
+a.verifyEqual(con.private.BasalInput.u(5), m.u);
+a.verifyEqual(con.private.TimeScale, 10);
+end
+
+function testSteadyStateExperimentBasalInputConstant(a)
+m = simple_model();
+basalu = rand(m.nu,1);
+con = experimentSteadyState(m, [], basalu);
+a.verifyEqual(con.s, m.s);
+a.verifyEqual(con.u(5), m.u);
+a.verifyEqual(con.d(1), zeros(m.ns,1));
+a.verifyEqual(con.private.BasalInput.u(5), basalu);
+a.verifyEqual(con.private.TimeScale, 10);
+end
+
+function testSteadyStateExperimentInputConstant(a)
+m = simple_model();
+u = rand(m.nu,1);
+con = experimentSteadyState(m, [], [], u);
+a.verifyEqual(con.s, m.s);
+a.verifyEqual(con.u(5), u);
+a.verifyEqual(con.d(1), zeros(m.ns,1));
+a.verifyEqual(con.private.BasalInput.u(5), m.u);
+a.verifyEqual(con.private.TimeScale, 10);
+end
+
+function testSteadyStateExperimentDoseConstant(a)
+m = simple_model();
+d = rand(m.ns,1);
+dos = doseConstant(m, d, 1:10);
+con = experimentSteadyState(m, [], [], [], dos);
+a.verifyEqual(con.s, m.s);
+a.verifyEqual(con.u(1), m.u);
+a.verifyEqual(con.d(1), d)
+a.verifyEqual(con.d(1.5), zeros(m.ns,1))
+a.verifyEqual(con.private.BasalInput.u(5), m.u);
+a.verifyEqual(con.private.TimeScale, 10);
+end
+
+function testSteadyStateExperimentTimeScale(a)
+m = simple_model();
+time_scale = 100;
+con = experimentSteadyState(m, [], [], [], [], time_scale);
+a.verifyEqual(con.s, m.s);
+a.verifyEqual(con.u(1), m.u);
+a.verifyEqual(con.private.BasalInput.u(5), m.u);
+a.verifyEqual(con.d(1), zeros(m.ns,1));
+a.verifyEqual(con.private.TimeScale, time_scale);
 end
 
 function testSimpleExperiment(a)
