@@ -302,12 +302,69 @@ for iRestart = 1:opts.Restart+1
     aborted = false;
     Tabort = That;
     
+    if ~opts.GlobalOptimization
+        globalOpts.Algorithm = 'fmincon';
+    end
+    
+    % Set optimization problem input arguments
+    switch globalOpts.Algorithm
+        case 'particleswarm'
+            
+            optionInputArgs = {
+                'UseParallel'   globalOpts.UseParallel
+                };
+            localOpts = optimoptions('particleswarm',optionInputArgs{:});
+            
+            problemInputArgs = {
+                'solver'        'particleswarm'
+                'objective'     @objective
+                'nvars'         nT
+                'lb'            opts.LowerBound
+                'ub'            opts.UpperBound 
+                'options'       localOpts
+                }';
+            
+            problemflag = 1;
+            
+        case 'geneticalgorithm'
+            
+            problemInputArgs = {...
+                'solve'         'ga'
+                'fitnessfcn'    @objective
+                'nvars'         nT 
+                'Aeq'           opts.Aeq
+                'Beq'           opts.beq 
+                'lb'            opts.LowerBound
+                'ub'            opts.UpperBound
+                'options'       localOpts
+                }';
+            
+            problemflag = 1;
+            
+        otherwise
+            
+            problemInputArgs = {...
+                'objective'     @objective
+                'x0'            That 
+                'Aeq'           opts.Aeq
+                'beq'           opts.beq
+                'lb'            opts.LowerBound
+                'ub'            opts.UpperBound
+                'options'       localOpts
+                }';
+            
+            problemflag = 2;
+    end
+    
+    if problemflag == 1
+        localProblem = cell2struct(problemInputArgs(2,:),problemInputArgs(1,:),2);
+    elseif problemflag == 2
+        localProblem = createOptimProblem('fmincon',problemInputArgs{:});
+    end
+    
     % Create local optimization problem
     %   Always needed - used as a subset/refinement of global optimization
-    localProblem = createOptimProblem('fmincon', 'objective', @objective, ...
-        'x0', That, 'Aeq', opts.Aeq, 'beq', opts.beq, ...
-        'lb', opts.LowerBound, 'ub', opts.UpperBound, ...
-        'options', localOpts);
+    
     
     % Run specified optimization
     if opts.GlobalOptimization
@@ -328,6 +385,10 @@ for iRestart = 1:opts.Restart+1
                 psOpts = psoptimset('MaxIter', globalOpts.MaxIter, 'UseParallel', globalOpts.UseParallel);
                 [That, G, exitflag] = patternsearch(@objective, That, [], [], ...
                     opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], psOpts);
+            case 'particleswarm'
+                That = particleswarm(localProblem);
+            case 'geneticalgorithm'
+                That = ga(localProblem);
             otherwise
                 error('Error:KroneckerBio:FitObjective: %s global optimization algorithm not recognized.', globalOpts.Algorithm)
         end
