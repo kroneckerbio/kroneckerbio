@@ -148,7 +148,7 @@ end
 obj = observationZero();
 
 % Objective structure
-obj.Type = 'Objective.Data';
+obj.Type = 'Objective.Data.Zero';
 obj.Name = 'UnamedObjective';
 
 % Objective function control parameters

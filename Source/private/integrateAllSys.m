@@ -36,9 +36,9 @@ else
             inds_i = lookup(ints(i_obs).t, obs(i_obs).DiscreteTimes);
             inds_i = inds_i(inds_i ~= 0);
             ints(i_obs).t = obs(i_obs).DiscreteTimes;
-            ints(i_obs).x = ints(i_obs).x(inds_i);
-            ints(i_obs).u = ints(i_obs).u(inds_i);
-            ints(i_obs).y = ints(i_obs).y(inds_i);
+            ints(i_obs).x = ints(i_obs).x(:,inds_i);
+            ints(i_obs).u = ints(i_obs).u(:,inds_i);
+            ints(i_obs).y = ints(i_obs).y(:,inds_i);
         end
     end
 end

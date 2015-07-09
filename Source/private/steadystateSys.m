@@ -10,7 +10,8 @@ order = 0;
 ic = extractICs(m,con,opts,order);
 
 % Integrate f over time
-sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, [], 1);
+%     accumulateOdeFwdSimp(der, jac, t0, tF, ic, discontinuities, t_get, nonnegative, RelTol, AbsTol, delta, events, is_finished)
+sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
 
 % Return steady-state value
 ic = sol.ye;

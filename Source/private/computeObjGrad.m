@@ -82,9 +82,9 @@ for i_con = 1:n_con
         for i_disc = 1:n_disc
             ti = discrete_times_all{i_obj}(i_disc);
             if obj(i_obj).Complex
-                dydT_i = reshape(ints(i_obj).dydT(ti), ny,nT);
+                dydT_i = reshape(ints(i_obj).dydT(ti), ny, inT);
             else
-                dydT_i = reshape(ints(i_obj).dydT(:,i_disc), ny,nT);
+                dydT_i = reshape(ints(i_obj).dydT(:,i_disc), ny, inT);
             end
             
             dGdy_i = row(obj(i_obj,i_con).dGdy(ti, ints(i_obj)));

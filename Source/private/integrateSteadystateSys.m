@@ -10,7 +10,8 @@ order = 0;
 ic = extractICs(m,con,opts,order);
 
 % Integrate f over time
-sol = accumulateOdeFwd(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, [], 1);
+%     accumulateOdeFwdComp(der, jac, t0, tF, ic, discontinuities, nonnegative, RelTol, AbsTol, delta, events, is_finished)
+sol = accumulateOdeFwdComp(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
 sol.u = con.u;
 sol.C1 = m.C1;
 sol.C2 = m.C2;
@@ -37,22 +38,22 @@ sol.h = con.h;
         
         % Derivative of x with respect to time
         function val = derivative(t, x)
-            u   = u(-1);
+            u   = uf(-1);
             val = f(t, x, u);
         end
         
         % Jacobian of x derivative
         function val = jacobian(t, x)
-            u   = u(-1);
+            u   = uf(-1);
             val = dfdx(t, x, u);
         end
         
         % Steady-state event
         function [value, isTerminal, direction] = events(t, x)
-            u = u(-1);
+            u = uf(-1);
 
             % Absolute change
-            absDiff = con.tF * f(-1, x, u); % Change over an entire simulation
+            absDiff = con.private.TimeScale * f(-1, x, u); % Change over an entire simulation
             
             % Relative change
             relDiff = absDiff ./ x;
