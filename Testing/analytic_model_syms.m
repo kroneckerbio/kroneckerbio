@@ -1,6 +1,6 @@
-function [ m, expectedexprs ] = symbolicmodel(opts)
-% m = symbolicmodel(opts)
-% Builds a simple symbolic model for tests
+function [m, expectedexprs] = analytic_model_syms(opts)
+% Builds a simple analytic model and symbolically calculates expected
+% components. Note: this function is slow due to the FinalizeModel.
 %
 % A -> B -> C + DD
 %
@@ -13,11 +13,11 @@ function [ m, expectedexprs ] = symbolicmodel(opts)
 if nargin < 1
     opts = [];
 end
-
 if isempty(opts)
     opts = struct;
 end
 
+% Default inputs and outputs
 if ~isfield(opts,'Inputs')
     opts.Inputs = {'A';'C'};
 end
@@ -33,10 +33,13 @@ if isempty(opts.Outputs)
     opts.Outputs = {};
 end
 
-m.Type       = 'Model.SymbolicReactions';
-m.Name       = 'Symbolic Model Test';
+%% Initialize models
+sm.Type       = 'Model.SymbolicReactions';
+sm.Name       = 'Symbolic Model Test';
 
-% Compartments
+m = InitializeModelAnalytic('Symbolic Model Test');
+
+%% Compartments
 compartmenttable = {
     'solution'  1
     };
@@ -45,13 +48,15 @@ nv = size(compartmenttable,1);
 v = cell2mat(compartmenttable(:,2));
 vNames = compartmenttable(:,1);
 
-m.nv         = nv;
-m.vSyms      = sym(vNames);
-m.vNames     = vNames;
-m.dv         = zeros(nv,1) + 3;
-m.v          = v;
+sm.nv         = nv;
+sm.vSyms      = sym(vNames);
+sm.vNames     = vNames;
+sm.dv         = zeros(nv,1) + 3;
+sm.v          = v;
 
-% Parameters
+m = AddCompartment(m, vNames{1}, 3, v(1));
+
+%% Parameters
 parametertable = {
     'kf'        1
     'kr'        1
@@ -63,17 +68,23 @@ nk = size(parametertable,1);
 k = cell2mat(parametertable(:,2));
 kNames = parametertable(:,1);
 
-m.nk         = nk;
-m.kSyms      = sym(kNames);
-m.kNames     = kNames;
-m.k          = k;
+sm.nk         = nk;
+sm.kSyms      = sym(kNames);
+sm.kNames     = kNames;
+sm.k          = k;
 
-% Species
+for i = 1:nk
+    m = AddParameter(m, kNames{i}, k(i));
+end
+
+%% Species
+% By default, A and C are inputs (values as below) and B and DD are states 
+%   (with ICs as seeds, squaring the below)
 speciestable = {
     'A'     1 
     'B'     3       
     'C'     2
-    'DD'     4
+    'DD'    4
     };
 
 isu = ismember(speciestable(:,1),opts.Inputs);
@@ -84,30 +95,40 @@ uNames = speciestable(isu,1);
 xuNames = speciestable(:,1);
 u = cell2mat(speciestable(isu,2));
 
-m.nx         = nx;
-m.xSyms      = sym(xNames);
-m.xNames     = xNames;
-m.vxInd      = ones(nx,1);
+sm.nx         = nx;
+sm.xSyms      = sym(xNames);
+sm.xNames     = xNames;
+sm.vxInd      = ones(nx,1);
 
-m.nu         = nu;
-m.uSyms      = sym(uNames);
-m.uNames     = uNames;
-m.vuInd      = ones(nu,1);
-m.u          = u;
+sm.nu         = nu;
+sm.uSyms      = sym(uNames);
+sm.uNames     = uNames;
+sm.vuInd      = ones(nu,1);
+sm.u          = u;
 
 % Seeds
 ns = nx;
 s = cell2mat(speciestable(~isu,2));
 sNames = strcat(xNames,'_0');
 
-m.sSyms      = sym(sNames);
-m.sNames     = sNames;
-m.s          = s;
-m.x0         = sym(sNames).^2;
+sm.sSyms      = sym(sNames);
+sm.sNames     = sNames;
+sm.s          = s;
+sm.x0         = sym(sNames).^2;
 
-m.ns         = ns;
+sm.ns         = ns;
 
-% Reactions
+for i = 1:nx+nu
+    xu0 = speciestable{i,2};
+    if isu(i) % input
+        m = AddInput(m, xuNames{i}, 'solution', xu0);
+    else % state
+        m = AddSeed(m, [xuNames{i} '_0'], xu0);
+        m = AddState(m, xuNames{i}, 'solution', [xuNames{i} '_0^2']);
+    end
+end
+
+%% Reactions
 reactiontable = {
     {'A'}       {'B'}       'kf*A'  'A -> B'
     {'B'}       {'A'}       'kr*B'  'B -> A'
@@ -135,37 +156,56 @@ S = zeros(nx+nu,nr);
 S(vertcat(reactantindices{:})) = -1;
 S(vertcat(productindices{:})) = 1;
 
-m.nr         = nr;
-m.rNames     = rNames;
-m.r          = r;
-m.S          = S(~isu,:);
-m.Su         = S(isu,:);
+sm.nr         = nr;
+sm.rNames     = rNames;
+sm.r          = r;
+sm.S          = S(~isu,:);
+sm.Su         = S(isu,:);
 
-% Outputs
-m.yNames = {};
-m.yStrings = {};
-m.y = sym([]);
+for i = 1:nr
+    if length(reactiontable{i,1}) == 1
+        reactiontable{i,1} = [reactiontable{i,1}, {''}];
+    end
+    if length(reactiontable{i,2}) == 1
+        reactiontable{i,2} = [reactiontable{i,2}, {''}];
+    end
+    m = AddReaction(m, reactiontable{i,4}, reactiontable{i,1}{1}, reactiontable{i,1}{2}, reactiontable{i,2}{1}, reactiontable{i,2}{2}, reactiontable{i,3});
+end
+
+%% Outputs
 outputtable = opts.Outputs(:);
 yNames = outputtable(:,1);
 yStrings = outputtable(:,1);
-m = AddOutputsToSymbolic(m,yNames,yStrings);
-y = m.y;
+sm.yNames = yNames;
+sm.yStrings = yStrings;
+sm.y = sym(yStrings);
+y = sm.y;
 
-% Get expected values for expressions in model, if requested
+ny = length(y);
+for i = 1:ny
+    m = AddOutput(m, yNames{i}, yStrings{i});
+end
+
+%% Finalize test model
+m = FinalizeModel(m);
+
+%% Get expected values for expressions in model, if requested
 if nargout > 1
     
     norder = 2;
 
     f = S(~isu,:)*r;
-    x0 = m.x0;
-
-    x = 2*m.s;
-    u = 3*m.u;
-    k = m.k;
+    x0 = sm.x0;
+    
+    % Set some random test values for comparing constructed model and symbolic
+    % solutions
+    x = 2*sm.s;
+    u = 3*sm.u;
+    k = sm.k;
 
     %%% Get expected values for f, r, and y functions %%%
     % Names of symbolic variables to be substituted for values
-    subvars = [m.xSyms;m.uSyms;m.kSyms];
+    subvars = [sm.xSyms;sm.uSyms;sm.kSyms];
 
     subfun = @(expr) double(subs(expr,subvars,[x;u;k])); % sym-to-double function
     exprvals = cell(norder+1,1);
@@ -185,7 +225,7 @@ if nargout > 1
     %%%
     
     %%% Get expected values for x0 functions %%%
-    subvars_x0 = m.sSyms;
+    subvars_x0 = sm.sSyms;
     
     subfun_x0 = @(expr) double(subs(expr,subvars_x0,s)); % sym-to-double function
     exprvals_x0 = cell(norder+1,1);
@@ -217,7 +257,7 @@ if nargout > 1
 
 end
 
-    function [dexprs,dexprvars] = getDerivatives(exprs,exprvars,isx0)
+    function [dexprs, dexprvars] = getDerivatives(exprs, exprvars, isx0)
         % Takes a list of symbolic expressions exprs and takes the
         % derivatives of them wrt x, k, and u (or s if isx0 is true),
         % returning them in a 3*length(exprs) cell array dexprs. Also takes
@@ -232,18 +272,18 @@ end
             dexprs = cell(length(exprs),1);
             dexprvars = cell(size(dexprs));
             for ei = 1:length(exprs)
-                dexprs{ei} = getder(exprs{ei},m.sSyms);
+                dexprs{ei} = getder(exprs{ei},sm.sSyms);
                 dexprvars{ei} = [exprvars{ei} 's'];
             end
         else
             dexprs = cell(3*length(exprs),1);
             dexprvars = cell(size(dexprs));
             for ei = 1:length(exprs)
-                dexprs{3*(ei-1)+1} = getder(exprs{ei},m.xSyms);
+                dexprs{3*(ei-1)+1} = getder(exprs{ei},sm.xSyms);
                 dexprvars{3*(ei-1)+1} = [exprvars{ei} 'x'];
-                dexprs{3*(ei-1)+2} = getder(exprs{ei},m.kSyms);
+                dexprs{3*(ei-1)+2} = getder(exprs{ei},sm.kSyms);
                 dexprvars{3*(ei-1)+2} = [exprvars{ei} 'k'];
-                dexprs{3*(ei-1)+3} = getder(exprs{ei},m.uSyms);
+                dexprs{3*(ei-1)+3} = getder(exprs{ei},sm.uSyms);
                 dexprvars{3*(ei-1)+3} = [exprvars{ei} 'u'];
             end
         end

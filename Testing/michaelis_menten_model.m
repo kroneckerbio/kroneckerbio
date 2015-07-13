@@ -1,55 +1,38 @@
-function [m_kron, con, obj, opts, eve] = michaelis_menten_model()
+function [m, con, obj, opts, eve] = michaelis_menten_model()
+% Simple analytic model for a variety of tests
 
-% Build symbolic model
-syms Km kcat S0 E S P
+%% Build model
+m = InitializeModelAnalytic('MichaelisMentenModel');
 
-m.kNames = {'Km';'kcat'};
-m.kSyms = [kcat;Km];
-m.k = [10;2];
+m = AddCompartment(m, 'solution', 3, 1);
 
-m.sNames = {'S0'};
-m.sSyms = S0;
-m.s = 5;
+m = AddInput(m, 'E', 'solution', 1);
 
-m.uNames = {'E'};
-m.uSyms = E;
-m.u = 1;
-m.nu = length(m.u);
+m = AddState(m, 'S', 'solution', 'S0^2');
+m = AddState(m, 'P', 'solution', 10);
 
-m.xNames = {'S';'P'};
-m.xSyms = [S;P];
-m.x0 = [S0.^2;10];
-m.nx = length(m.xSyms);
+m = AddParameter(m, 'Km', 10);
+m = AddParameter(m, 'kcat', 2);
 
-r = kcat*E*S/(Km+S);
-m.f = [-r;r];
+m = AddSeed(m, 'S0', 5);
 
-m.vNames = {'solution'};
-m.vSyms = sym('solution');
-m.v = 1;
-m.nv = 1;
-m.dv = 3;
-m.vxInd = ones(m.nx,1);
-m.vuInd = ones(m.nu,1);
+m = AddReaction(m, 'rxn1', 'S', '', 'P', '', 'kcat*E*S/(Km+S)');
 
-m.yNames = {};
-m.yStrings = {};
-m.y = sym([]);
-yNames = {'S','P','r'};
-yStrings = {'S','P','kcat*E*S/(Km+S)'};
-m = AddOutputsToSymbolic(m, yNames, yStrings);
+m = AddOutput(m, 'S', 'S');
+m = AddOutput(m, 'P', 'P');
+m = AddOutput(m, 'R', 'kcat*E*S/(Km+S)');
 
-% Convert symbolic model to analytic model
-m_kron = symbolic2PseudoKronecker(m);
+m = FinalizeModel(m);
 
+%% Make experimenal condition and generate test data
 if nargout > 1
 
-    dos = doseConstant(m_kron, 3, [2; 4; 6; 8]);
+    dos = doseConstant(m, 3, [2; 4; 6; 8]);
     u = @(t,q) repmat(q.^2,1,numel(t));
     dudq = @(t,q) 2.*q;
     d2udq2 = @(t,q) 2;
-    inp = Input(m_kron, u, [], 1, dudq, d2udq2); 
-    con = experimentInitialValue(m_kron, [], inp, dos);
+    inp = Input(m, u, [], 1, dudq, d2udq2); 
+    con = experimentInitialValue(m, [], inp, dos);
 
     sd = sdLinear(0.1, 1);
     % Values approximately from simulation for k = [15;10], other parameters the same
@@ -75,12 +58,10 @@ if nargout > 1
     opts.UseInputControls = [1];
     opts.UseDoseControls = [1];
 
-    opts.AbsTol = GoodAbsTol(m_kron, con, sd, opts);
+    opts.AbsTol = GoodAbsTol(m, con, sd, opts);
     
     eve1 = eventDropsBelow(m, 3, 1);
     eve2 = eventDropsBelow(m, 1, 2);
     eve = [eve1;eve2];
     
-end
-
 end

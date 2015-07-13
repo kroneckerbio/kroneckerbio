@@ -11,7 +11,7 @@ if nargin == 1
         name = '';
     end
 else
-    if any(name  == '.')
+    if any(name == '.')
         % Name is complete, do not modify
     else
         % Add the compartment to the name

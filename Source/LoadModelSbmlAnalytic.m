@@ -1,173 +1,347 @@
-function kronModel = LoadModelSbmlAnalytic(model, yNames, yMembers, yValues, opts)
-%LoadModelSbmlAnalytic Convert a model into a pseudo-kronecker model
-%   which interacts with much of the Kronecker toolbox much like a
-%   Kronecker model.
-% 
+function m = LoadModelSbmlAnalytic(model, opts)
+%LoadModelSbmlAnalytic Import SBML model and covert to kroneckerbio analytic
+%model. Modify the model and add outputs after calling this.
+%
 %   m = LoadModelSbmlAnalytic(model, yNames, yMembers, yValues, opts)
 %
 %   Inputs
-%   model: [ path string | SimBiology Model scalar |  symbolic model scalar ]
-%       This can be a path to an SBML file, a Simbiology Model, or a
-%       symbolic model.
-%   yNames: [ string | cell vector of strings {{m.Species.Name}} ]
-%       SBML has no concept of outputs; this is used to add them to the
-%       KroneckerBio model. The names of the outputs. If yMembers is not
-%       provided, the names are also interpreted as the species that will
-%       be represented by the outputs.
-%   yMembers: [ cell vector ny of cell vectors of strings | {} ]
-%       The names of the species to be included in each output
-%   yValues: [ cell vector of nonegative vectors ]
-%       Each numeric entry in this vector is associated with one of the
-%       expressions in yMembers. This value tells how much a species will
-%       contribute when it matches the corresponding expressions. If a
-%       species is matched by multiple expressions, the last expression to
-%       match overrides all others.
+%   model: [ Simbiology model scalar ]
+%       A Simbiology model object
 %   opts: [ options struct scalar {} ]
 %       .Verbose [ logical scalar {false} ]
 %       	Print progress to command window
-%       .Order [ 0 | 1 | {2} | 3 ]
-%       	Determines how deep the derivatives should be taken. Each level
-%       	increases the cost exponentially, but increases the number of
-%       	Kronecker functions that can be run on the model.
+%       .Validate [ logical scalar {false} ]
+%           Whether to use libSBML's model validation tool
+%       .UseNames [logical scalar {false} ]
+%           Whether to convert SBML IDs to Names and autogenerate new IDs
+%           Use this when the supplied SBML model uses "nice" names as IDs
 %
 %   Outputs
 %   m: [ Kronecker model struct scalar ]
 %       An analytic pseudo-Kronecker model
 %
-%   Inputs are any species that have "constant" or "boundaryCondition" set.
-%
-%   Seeds are generated from any parameter that appears in an
-%   InitialAssignment. The expression must be a linear combination of
-%   parameters.
+%   Notes: 
+%   - Inputs are any species that have "constant" or "boundaryCondition" set.
+%   - Seeds are generated from any parameter that appears in an InitialAssignment.
 %
 %   Limitations:
 %   Not all Simbiology features are compatible with this converter. This
-%   function ignores any events, most rules, and functions of the model.
+%   function ignores events, some rules, and functions in the model.
 
-% (c) 2013 David R Hagen & Bruce Tidor
-% This work is released under the MIT license.
-
-% Clean up inputs
-if nargin < 5
+%% Clean up inputs
+if nargin < 2
     opts = [];
-    if nargin < 4
-        yValues = [];
-        if nargin < 3
-            yMembers = [];
-            if nargin < 2
-                yNames = [];
-            end
-        end
-    end
 end
 
-useSimBioIntermediate = false; % use SimBiology intermediate when converting SBML -> symbolic
+% Default options
+opts_.Verbose = 0;
+opts_.Validate = false;
+opts_.UseNames = false;
 
-if ischar(model) % SBML model input
-    if useSimBioIntermediate
-        simBioModel = sbmlimport(model);
-        symModel = simbio2Symbolic(simBioModel, opts);
-    else
-        symModel = sbml2Symbolic(model, opts);
-    end
-else % SimBiology model input
-    symModel = simbio2Symbolic(model, opts);
-end
+opts = mergestruct(opts_, opts);
 
-%%%%%%%% Add specified outputs to the symbolic model %%%%%%%%%
+verbose = logical(opts.Verbose);
+opts.Verbose = max(opts.Verbose-1,0);
 
-%%% First, standardize yNames, yMembers, and yValues to their fully expressed
-%%% forms, using indexes to refer to states and inputs.
+%% Call libSBML to import SBML model
+if verbose; fprintf('Convert SBML model using libSBML...'); end
 
-% If only yNames were provided, then each yName is a single species to be
-% added as an output. Copy the yNames over to the yMembers, encapsulating
-% them in cells.
-if ~isempty(yNames) && isempty(yMembers)
-    yMembers = num2cell(yNames);
-end
+sbml = TranslateSBML(model, double(opts.Validate), opts.Verbose);
 
-ny = length(yNames);
-nmemberspery = cellfun(@length,yMembers);
+if verbose; fprintf('done.\n'); end
 
-% If no yValues were provided, default the yValues to 1 for each yMember.
-if ~isempty(yNames) && isempty(yValues)
-    yValues = arrayfun(@(len)ones(len,1),nmemberspery,'UniformOutput',false);
-end
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Part 1: Extracting the Model Variables %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if verbose; fprintf('Extracting model components...'); end
 
-% Check output specifiers
-assert(iscell(yMembers) && all(cellfun(@iscell,yMembers)), 'yMembers should be a cell vector of cell vectors of strings')
-
-% Set up output function
-% Ensure that symModel has y and yNames fields
-if isfield(symModel,'y')
-    oldny = length(symModel.y);
+%% Model name and initialization
+if opts.UseNames
+    name = sbml.id;
 else
-    symModel.y = sym([]);
-    symModel.yNames = {};
-    oldny = 0;
+    name = sbml.name;
 end
-symModel.y = [symModel.y; sym(zeros(ny,1))];
-xNames = symModel.xNames;
-uNames = symModel.uNames;
-xSyms = symModel.xSyms;
-uSyms = symModel.uSyms;
-nx = symModel.nx;
-nu = symModel.nu;
-C1 = zeros(ny,nx);
-C2 = zeros(ny,nu);
-c = zeros(ny,1);
 
-for yi = 1:ny
-    
-    thisyMembers = yMembers{yi};
-    thisnyMembers = length(thisyMembers);
-    
-    for ymi = 1:thisnyMembers
+m = InitializeModelAnalytic(name);
 
-        thisyMember = thisyMembers{ymi};
-        thisyValue = yValues{yi}(ymi);
-        
-        % Record constant value if member string is empty
-        if isempty(thisyMember)
-            c(oldny+yi) = thisyValue;
-        % Otherwise...
-        else
-            % Look for name among states
-            thisyMemberindex = find(strcmp(xNames,thisyMember));
-            % If not found there...
-            if isempty(thisyMemberindex)
-                % Look for name among inputs
-                thisyMemberindex = find(strcmp(uNames,thisyMember));
-                % If not found there...
-                if isempty(thisyMemberindex)
-                    % Name is invalid
-                    error(['Unrecognized state or input ' thisyMember])
-                % If found among inputs...
-                else
-                    % Record yValue in C2
-                    C2(oldny+yi,thisyMemberindex) = thisyValue;
-                end
-            % If found among states...
-            else
-                % Record yValue in C1
-                C1(oldny+yi,thisyMemberindex) = thisyValue;
-            end
-        end
-
-    end
+%% Compartments
+nv = length(sbml.compartment);
+for i = 1:nv
     
-    % Set empty input matrices to 0
-    if isempty(C2) || isempty(uSyms)
-        inputTerm = 0;
+    compartment = sbml.compartment(i);
+    
+    if opts.UseNames
+        name = compartment.id;
+        id = genUID;
     else
-        inputTerm = C2(oldny+yi,:)*uSyms;
+        name = compartment.name;
+        id = compartment.id;
     end
     
-    symModel.y(oldny+yi) = C1(oldny+yi,:)*xSyms + inputTerm + c(oldny+yi); % should not be empty
+    dv = compartment.spatialDimensions;
+    
+    if compartment.isSetSize
+        vNames = compartment.size;
+    else
+        warning('Warning:LoadModelSbmlAnalytic:CompartmentSizeNotSet: Compartment size not set, setting default size = 1.')
+        vNames = 1;
+    end
+    
+    m = AddCompartment(m, name, dv, vNames, id);
     
 end
 
-symModel.yNames = [symModel.yNames; yNames];
+vNames = {m.add.Compartments.Name}';
+vIDs   = {m.add.Compartments.ID}';
+v      = [m.add.Compartments.Size]';
 
-% Use symbolic2Kronecker to convert a symbolic model to a psuedo kronecker model
-kronModel = symbolic2PseudoKronecker(symModel, opts);
+%% Species
+nxu = length(sbml.species);
+xuIDs   = cell(nxu,1);
+xuNames = cell(nxu,1);
+xuCompartments = cell(nxu,1);
+xuSubstanceUnits = false(nxu,1);
+xuvInd = zeros(nxu,1);
+sIDs = cell(0,1);
+sNames = cell(0,1);
+for i = 1:nxu
+    
+    species = sbml.species(i);
+    
+    if opts.UseNames
+        name = species.id;
+        id = genUID;
+    else
+        name = species.name;
+        id = species.id;
+    end
+    
+    % Get species compartment
+    xuvID = species.compartment;
+    if opts.UseNames
+        xuvID = vIDs(ismember(xuvID, vNames));
+    end
+    [~, vInd] = ismember(xuvID, vIDs);
+    xuvName   = vNames{vInd};
+    xuv       = v(vInd);
+    
+    % Get initial amount, converting initial concentrations if necessary
+    if species.isSetInitialAmount
+        xu0 = species.initialAmount;
+    elseif species.isSetInitialConcentration
+        xu0 = species.initialConcentration;
+    else
+        warning('LoadModelSbmlAnalytic:InitialConcentrationNotSet: Initial species conc. not set for %s, setting default conc. = 0.', xuIDs{i})
+        xu0 = 0;
+    end
+    
+    % Species substance units in amount/true or conc./false
+    xuSubstanceUnits(i) = logical(species.hasOnlySubstanceUnits);
+    
+    % Species is input/conc. doesn't change due to reactions, etc.
+    isu = species.boundaryCondition || species.constant;
+    if isu
+        m = AddInput(m, name, xuvName, xu0, id);
+    else % x
+        % Make a seed for each state's initial condition
+        sName = [name '_0']; % hopefully unique
+        sExpr = sName;
+        if regexp(sName, '\W') % wrap in quotes if invalid chars present in state name
+            sExpr = ['"', sExpr, '"'];
+        end
+        sID = genUID;
+        m = AddSeed(m, sName, xu0, sID);
+        m = AddState(m, name, xuvName, sExpr, id);
+        sIDs   = [sIDs;   sID];
+        sNames = [sNames; sName];
+    end
+    
+    xuIDs{i} = id;
+    xuNames{i} = name;
+    xuCompartments{i} = xuvName;
+    xuvInd(i) = vInd;
+end
+
+%% Parameters
+% Global
+nk  = length(sbml.parameter);
+for i = 1:nk
+    
+    parameter = sbml.parameter(i);
+    
+    if opts.UseNames
+        name = parameter.id;
+        id = genUID;
+    else
+        name = parameter.name;
+        id = parameter.id;
+    end
+    
+    value = parameter.value;
+    
+    m = AddParameter(m, name, value, id);
+    
+end
+
+% Local to reactions
+% TODO: prefix reaction-local parameters and modify reaction rate in case of
+% local vs global name clashes
+nr = length(sbml.reaction);
+for i = 1:nr
+    
+    reaction = sbml.reaction(i);
+    
+    kineticLaw = reaction.kineticLaw; % Will be empty if no kinetic law parameters exist
+    if ~isempty(kineticLaw)
+        parameters = kineticLaw.parameter; % Will only fetch parameters unique to this kinetic law
+        nkl = length(parameters);
+        for j = 1:nkl
+            parameter = parameters(j);
+            
+            if opts.UseNames
+                name = parameter.id;
+                id = genUID;
+            else
+                name = parameter.name;
+                id = parameter.id;
+            end
+            
+            value = parameter.value;
+            
+            m = AddParameter(m, name, value, id);
+        end
+    end
+    
+end
+
+kNames = {m.add.Parameters.Name}';
+kIDs   = {m.add.Parameters.ID}';
+
+%% Reactions, local parameters
+% Note: ignores reversible flag - not sure where the reverse rate is specified
+nr = length(sbml.reaction);
+for i = 1:nr
+    
+    reaction = sbml.reaction(i);
+    
+    if opts.UseNames
+        name = reaction.id;
+        id = genUID;
+    else
+        name = reaction.name;
+        id = reaction.id;
+    end
+    
+    % Get reactant and product names
+    [r1,r2] = processSpecies(reaction.reactant);
+    [p1,p2] = processSpecies(reaction.product);
+    
+    % Reaction rate - keep as IDs
+    %   UUID-like IDs won't have any problems when IDs are attempted to be
+    %   subbed in here again when the model is parsed
+    kineticLaw = reaction.kineticLaw;
+    rate = kineticLaw.math;
+    
+    m = AddReaction(m, name, r1, r2, p1, p2, rate, [], [], id);
+    
+end
+
+    function [r1Name, r2Name] = processSpecies(species)
+        % Get reactant and product species by ID in a reaction
+        % Note: only accepts up to 2 reactants and products
+        % TODO: make this as flexible as SBML, with stoichiometries of arbitrary
+        % numbers of species in m.Reactions.Stoichiometry or as another field of
+        % m.Reactions.Reactants/Products
+        nSpecies = numel(species);
+        switch nSpecies % rxn order
+            case 0
+                r1Name = [];
+                r2Name = [];
+            case 1
+                r1ID = species(1).species;
+                if opts.UseNames
+                    r1ID = xuIDs(ismember(r1ID, xuNames));
+                end
+                [~, r1Ind] = ismember(r1ID, xuIDs);
+                r1Name = strcat(xuCompartments{r1Ind}, '.', xuNames{r1Ind});
+                switch species(1).stoichiometry;
+                    case 1
+                        r2Name = [];
+                    case 2
+                        r2Name = r1Name;
+                    otherwise
+                        error('LoadModelSbmlAnalytic:processSpecies: reaction has species with stoichiometry ~= 1 or 2')
+                end
+            case 2
+                r1ID = species(1).species;
+                if opts.UseNames
+                    r1ID = xuIDs(ismember(r1ID, xuNames));
+                end
+                [~, r1Ind] = ismember(r1ID, xuIDs);
+                r1Name = strcat(xuCompartments{r1Ind}, '.', xuNames{r1Ind});
+                
+                r2ID = species(2).species;
+                if opts.UseNames
+                    r2ID = xuIDs(ismember(r2ID, xuNames));
+                end
+                [~, r2Ind] = ismember(r2ID, xuIDs);
+                r2Name = strcat(xuCompartments{r2Ind}, '.', xuNames{r2Ind});
+            otherwise
+                error('LoadModelSbmlAnalytic:processSpecies: reaction has > 2 reactants or products, exiting')
+        end
+    end
+
+%% Switch from old names to new IDs if requested
+if opts.UseNames
+    % Assemble mapping
+    ids = [vIDs; xuIDs; kIDs; sIDs];
+    ids(cellfun('isempty', ids)) = [];
+    ids = sym(ids);
+    names = [vNames; xuNames; kNames; sNames];
+    names(cellfun('isempty', names)) = [];
+    names = sym(names);
+    
+    % Get symbolic expressions for rates
+    rates = {m.add.Reactions.Rate}';
+    rates(cellfun('isempty', rates)) = [];
+    ratesSym = sym(rates);
+    
+    % Perform substitutions
+    ratesSym = subs(ratesSym, names, ids);
+    
+    % Convert rate expressions back to strings
+    for i = 1:length(rates)
+        m.add.Reactions(i).Rate = char(ratesSym(i));
+    end
+end
+
+if verbose; fprintf('done.\n'); end
+
+%% Rules
+% Repeated assignment
+if isfield(sbml, 'rule') && ~isempty(sbml.rule)
+    for i = 1:length(sbml.rule)
+        rule = sbml.rule(i);
+        name = rule.name; % doesn't map to anything?
+        id = genUID; % libSBML Matlab loader doesn't generate rule IDs
+        target = rule.variable;
+        expression = rule.formula;
+        m = AddRuleAnalytic(m, name, target, expression, 'repeated assignment', id);
+    end
+end
+
+% Initial assignment
+if isfield(sbml, 'initialAssignment') && ~isempty(sbml.initialAssignment)
+    for i = 1:length(sbml.rule)
+        rule = sbml.initialAssignment(i);
+        name = rule.symbol; % no name field
+        id = genUID; % libSBML Matlab loader doesn't generate rule IDs
+        target = rule.symbol;
+        expression = rule.math;
+        m = AddRuleAnalytic(m, name, target, expression, 'initial assignment', id);
+    end
+end
+
+%% Done
+if verbose; fprintf('SBML model loaded.\n'); end
+end

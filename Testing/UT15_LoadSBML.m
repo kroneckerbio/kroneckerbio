@@ -5,49 +5,48 @@ end
 function testBasicLoadSBML(a)
 opts = [];
 opts.UseNames = true;
-opts.EvaluateExternalFunctions = true;
-
-s = sbml2Symbolic('test.xml', opts);
-% Test symbolic -> analytic conversion in another test
-
-verifySymbolicModel(a, s);
+m = LoadModelSbmlAnalytic('test.xml', opts);
+verifyLoadedSBMLModel(a, m);
 end
 
 % TODO: make this more comprehensive
-function verifySymbolicModel(a, s)
-a.verifyEqual(s.nv, 1);
-a.verifyEqual(s.nk, 3);
-a.verifyEqual(s.ns, 1);
-a.verifyEqual(s.S, sparse([1,-1,-1]));
+function verifyLoadedSBMLModel(a, m)
+a.verifyEqual(m.add.nv, 1);
+a.verifyEqual(m.add.nk, 3);
+a.verifyEqual(m.add.ns, 1);
+a.verifyEqual(m.add.nu, 3);
+a.verifyEqual(m.add.nx, 1);
+a.verifyEqual(m.add.nr, 3);
+a.verifyEqual(m.add.nz, 0);
 end
 
-% Testing AddOutputsToSymbolic for an SBML imported model
-% Test hardcodes the expected symbolic expressions of the outputs - may be
-% unnecessarily fragile due to the vagaries of the symbolic solver
-function testEnzymeModelOutput_complex(a)
-s = sbml2Symbolic('enzyme-catalysis-basic.xml');
-s = AddOutputsToSymbolic(s, 'complex', '"E:S"');
-a.verifyEqual(char(s.yNames{1}), 'complex');
-a.verifyEqual(char(s.y), 'mw430a79b8_4a88_4b05_9a1e_d597ef1c9315');
+% Testing adding outputs and verifying results to SBML-imported model
+% Note: FinalizeModel is slow so tests have been rolled into 1
+function testEnzymeModelOutputsx(a)
+m = LoadModelSbmlAnalytic('enzyme-catalysis-basic.xml');
+
+m = AddOutput(m, 'complex', '"E:S"');
+m = AddOutput(m, 'product', '"S#P"');
+m = AddOutput(m, 'modified_product', '1.5*"S#P"');
+m = AddOutput(m, 'random_y', '"E:S" + sqrt(S)');
+
+a.verifyEqual(m.add.ny, 4);
+a.verifyEqual(m.add.Outputs(1).Name, 'complex');
+a.verifyEqual(m.add.Outputs(1).Expression, '"E:S"');
+
+m = FinalizeModel(m);
+
+% Random values
+t = 10*rand;
+x = rand(4,1);
+u = [];
+% Expected output values
+y1 = x(2);
+y2 = x(4);
+y3 = 1.5*x(4);
+y4 = x(2) + sqrt(x(3));
+yExpected = [y1 y2 y3 y4]';
+
+a.verifyEqual(m.y(t,x,u), yExpected);
 end
 
-function testEnzymeModelOutput_product(a)
-s = sbml2Symbolic('enzyme-catalysis-basic.xml');
-s = AddOutputsToSymbolic(s, 'product', '"S#P"');
-a.verifyEqual(char(s.yNames{1}), 'product');
-a.verifyEqual(char(s.y), 'mwa31ff37a_96ba_44eb_8f34_050d071d8d12');
-end
-
-function testEnzymeModelOutput_modified_product(a)
-s = sbml2Symbolic('enzyme-catalysis-basic.xml');
-s = AddOutputsToSymbolic(s, 'modified_product', '1.5*"S#P"');
-a.verifyEqual(char(s.yNames{1}), 'modified_product');
-a.verifyEqual(char(s.y), '1.5*mwa31ff37a_96ba_44eb_8f34_050d071d8d12');
-end
-
-function testEnzymeModelOutput_random_y(a)
-s = sbml2Symbolic('enzyme-catalysis-basic.xml');
-s = AddOutputsToSymbolic(s, 'random_y', '"E:S" + sqrt(S)');
-a.verifyEqual(char(s.yNames{1}), 'random_y');
-a.verifyEqual(char(s.y), 'mw430a79b8_4a88_4b05_9a1e_d597ef1c9315 + mw43a730c4_7e47_41c9_af54_9d05902e78ea^(1/2)');
-end

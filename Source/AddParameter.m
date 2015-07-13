@@ -1,34 +1,27 @@
-function m = AddParameter(m, name, value)
-%AddParameter Add a rate parameter to a KroneckerBio model
+function m = AddParameter(m, varargin)
+%AddParameter Add a parameter to a generic model
 %
-%   m = AddParameter(m, name, value)
+%   m = AddParameter(m, ...)
 %
-%   Rate parameters determine the rate of reactions to which they are
-%   associated.
+%   This is a generic function. Select the appropriate help file below
+%   depending on the type of the model.
 %
-%   Inputs
-%   m: [ model struct scalar ]
-%       The model to which the parameter will be added
-%   name: [ string ]
-%       A name for the parameter. This is the name by which reactions will
-%       refer to it.
-%   value: [ nonnegative scalar ]
-%       The numeric value of the rate parameter.
+%   Model.MassActionAmount
+%       help addParameterMassAction
 %
-%   Outputs
-%   m: [ model struct scalar ]
-%       The model with the new parameter added
+%   Model.MassActionConcentration
+%       help addParameterMassAction
+%
+%   Model.Analytic
+%       help addParameterMassAnalytic
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-% Increment counter
-nk = m.add.nk + 1;
-m.add.nk = nk;
-m.add.Parameters = growParameters(m.add.Parameters, nk);
-
-% Add item
-m.add.Parameters(nk).Name = fixParameterName(name);
-m.add.Parameters(nk).Value = fixParameterValue(value);
-
-m.Ready = false;
+if is(m, 'Model.MassActionAmount') || is(m, 'Model.MassActionConcentration')
+    m = addParameterMassAction(m, varargin{:});
+elseif is(m, 'Model.Analytic')
+    m = addParameterAnalytic(m, varargin{:});
+else
+    error('KroneckerBio:AddCompartment:m', 'm must be a model')
+end

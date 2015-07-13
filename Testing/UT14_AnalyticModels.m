@@ -329,7 +329,7 @@ end
 
 %% Auxiliary functions
 
-function [m,expectedexprs] = getModel(opts,useMEX)
+function [m, expectedexprs] = getModel(opts,useMEX)
 
 if nargin < 2
     useMEX = false;
@@ -342,15 +342,12 @@ end
 clear mex
 
 % Get symbolic model
-[m,expectedexprs] = symbolicmodel(opts);
+[m, expectedexprs] = analytic_model_syms(opts);
 
 % Set up mex directory
 buildopts.UseMEX = useMEX;
-kroneckerdir = cd(cd([fileparts(which('symbolic2PseudoKronecker.m')) filesep '..']));
+kroneckerdir = cd(cd([fileparts(which('FinalizeModel.m')) filesep '..']));
 buildopts.MEXDirectory = fullfile(kroneckerdir,'Testing','mexfuns');
-
-% Build analytical model
-m = symbolic2PseudoKronecker(m,buildopts);
 
 % Compile MEX functions, if necessary
 if useMEX
@@ -361,7 +358,7 @@ end
 
 end
 
-function [funvals,expectedvals,funnames] = evaluateModel(m,expectedexprs,order)
+function [funvals, expectedvals, funnames] = evaluateModel(m, expectedexprs, order)
 
 if nargin < 3
     order = 2;

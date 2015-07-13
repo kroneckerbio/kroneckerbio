@@ -44,6 +44,6 @@ verifyClose(a, u0, @(u)m.dfdk(0,x0,u), @(u)m.d2fdudk(0,x0,u))
 end
 
 function verifyClose(a, x0, f, dfdx)
-[unused, dfdx_finite, dfdx_analytic] = fdiff(x0, f, dfdx);
+[~, dfdx_finite, dfdx_analytic] = fdiff(x0, f, dfdx);
 a.verifyEqual(sparse(dfdx_finite), dfdx_analytic, 'RelTol', 0.001)
 end
