@@ -11,7 +11,7 @@ ic = extractICs(m,con,opts,order);
 
 % Integrate f over time
 %     accumulateOdeFwdComp(der, jac, t0, tF, ic, discontinuities, nonnegative, RelTol, AbsTol, delta, events, is_finished)
-sol = accumulateOdeFwdComp(der, jac, 0, inf, ic, con.Discontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
+sol = accumulateOdeFwdComp(der, jac, 0, inf, ic, con.private.BasalDiscontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
 sol.u = con.u;
 sol.k = m.k;
 sol.s = con.s;
@@ -27,7 +27,7 @@ sol.h = con.h;
     function [der, jac, eve] = constructSystem()
         f     = m.f;
         dfdx  = m.dfdx;
-        uf    = con.u;
+        uf    = con.private.basal_u;
         
         der = @derivative;
         jac = @jacobian;
@@ -35,19 +35,19 @@ sol.h = con.h;
         
         % Derivative of x with respect to time
         function val = derivative(t, x)
-            u   = uf(-1);
-            val = f(t, x, u);
+            u   = uf(t);
+            val = f(-1, x, u);
         end
         
         % Jacobian of x derivative
         function val = jacobian(t, x)
-            u   = uf(-1);
-            val = dfdx(t, x, u);
+            u   = uf(t);
+            val = dfdx(-1, x, u);
         end
         
         % Steady-state event
         function [value, isTerminal, direction] = events(t, x)
-            u = uf(-1);
+            u = uf(t);
 
             % Absolute change
             absDiff = con.private.TimeScale * f(-1, x, u); % Change over an entire simulation

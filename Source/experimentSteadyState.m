@@ -120,7 +120,7 @@ con.nh = numel(dos.h);
 con.s  = s;
 con.q  = inp.q;
 con.h  = dos.h;
-[con.u,con.dudq,con.d2udq2] = getU(inp,m.nu);
+[con.u,con.dudq,con.d2udq2] = getU(inp, m.nu);
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
@@ -131,10 +131,18 @@ con.Periodic = false;
 con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
 con.private.BasalInput = basal_input;
+[con.private.basal_u, con.private.basal_dudq, con.private.basal_d2udq2] = getU(basal_input, m.nu);
 con.private.TimeScale = time_scale;
+con.private.BasalDiscontinuities = vec(unique([basal_input.discontinuities]));
 
     function con_out = update(s, q, h)
-        con_out = experimentSteadyState(m, s, basal_input, inp.Update(q), dos.Update(h), time_scale, name);
+        
+        % Check that a basal input has been provided
+        if isempty(basal_input)
+            warning(['Steady state experiment "' name '" appears to have no basal input. This may be because this experiment was built using an older version of KroneckerBio. Inputs may not be assigned the correct values in the simulation up to steady state.'])
+        end
+        
+        con_out = experimentSteadyState(m, s, basal_input.Update(q), inp.Update(q), dos.Update(h), time_scale, name);
     end
 
 end

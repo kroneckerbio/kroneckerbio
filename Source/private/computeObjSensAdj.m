@@ -14,6 +14,7 @@ n_obj = size(obj,1);
 
 y = m.y;
 dydx = m.dydx;
+dydu = m.dydu;
 dydk = m.dydk;
 
 % Initialize variables
@@ -173,7 +174,7 @@ for i_con = 1:n_con
         ic = sol.y;
         
         % Integrate [lambda; D] backward in time and replace previous run
-        sol = accumulateOdeRevSelect(der, jac, 0, ssSol.xe, ic, [], 0, [], opts.RelTol, opts_i.AbsTol(nx+opts.continuous(i_con)+1:nx+opts.continuous(i_con)+nx+inT));
+        sol = accumulateOdeRevSelect(der, jac, 0, ssSol.xe, ic, con(i_con).private.BasalDiscontinuities, 0, [], opts.RelTol, opts_i.AbsTol(nx+opts.continuous(i_con)+1:nx+opts.continuous(i_con)+nx+inT));
     end
     
     % *Add contributions to derivative*
@@ -255,8 +256,9 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             dGdx = zeros(nx,1);
             dGdT = zeros(inT,1);
             for i = 1:n_obj
-                dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*obj(i,i_con).dGdy(t, int_sys(i));
-                dGdk = obj(i,i_con).dGdk(int_sys(i)) + dydk_i.' * obj(i,i_con).dGdy(t, int_sys(i)); % k_ % partial dGdk(i)
+                dGdy = obj(i,i_con).dGdy(t, int_sys(i));
+                dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*dGdy;
+                dGdk = obj(i,i_con).dGdk(int_sys(i)) + dydk_i.' * dGdy; % k_ % partial dGdk(i)
                 dGds = obj(i,i_con).dGds(int_sys(i)); % s_ % partial dGds(i)
                 dGdq = obj(i,i_con).dGdq(int_sys(i)); % q_ % partial dGdq(i)
                 dGdh = obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdh(i)
@@ -286,33 +288,34 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         dfdu = m.dfdu;
         dfdk = m.dfdk;
         dfdT = @dfdTSub;
-        dudq = con.dudq;
+        basal_u = con(i_con).private.basal_u;
+        basal_dudq = con(i_con).private.basal_dudq;
         
         der = @derivative;
         jac = @jacobian;
         
         % Derivative of [lambda; D] with respect to time
         function val = derivative(t, joint)
-            ui = u(-1);
+            ui = basal_u(t);
             x = deval(ssSol, t, 1:nx);
             l = joint(1:nx);
             
-            val = -[dfdx(-1,x,ui).'; dfdT(-1,x,ui).'] * l;
+            val = -[dfdx(-1,x,ui).'; dfdT(t,x,ui).'] * l;
         end
         
         % Jacobian of [lambda; D] derivative
         function val = jacobian(t, joint)
-            ui = u(-1);
+            ui = basal_u(t);
             x = deval(ssSol, t, 1:nx);
             
             val = [-dfdx(-1,x,ui).', sparse(nx,inT);
-                   -dfdT(-1,x,ui).', sparse(inT,inT)];
+                   -dfdT(t,x,ui).', sparse(inT,inT)];
         end
         
         % Modifies dfdk to relate only to the parameters of interest
         function val = dfdTSub(t, x, u)
             val = dfdk(-1,x,u);
-            dfdq = dfdu(-1,x,u) * dudq(-1);
+            dfdq = dfdu(-1,x,u) * basal_dudq(t);
             val = [val(:,opts.UseParams), zeros(nx,inTs), dfdq(:,UseInputControls_i), sparse(nx,inTh)];
         end
     end

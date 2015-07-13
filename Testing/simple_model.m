@@ -1,4 +1,4 @@
-function [m, con, obj, opts] = simple_model(simpleopts)
+function [m, con, obj, opts, con_sscheck] = simple_model(simpleopts)
 % Build simple model, experiment, and fitting procedure.
 % Takes optional input objectiveFun, a string for the name of the objective
 %   function to test with.
@@ -43,6 +43,10 @@ nq = numel(q);
 border1 = 2;
 input = Input(m, @u, border1, q, @dudq, @d2udq2);
 
+% Basal input
+basalborder1 = 3;
+basalinput = Input(m, @basalu, basalborder1, q, @basaldudq, @basald2udq2);
+
 % Dose
 h = [2;1;3];
 nh = numel(h);
@@ -52,26 +56,74 @@ dose = Dose(m, @d, 0:border3, h, @dddh, @d2ddh2);
 
 % Experiment
 if steadyState
-    con = experimentSteadyState(m, [], [], input, dose, [], 'SimpleExperiment');
+    con = experimentSteadyState(m, [], basalinput, input, dose, [], 'SimpleExperiment');
+    con_sscheck = experimentInitialValue(m, [], basalinput, [], 'SimpleExperiment');
 else
     con = experimentInitialValue(m, [], input, dose, 'SimpleExperiment');
+    con_sscheck = [];
 end
 
 % Objective
 sd = sdLinear(0.1, 1);
 % Picked a few values near a simulation
-% output, time, value
 if steadyState
+    
+    % Initialize expected value array
     values = [
-        2, 1, 1;
-        4, 2, 3;
-        1, 4, 5;
+        % output, time, value
+        2, 1, 0;
+        4, 2, 0;
+        1, 4, 0;
         10, 3, 0;
         8, 6, 0;
-        9, 5, 8.5;
-        2, 2, 1;
-        3, 4, 0.8;
+        9, 5, 0;
+        2, 2, 0;
+        3, 4, 0;
         ];
+    
+    % Set parameters
+    kobj = [
+        1.0965
+        1.1320
+        1.9421
+        1.9561
+        1.5752
+        1.0598
+        1.2348
+        1.3532
+        1.8212
+        1.0154
+        ];
+    
+    sobj = [
+        1.0430
+        1.1690
+        1.6491
+        ];
+    
+    qobj = [
+        1.7317
+        1.6477
+        1.4509
+        ];
+    
+    hobj = [
+        1.5470
+        1.2963
+        1.7447
+        ];
+    
+    % Simulate with new parameters to get expected values
+    mobj = m.Update(kobj);
+    conobj = con.Update(sobj, qobj, hobj);
+    simobjopts.Verbose = 0;
+    simobj = SimulateSystem(mobj, conobj, max(values(:,2)), simobjopts);
+    
+    % Fill in expected values
+    for vi = 1:size(values,1)
+        values(vi,3) = round(simobj.y(values(vi,2), values(vi,1)), 2, 'significant');
+    end
+    
 else
     values = [ 
         2, 1, 13;
@@ -107,34 +159,55 @@ opts.UseDoseControls = [1;3];
 opts.AbsTol = GoodAbsTol(m, con, sd, opts);
 
     function val = u(t,q)
-        if t < 0 % Steady state simulation case
-            val = defaultu;
-        elseif t < border1
+        if t < border1
             val = [t; q(1)];
         else
             val = [t; q(2)*q(3)+q(3)];
         end
     end
 
+    function val = basalu(t,q)
+        if t < basalborder1
+            val = t/basalborder1*defaultu/10*q(1).^2;
+        else
+            val = defaultu/10*q(1).^2;
+        end
+    end
+
     function val = dudq(t, q)
-        if t < 0 % Steady state simulation case
-            val = sparse(nu, nq);
-        elseif t < border1
+        if t < border1
             val = sparse([0, 0, 0; 1, 0, 0]);
         else
             val = sparse([0, 0, 0; 0, q(3), q(2)+1]);
         end
     end
 
+    function val = basaldudq(t, q)
+        val = zeros(nu,nq);
+        if t < basalborder1
+            val(:,1) = 2*t/basalborder1*defaultu/10*q(1);
+        else
+            val(:,1) = 2*defaultu/10*q(1);
+        end
+    end
+
     function val = d2udq2(t, q)
-        if t < 0 % Steady state simulation case
-            val = sparse(nu*nq, nq);
-        elseif t < border1
+        if t < border1
             val = sparse(nu*nq,nq);
         else
             val = sparse(nu*nq,nq);
             val(4,3) = 1;
             val(6,2) = 1;
+        end
+    end
+
+    function val = basald2udq2(t, q)
+        val = sparse(nu*nq, nq);
+        linearinds = sub2ind([nu nq nq], (1:nu)', ones(nu,1), ones(nu,1));
+        if t < basalborder1
+            val(linearinds) = 2*t/basalborder1*defaultu/10;
+        else
+            val(linearinds) = 2*defaultu/10;
         end
     end
 

@@ -39,13 +39,24 @@ end
 
 function testSimulateSimpleSteadyState(a)
 simpleopts.steadyState = true;
-[m, con, ~, opts] = simple_model(simpleopts);
+[m, con, unused, opts, con_sscheck] = simple_model(simpleopts);
 
 sim = SimulateSystem(m, con, 6, opts);
+
+tbig = 10000;
+sim_sscheck = SimulateSystem(m, con_sscheck, tbig, opts);
 
 a.verifyEqual(numel(sim.x(4)), m.nx)
 a.verifyEqual(numel(sim.u(4)), m.nu)
 a.verifyEqual(numel(sim.y(4)), m.ny)
+
+% Verify steady state works correctly by simulating an initial value
+% experiment for a long time.
+% Dosing adds to states at t=0, which won't be reflected in the steady
+% state. Subtract off the dose.
+dose_t0 = m.x0(con.d(0)) - m.x0(zeros(m.ns,1));
+x_ss_predose = sim.x(0) - dose_t0;
+a.verifyEqual(x_ss_predose, sim_sscheck.x(tbig), 'AbsTol', 1e-7)
 end
 
 function testSimulateEvent(a)
