@@ -15,10 +15,24 @@ m2 = LoadModelSbmlAnalytic('../Models/Brown_EGFNGF.xml', opts);
 %   the user independent of SBML
 m2 = AddOutput(m2, 'Out1', '("RasGapActive" + kSos*RapGapActive)/2 + sqrt(AktActive)^(kRap1ToBRaf)');
 m2 = AddOutput(m2, 'Out2', 'EGF + 2*NGF');
-m2 = FinalizeModel(m2);
+m2 = FinalizeModel(m2, opts);
 
-%% Supposed to be mass action %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-m3 = LoadModelSbmlAnalytic('../Models/Chen2009_ErbB_A431.xml');
-m3 = FinalizeModel(m3);
+%% Simple mass saction model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+opts = [];
+opts.Verbose = 2;
+m3 = LoadModelSbmlAnalytic('simple_massaction.xml', opts);
+m3 = FinalizeModel(m3, opts);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Bigger mass action %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% m4 = LoadModelSbmlAnalytic('../Models/Chen2009_ErbB_A431.xml', opts);
+% m4 = FinalizeModel(m4, opts);
+m4 = LoadModelSbmlMassAction('../Models/Chen2009_ErbB_A431.xml', opts);
+m4 = FinalizeModel(m4);
+
+%% Bonus: Load SimBiology model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+load('simple_massaction_simbio_model.mat')
+% m5 = LoadModelSimBioAnalytic(simbiomodel, opts);
+% m5 = FinalizeModel(m5, opts);
+m5 = LoadModelSimBioMassAction(simbiomodel, opts);
+m5 = FinalizeModel(m5);
+

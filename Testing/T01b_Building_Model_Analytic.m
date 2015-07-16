@@ -33,6 +33,8 @@ m = AddOutput(m, 'y3', 'k1*x1');
 m = AddOutput(m, 'y4', 'exp(k2*x2)');
 m = AddOutput(m, 'y5', 5);
 
+m = addReactionManySpeciesAnalytic(m, 'r00', {'x1','u1'}, {'x2','x3','x4'}, 'k1*x5');
+
 m = AddReaction(m, 'r00', 'x1', '', 'x3', 'x4', 'k1');
 m = AddReaction(m, 'r01', 'x1', '', 'x3', 'x4', 'k1 + k2');
 m = AddReaction(m, 'r02', 'x1', '', 'x3', 'x4', 'k1*x0/(k2^2 + u2^2)');

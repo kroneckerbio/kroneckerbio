@@ -1,14 +1,17 @@
-function m = addReactionAnalytic(m, name, reactant1, reactant2, product1, product2, kForward, kReverse, compartment, id)
-%AddReaction Add a reaction to a Model.Analytic
+function m = addReactionManySpeciesAnalytic(m, name, reactants, products, kForward, kReverse, compartment, id)
+%AddReaction Add a reaction with reactants and products specified as a cell
+%array to a Model.Analytic. Allows > 2 reactants and product stoichiometries.
 %
-%   m = AddReaction(m, name, reactant1, reactant2, product1,
-%                   product2, kForward, kReverse)
+%   m = AddReaction(m, name, reactants, products, kForward, kReverse)
 %
-%   A reaction is a conversion of one or two reactant species into one or
-%   two product species associated with a rate expression. The
+%   A reaction is a conversion of >= 1 reactant species into >= 2
+%   product species associated with a rate expression. The
 %   reverse reaction may or may not be specified at the same time. Each
 %   reactant and product must be a single species in a single compartment
 %   (e.g. cytoplasm.glucose).
+%
+%   Specify stoichiometry > 1 by repeating the species in the reactants or
+%   products list.
 %
 %   Since most reactions happen in a single compartment, Kronecker does not
 %   make you type out the compartment for every species. You can specify a
@@ -31,15 +34,12 @@ function m = addReactionAnalytic(m, name, reactant1, reactant2, product1, produc
 %       reverse reactions. Reaction names do not need to be unique, so if
 %       only one name is provided, it will be identical for the forward and
 %       reverse reactions.
-%   reactant1: [ string ]
-%       This is a species full name in the model or just a species name
-%       that can accept a string in compartment as its compartment.
-%   reactant2: [ string ]
-%       Like reactant1.
-%   product1: [ string ]
-%       Like reactant1.
-%   product2: [ string ]
-%       Like reactant1.
+%   reactants: [ string | cell array of strings | empty matrix [] ]
+%       Species name or list of species names. Specified as "species" if 
+%       species is unique or in default compartment or "compartment.species"
+%       if species appears in multiple compartments
+%   products: [ string ]
+%       Like reactants
 %   kForward: [ string ]
 %       Expression for forward reaction rate
 %   kReverse: [ string {''} ]
@@ -55,13 +55,13 @@ function m = addReactionAnalytic(m, name, reactant1, reactant2, product1, produc
 %       The model with the new reaction added.
 
 % Clean-up
-if nargin < 10
+if nargin < 8
     id = [];
-    if nargin < 9
+    if nargin < 7
         compartment = [];
-        if nargin < 8
+        if nargin < 6
             kReverse = [];
-            if nargin < 7
+            if nargin < 5
                 kForward = [];
             end
         end
@@ -80,34 +80,49 @@ if isempty(compartment)
     compartment = vNames{1};
 end
 
+% Standardize reactants and products into cell array of strings
+if isempty(reactants) % 0th-order reaction
+    reactants = {[]};
+elseif ischar(reactants) % single reactant as a string
+    reactants = {reactants};
+end
+if isempty(products) % degradation reaction
+    products = {[]};
+elseif ischar(products) % single products as a string
+    products = {products};
+end
+
 % Standardize IDs
 if iscell(id)
-    if numel(id) == 1
-        id1 = id{1};
-        id2 = [];
-    elseif numel(id) >= 2
-        id1 = id{1};
-        id2 = id{2};
-    else
-        id1 = [];
-        id2 = [];
+    switch numel(id)
+        case 0
+            id1 = genUID;
+            id2 = genUID;
+        case 1
+            id1 = id{1};
+            id2 = genUID;
+        case 2
+            id1 = id{1};
+            id2 = id{2};
     end
 elseif ischar(id)
     id1 = id;
-    id2 = [];
+    id2 = genUID;
 elseif isempty(id)
-    id1 = [];
-    id2 = [];
+    id1 = genUID;
+    id2 = genUID;
 end
 
 % Standardize reaction name
 [name1, name2] = fixReactionName(name, kForward, kReverse);
 
 % Standardize species names into compartment.species
-reactant1 = fixSpeciesFullName(reactant1, compartment, m);
-reactant2 = fixSpeciesFullName(reactant2, compartment, m);
-product1  = fixSpeciesFullName(product1, compartment, m);
-product2  = fixSpeciesFullName(product2, compartment, m);
+for i = 1:length(reactants)
+    reactants{i} = fixSpeciesFullName(reactants{i}, compartment, m);
+end
+for i = 1:length(products)
+    products{i} = fixSpeciesFullName(products{i}, compartment, m);
+end
 
 % Standardize reaction rate expressions
 kForward    = fixRateExpressionAnalytic(kForward);
@@ -119,64 +134,23 @@ if ~isempty(kForward)
     nr = m.add.nr + 1;
     m.add.nr = nr;
     m.add.Reactions = growReactionsAnalytic(m.add.Reactions, nr);
-    
     m.add.Reactions(nr).Name = name1;
-    
-    if isempty(id1)
-        id1 = genUID;
-    end
     m.add.Reactions(nr).ID = id1;
-    
-    m.add.Reactions(nr).Reactants = cell(1,2);
-    if ~isempty(reactant1)
-        m.add.Reactions(nr).Reactants{1} = reactant1;
-    end
-    if ~isempty(reactant2)
-        m.add.Reactions(nr).Reactants{2} = reactant2;
-    end
-    
-    m.add.Reactions(nr).Products = cell(1,2);
-    if ~isempty(product1)
-        m.add.Reactions(nr).Products{1} = product1;
-    end
-    if ~isempty(product2)
-        m.add.Reactions(nr).Products{2} = product2;
-    end
-    
+    m.add.Reactions(nr).Reactants = reactants;
+    m.add.Reactions(nr).Products = products;
     m.add.Reactions(nr).Rate = kForward;
-    
-    m.Ready = false;
 end
 
 if ~isempty(kReverse)
     nr = m.add.nr + 1;
     m.add.nr = nr;
     m.add.Reactions = growReactionsAnalytic(m.add.Reactions, nr);
-    
     m.add.Reactions(nr).Name = name2;
-    
-    if isempty(id2)
-        id2 = genUID;
-    end
     m.add.Reactions(nr).ID = id2;
-    
-    m.add.Reactions(nr).Reactants = cell(1,1);
-    if ~isempty(product1)
-        m.add.Reactions(nr).Reactants{1} = product1;
-    end
-    if ~isempty(product2)
-        m.add.Reactions(nr).Reactants{2} = product2;
-    end
-    
-    m.add.Reactions(nr).Products = cell(1,2);
-    if ~isempty(reactant1)
-        m.add.Reactions(nr).Products{1} = reactant1;
-    end
-    if ~isempty(reactant2)
-        m.add.Reactions(nr).Products{2} = reactant2;
-    end
-    
+    m.add.Reactions(nr).Reactants = products;
+    m.add.Reactions(nr).Products = reactants;
     m.add.Reactions(nr).Rate = kReverse;
-    
-    m.Ready = false;
+end
+
+m.Ready = false;
 end

@@ -1,10 +1,10 @@
 function m = InitializeModelAnalytic(name)
-% Create a symbolic model to store analytic model precursors. Call FinalizeModel
-% to covert to final analytic model expected by kroneckerbio.
+% Create an analytic model. Call FinalizeModel to validate components and
+% calculate derivatives for use with the rest of kroneckerbio.
 % Inputs:
 %   name [ string {''} ]
 % Outputs:
-%   m [ symbolic model struct ]
+%   m [ Model.Analytic struct ]
 
 if nargin < 1
     name = [];

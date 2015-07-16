@@ -20,7 +20,7 @@ m = AddReaction(m, 'rxn1', 'S', '', 'P', '', 'kcat*E*S/(Km+S)');
 
 m = AddOutput(m, 'S', 'S');
 m = AddOutput(m, 'P', 'P');
-m = AddOutput(m, 'R', 'kcat*E*S/(Km+S)');
+m = AddOutput(m, 'r', 'kcat*E*S/(Km+S)');
 
 m = FinalizeModel(m);
 
@@ -37,21 +37,21 @@ if nargout > 1
     sd = sdLinear(0.1, 1);
     % Values approximately from simulation for k = [15;10], other parameters the same
     values = [
-        1   1       15
-        1   2.5     12
-        1   4       3 
-        2   3       35
-        2   5       48
-        2   8.5     64
-        3   1.5     11
-        3   3       9.6
-        3   4.5     9.5
+        1   1       24
+        1   2.5     30
+        1   4       37 
+        2   3       14
+        2   5       17
+        2   8.5     23
+        3   1.5     1.4
+        3   3       1.5
+        3   4.5     1.6
         ];
     obs = observationLinearWeightedSumOfSquares(values(:,1), values(:,2), sd, 'MichaelisMentenData');
     obj = obs.Objective(values(:,3));
 
     opts.Verbose = false;
-    opts.RelTol = 1e-6;
+    opts.RelTol = 1e-9;
     opts.Verbose = 0;
     opts.UseParams = [1;2];
     opts.UseSeeds = [1];

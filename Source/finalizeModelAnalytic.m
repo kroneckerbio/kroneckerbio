@@ -107,7 +107,7 @@ m.States = combineComponents(m.States, m.add.States, opts.Verbose);
 xStrs   = {m.States.ID}';
 xSyms   = sym(xStrs);
 xNames  = {m.States.Name}';
-vxNames = {m.States.Compartment}';
+xvNames = {m.States.Compartment}';
 x0      = {m.States.InitialValue}';
 nx      = numel(x0);
 
@@ -116,13 +116,13 @@ m.Inputs = combineComponents(m.Inputs, m.add.Inputs, opts.Verbose);
 uStrs   = {m.Inputs.ID}';
 uSyms   = sym(uStrs);
 uNames  = {m.Inputs.Name}';
-vuNames = {m.Inputs.Compartment}';
+uvNames = {m.Inputs.Compartment}';
 u       = [m.Inputs.DefaultValue]';
 nu      = numel(u);
 
 % Species compartments
-[~, vxInd] = ismember(vxNames, vNames);
-[~, vuInd] = ismember(vuNames, vNames);
+[~, vxInd] = ismember(xvNames, vNames);
+[~, vuInd] = ismember(uvNames, vNames);
 
 % Reactions
 rprovided = true;
@@ -157,6 +157,13 @@ zTargets = {m.Rules.Target}';
 zTypes   = {m.Rules.Type}';
 nRules   = numel(z); % nz clashes with another variable below
 
+% Useful combinations of names and IDs
+outputNames = [xNames; uNames; vNames; kNames];
+outputIDs   = [xStrs; uStrs; vStrs; kStrs];
+allNames    = [outputNames; sNames];
+allIDs      = [outputIDs; sStrs];
+xuvNames = [xvNames; uvNames];
+
 %% Clean up m.add.* fields
 m.add.Compartments = growCompartmentsAnalytic;
 m.add.Parameters   = growParametersAnalytic;
@@ -170,17 +177,17 @@ m.add.Rules        = growRulesAnalytic;
 %% Process expressions and turn strings into symbolics
 % Initial conditions - arbitrary expressions of seeds
 for i = 1:nx
-    x0{i} = parseMathExpression(x0{i}, 'ic', m);
+    x0{i} = name2id(x0{i}, sNames, sStrs);
 end
 
 % Reaction rates - arbitrary expressions of anything
 for i = 1:nr
-    r{i} = parseMathExpression(r{i}, 'rule', m);
+    r{i} = name2id(r{i}, allNames, allIDs, xuvNames);
 end
 
 % Outputs - arbitrary expressions of states and parameters
 for i = 1:ny
-    y{i} = parseMathExpression(y{i}, 'output', m);
+    y{i} = name2id(y{i}, outputNames, outputIDs, xuvNames);
 end
 
 % Convert to symbolics
@@ -191,8 +198,8 @@ y = sym(y);
 %% Perform rule substitutions
 % Note/TODO: zTargets substitution probably too permissive - lets anything be replaced, but backend won't handle this properly
 for i = 1:nRules
-    zTargets{i} = parseMathExpression(zTargets{i}, 'rule', m);
-    z{i} = parseMathExpression(z{i}, 'rule', m);
+    zTargets{i} = name2id(zTargets{i}, allNames, allIDs, xuvNames);
+    z{i} = name2id(z{i}, allNames, allIDs, xuvNames);
 end
 zTargets = sym(zTargets);
 z = sym(z);
@@ -241,7 +248,7 @@ end
 
 %% Process stoichiometry and rate forms/RHS's
 % Make stoichiometry matrix nSpecies x nReactions
-xuFullNames = strcat([vxNames; vuNames], '.', [xNames; uNames]);
+xuFullNames = strcat([xvNames; uvNames], '.', [xNames; uNames]);
 SEntries = zeros(0,3);
 for i = 1:nr
     for j = 1:length(m.Reactions(i).Reactants)
@@ -1263,7 +1270,7 @@ if verbose; fprintf('done.\n'); end
             % Only update the key for f if no information about this
             % particular derivative was previously stored in nz
             if ~isKey(nz, nzkey_f)
-                nztemp = logical(abs(StoichiometricMatrix)*reshape(nze, [ny_, nx1_*nx2_]));
+                nztemp = full(logical(abs(StoichiometricMatrix)*reshape(nze, [ny_, nx1_*nx2_])));
                 nz(nzkey_f) = reshape(nztemp, [nx, nx1_, nx2_]);
             end
         end
