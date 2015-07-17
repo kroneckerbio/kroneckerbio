@@ -1,9 +1,9 @@
 function [m_kron, con, obj, opts, eve] = michaelis_menten_model()
 
 % Build symbolic model
-syms Km kcat S0 E S P
+syms Km kcat S0 En S P
 
-m.kNames = {'Km';'kcat'};
+m.kNames = {'kcat';'Km'};
 m.kSyms = [kcat;Km];
 m.k = [10;2];
 
@@ -11,8 +11,8 @@ m.sNames = {'S0'};
 m.sSyms = S0;
 m.s = 5;
 
-m.uNames = {'E'};
-m.uSyms = E;
+m.uNames = {'En'};
+m.uSyms = En;
 m.u = 1;
 m.nu = length(m.u);
 
@@ -21,7 +21,7 @@ m.xSyms = [S;P];
 m.x0 = [S0.^2;10];
 m.nx = length(m.xSyms);
 
-r = kcat*E*S/(Km+S);
+r = kcat*En*S/(Km+S);
 m.f = [-r;r];
 
 m.vNames = {'solution'};
@@ -36,7 +36,7 @@ m.yNames = {};
 m.yStrings = {};
 m.y = sym([]);
 yNames = {'S','P','r'};
-yStrings = {'S','P','kcat*E*S/(Km+S)'};
+yStrings = {'S','P','kcat*En*S/(Km+S)'};
 m = AddOutputsToSymbolic(m, yNames, yStrings);
 
 % Convert symbolic model to analytic model

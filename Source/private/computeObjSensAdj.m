@@ -253,6 +253,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             x_i = deval(sol_sys, t, 1:nx);
             dydx_i = dydx(t, x_i, u_i);
             dydk_i = dydk(t, x_i, u_i);
+            dydu_i = dydu(t, x_i, u_i);
             dGdx = zeros(nx,1);
             dGdT = zeros(inT,1);
             for i = 1:n_obj
@@ -260,7 +261,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
                 dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*dGdy;
                 dGdk = obj(i,i_con).dGdk(int_sys(i)) + dydk_i.' * dGdy; % k_ % partial dGdk(i)
                 dGds = obj(i,i_con).dGds(int_sys(i)); % s_ % partial dGds(i)
-                dGdq = obj(i,i_con).dGdq(int_sys(i)); % q_ % partial dGdq(i)
+                dGdq = obj(i,i_con).dGdq(int_sys(i)) + dudq(t).' * dydu_i.' * dGdy; % q_ % partial dGdq(i)
                 dGdh = obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdh(i)
                 dGdT = dGdT + opts.ObjWeights(i,i_con)*[dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseInputControls_i); dGdh(UseDoseControls_i)]; % T_ + (k_ -> T_) -> T_
             end
