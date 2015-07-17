@@ -190,6 +190,9 @@ nr = numel(m.Reactions);
 m.nr = nr;
 r_names = vec({m.Reactions.Name});
 
+%% Place rules (placeholder, not implemented)
+% pass
+
 %% Warn on repeated reactions
 % It is necessary to sort the reactants and products first so that
 % reactions which are merely permutations of the names can be detected

@@ -1,4 +1,4 @@
-function tests = UT01_BuildingModels()
+function tests = UT01a_BuildingModelsMassAction()
 tests = functiontests(localfunctions);
 end
 
@@ -51,7 +51,7 @@ m = InitializeModelMassActionAmount();
 a.verifyError(@()AddCompartment(m, 'test', 4, 1), 'KroneckerBio:Compartment:Dimension');
 end
 
-function [m, x0,u0] = model_with_some_species()
+function [m, x0, u0] = model_with_some_species()
 m = InitializeModelMassActionAmount();
 m = AddCompartment(m, 'v1', 3, 1);
 m = AddState(m, 'x1', 'v1', 2);
@@ -77,17 +77,4 @@ function testAddReactionRev(a)
 m = AddReaction(m, 'test', 'x1', 'x2', 'x3', '', '', 'k2');
 m = FinalizeModel(m);
 a.verifyEqual(m.f(0,x0,u0), [15;15;-15;0])
-end
-
-function testsymbolic2PseudoKroneckerMM(a)
-
-m_kron = michaelis_menten_model();
-
-a.verifyEqual(m_kron.nv, 1)
-a.verifyEqual(m_kron.nk, 2)
-a.verifyEqual(m_kron.ns, 1)
-a.verifyEqual(m_kron.nu, 1)
-a.verifyEqual(m_kron.nx, 2)
-a.verifyEqual(m_kron.ny, 3)
-
 end

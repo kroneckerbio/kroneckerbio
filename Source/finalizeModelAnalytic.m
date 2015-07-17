@@ -1,15 +1,15 @@
-function m = symbolic2PseudoKronecker(SymModel, opts)
-%symbolic2PseudoKronecker converts a symbolic model into a pseudo-kronecker
-%   model, which interacts with the Kronecker Bio toolbox much like a
-%   Kronecker model.
+function m = finalizeModelAnalytic(m, opts)
+%finalizeModelAnalytic prepares a constructed Model.Analytic for use with the
+%rest of kroneckerbio. Generates symbolic expressions and requires the symbolic
+%toolbox.
 % 
-%   m = symbolic2PseudoKronecker(SymModel, opts)
+%   m = finalizeModelAnalytic(m, opts)
 % 
 %   Inputs
-%   SymModel: [ symbolic model scalar ]
-%       A symbolic model
-%   opts: [ options struct scalar ]
-%       Optional
+%   m: [ Model.Analytic ]
+%       Analytic model with components to add in the m.add.* fields
+%   opts: [ options struct ]
+%       Options struct with the following optional fields:
 %       .Order [ 0 | 1 | {2} | 3 ]
 %           Determines how deep the derivatives should be taken with
 %           respect to x and p. Each level increases the cost
@@ -33,13 +33,19 @@ function m = symbolic2PseudoKronecker(SymModel, opts)
 %           If .UseMEX is set to TRUE, the string provided here sets the
 %           directory to which the .mex files will be written. If .UseMEX
 %           is FALSE, this option is ignored.
+%       .EvaluateExternalFunctions [ logical scalar {false} ]
+%           Determines whether to evaluate calls to external functions in
+%           the reaction rate expressions. The external functions are
+%           evaluated with symbolic input arguments to obtain a symbolic
+%           version of the output that can be differentiated. If set to
+%           false, derivatives of external function calls cannot be
+%           computed. Note: required to evaluate exponents written usen the pow
+%           function. Try setting this to true if pow functions aren't
+%           recognized in final symbolic expressions and function handles.
 %
 %   Outputs
-%   m: [ psuedo-kronecker model scalar ]
+%   m: [ Model.Analytic ]
 %       The useable form of the model
-
-% (c) 2015 David Flowers, David R Hagen, & Bruce Tidor
-% This work is released under the MIT license.
 
 %% Work-up
 % Clean up inputs
@@ -54,13 +60,14 @@ thistime = [thistime{:}];
 defaultMEXdirectory = ['mexfuns_' regexprep(thistime,'\.','_') filesep];
 
 % Default options
-defaultOpts.Order             = 2;
-defaultOpts.VolumeToParameter = false;
-defaultOpts.Verbose           = 0;
-defaultOpts.UseMEX            = false;
-defaultOpts.MEXDirectory      = defaultMEXdirectory;
+opts_.Order                     = 2;
+opts_.VolumeToParameter         = false;
+opts_.Verbose                   = 0;
+opts_.UseMEX                    = false;
+opts_.MEXDirectory              = defaultMEXdirectory;
+opts_.EvaluateExternalFunctions = false; % needed for calls to power() and other functions
 
-opts = mergestruct(defaultOpts, opts);
+opts = mergestruct(opts_, opts);
 
 verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
@@ -71,123 +78,209 @@ if opts.UseMEX && exist(opts.MEXDirectory,'dir') ~= 7
     mkdir(opts.MEXDirectory);
 end
 
-%% Extract symbolic values
-if isfield(SymModel, 'Name')
-    name = SymModel.Name;
-else
-    name = '';
-end
+%% Extract symbolic values from IDs
+% Compartments
+m.Compartments = combineComponents(m.Compartments, m.add.Compartments, opts.Verbose);
+vStrs  = {m.Compartments.ID}';
+vSyms  = sym(vStrs);
+vNames = {m.Compartments.Name}';
+dv     = [m.Compartments.Dimension]';
+v      = [m.Compartments.Size]';
+nv     = numel(v);
 
-kSyms   = SymModel.kSyms;
-k       = SymModel.k;
-nk      = numel(k);
+% Parameters
+m.Parameters = combineComponents(m.Parameters, m.add.Parameters, opts.Verbose);
+kStrs  = {m.Parameters.ID}';
+kSyms  = sym(kStrs);
+kNames = {m.Parameters.Name}';
+k      = [m.Parameters.Value]';
+nk     = numel(k);
 
-if isfield(SymModel, 'kNames')
-    kNames = SymModel.kNames;
-else
-    kNames = cell(nk,1);
-    for ik = 1:nk
-        kNames{ik} = char(kSyms(ik));
-    end
-end
+% Seeds
+m.Seeds = combineComponents(m.Seeds, m.add.Seeds, opts.Verbose);
+sStrs  = {m.Seeds.ID}';
+sSyms  = sym(sStrs);
+sNames = {m.Seeds.Name}';
+s      = [m.Seeds.Value]';
+ns     = numel(s);
 
-sSyms   = SymModel.sSyms;
-s       = SymModel.s;
-ns      = numel(s);
-
-if isfield(SymModel, 'sNames')
-    sNames = SymModel.sNames;
-else
-    sNames = cell(ns,1);
-    for is = 1:ns
-        sNames{is} = char(sSyms(is));
-    end
-end
-
-uSyms   = SymModel.uSyms;
-u       = SymModel.u;
-nu      = numel(u);
-
-if isfield(SymModel, 'uNames')
-    uNames = SymModel.uNames;
-else
-    uNames = cell(nu,1);
-    for iu = 1:nu
-        uNames{iu} = char(uSyms(iu));
-    end
-end
-
-xSyms   = SymModel.xSyms;
-x0      = SymModel.x0;
+% States
+m.States = combineComponents(m.States, m.add.States, opts.Verbose);
+xStrs   = {m.States.ID}';
+xSyms   = sym(xStrs);
+xNames  = {m.States.Name}';
+xvNames = {m.States.Compartment}';
+x0      = {m.States.InitialValue}';
 nx      = numel(x0);
 
-if isfield(SymModel, 'xNames')
-    xNames = SymModel.xNames;
-else
-    xNames = cell(nx,1);
-    for ix = 1:nx
-        xNames{ix} = char(xSyms(ix));
-    end
+% Inputs
+m.Inputs = combineComponents(m.Inputs, m.add.Inputs, opts.Verbose);
+uStrs   = {m.Inputs.ID}';
+uSyms   = sym(uStrs);
+uNames  = {m.Inputs.Name}';
+uvNames = {m.Inputs.Compartment}';
+u       = [m.Inputs.DefaultValue]';
+nu      = numel(u);
+
+% Species compartments
+[~, vxInd] = ismember(xvNames, vNames);
+[~, vuInd] = ismember(uvNames, vNames);
+
+% Reactions
+rprovided = true;
+m.Reactions = combineComponents(m.Reactions, m.add.Reactions, opts.Verbose);
+rNames = {m.Reactions.Name}';
+r = {m.Reactions.Rate}';
+nr = numel(r);
+
+% Outputs
+m.Outputs = combineComponents(m.Outputs, m.add.Outputs, opts.Verbose);
+yStrs  = {m.Outputs.ID}';
+ySyms  = sym(yStrs);
+yNames = {m.Outputs.Name}';
+y      = {m.Outputs.Expression}';
+ny     = numel(y);
+
+% Initialize outputs properly if no outputs specified in model
+if ny == 0
+    yStrs  = cell(0,1);
+    ySyms  = sym(yStrs);
+    yNames = cell(0,1);
+    y      = cell(0,1);
 end
 
-if isfield(SymModel, 'v')
-    vSyms   = SymModel.vSyms;
-    vNames  = SymModel.vNames;
-    dv      = SymModel.dv;
-    v       = SymModel.v;
-    nv      = numel(v);
-    vuInd   = SymModel.vuInd;
-    vxInd   = SymModel.vxInd;
-else
-    vSyms   = sym('co1x');
-    vNames  = {'v'};
-    dv      = 3;
-    v       = 1;
-    nv      = 1;
-    vuInd   = ones(nu,1);
-    vxInd   = ones(nx,1);
+% Rules
+m.Rules = combineComponents(m.Rules, m.add.Rules, opts.Verbose);
+zStrs    = {m.Rules.ID}';
+zSyms    = sym(zStrs);
+zNames   = {m.Rules.Name}';
+z        = {m.Rules.Expression}';
+zTargets = {m.Rules.Target}';
+zTypes   = {m.Rules.Type}';
+nRules   = numel(z); % nz clashes with another variable below
+
+% Useful combinations of names and IDs
+outputNames = [xNames; uNames; vNames; kNames];
+outputIDs   = [xStrs; uStrs; vStrs; kStrs];
+allNames    = [outputNames; sNames];
+allIDs      = [outputIDs; sStrs];
+xuvNames = [xvNames; uvNames];
+
+%% Clean up m.add.* fields
+m.add.Compartments = growCompartmentsAnalytic;
+m.add.Parameters   = growParametersAnalytic;
+m.add.Seeds        = growSeedsAnalytic;
+m.add.Inputs       = growInputsAnalytic;
+m.add.States       = growStatesAnalytic;
+m.add.Reactions    = growReactionsAnalytic;
+m.add.Outputs      = growOutputsAnalytic;
+m.add.Rules        = growRulesAnalytic;
+m.add.nv = 0;
+m.add.nk = 0;
+m.add.ns = 0;
+m.add.nu = 0;
+m.add.nx = 0;
+m.add.nr = 0;
+m.add.nz = 0;
+
+%% Process expressions and turn strings into symbolics
+% Initial conditions - arbitrary expressions of seeds
+for i = 1:nx
+    x0{i} = name2id(x0{i}, sNames, sStrs);
 end
 
-if isfield(SymModel, 'f')
-    f = SymModel.f;
-    if isfield(SymModel, 'r')
-        r = SymModel.r;
-        StoichiometricMatrix = SymModel.S;
-        StoichiometricSym = initSsym(StoichiometricMatrix);
-        nr = numel(r);
-        
-        if isfield(SymModel, 'rNames')
-            rNames = SymModel.rNames;
-        else
-            rNames = repmat({''}, [nr,1]);
+% Reaction rates - arbitrary expressions of anything
+for i = 1:nr
+    r{i} = name2id(r{i}, allNames, allIDs, xuvNames);
+end
+
+% Outputs - arbitrary expressions of states and parameters
+for i = 1:ny
+    y{i} = name2id(y{i}, outputNames, outputIDs, xuvNames);
+end
+
+% Convert to symbolics
+x0 = sym(x0);
+r = sym(r);
+y = sym(y);
+
+%% Perform rule substitutions
+% Note/TODO: zTargets substitution probably too permissive - lets anything be replaced, but backend won't handle this properly
+for i = 1:nRules
+    zTargets{i} = name2id(zTargets{i}, allNames, allIDs, xuvNames);
+    z{i} = name2id(z{i}, allNames, allIDs, xuvNames);
+end
+zTargets = sym(zTargets);
+z = sym(z);
+
+% Repeated assignment subs in reaction rates
+%   Makes n repeated assignment rules passes, O(n^2) to ensure all subs
+zRAInds = strcmpi(zTypes, 'repeated assignment');
+zTargetsRA = zTargets(zRAInds);
+zRA        = z(zRAInds);
+for i = 1:length(zTargetsRA)
+    r = subs(r, zTargetsRA, zRA);
+end
+
+% Repeated assignment subs in initial assignment rules
+zIAInds = strcmpi(zTypes, 'initial assignment');
+zTargetsIA = zTargets(zIAInds);
+zIA        = z(zIAInds);
+for i = 1:length(zTargetsRA)
+    zTargetsIA = subs(zTargetsIA, zTargetsRA, zRA);
+end
+
+% Initial assignment and repeated assignment subs in initial conditions
+%   Note: kronecker currently separates k (params valid at all times) from s
+%   (seeds valid only at initial time). If a model has initial assignment rules
+%   that depend on k, the initial condition will respect substituting k.
+%   However, if k changes, the entire model needs to be rebuilt as during
+%   fitting, and the constant initial condition will no longer be valid.
+%   Workaround: make 2 parameters, 1 k and 1 s, and set them equal with linear
+%   equality constraints when fitting.
+%   Note/TODO: inputs can't be assigned with initial assignment rules yet. SBML
+%   models with states set to constant that have initial assignment rules won't
+%   convert correctly for now. Should be a quick change to assign input default
+%   values, though.
+%   TODO: consider merging k and s
+[~, IAInd] = ismember(char(zTargetsIA), xStrs);
+subTarget = [vSyms; kSyms; xSyms; uSyms];
+subExpr   = [sym(v); sym(k); x0; sym(u)];
+for i = 1:length(zTargetsIA);
+    x0(IAInd(i)) = subs(zIA(i), subTarget, subExpr);
+end
+
+%% Evaluate external functions
+if opts.EvaluateExternalFunctions
+    r = evaluateExternalFunctions(r, [vStrs; xStrs; uStrs; kStrs]);
+end
+
+%% Process stoichiometry and rate forms/RHS's
+% Make stoichiometry matrix nSpecies x nReactions
+xuFullNames = strcat([xvNames; uvNames], '.', [xNames; uNames]);
+SEntries = zeros(0,3);
+for i = 1:nr
+    for j = 1:length(m.Reactions(i).Reactants)
+        if ~isempty(m.Reactions(i).Reactants{j})
+            [~, ind] = ismember(m.Reactions(i).Reactants{j}, xuFullNames);
+            SEntries = [SEntries; ind, i, -1];
         end
-        
-        rprovided = true;
-    else
-        r = sym(zeros(0,1));
-        StoichiometricMatrix = zeros(nx,0);
-        StoichiometricSym = initSsym(StoichiometricMatrix);
-        nr = 0;
-        rNames = cell(0,1);
-        rprovided = false;
     end
-else
-    % If there is no f, then r and S must be supplied
-    assert(isfield(SymModel,'r'), 'If no f is provided in SymModel, r must be provided.')
-    rprovided = true;
-    r = SymModel.r;
-    StoichiometricMatrix = SymModel.S;
-    StoichiometricSym = initSsym(StoichiometricMatrix);
-    nr = numel(r);
-    
-    if isfield(SymModel, 'rNames')
-        rNames = SymModel.rNames;
-    else
-        rNames = repmat({''}, [nr,1]);
+    for j = 1:length(m.Reactions(i).Products)
+        if ~isempty(m.Reactions(i).Products{j})
+            [~, ind] = ismember(m.Reactions(i).Products{j}, xuFullNames);
+            SEntries = [SEntries; ind, i, 1];
+        end
     end
-    
-    f = StoichiometricSym*r;
 end
+S = sparse(SEntries(:,1), SEntries(:,2), SEntries(:,3), nx+nu, nr);
+Su = S(nx+1:end,:);
+S = S(1:nx,:);
+
+StoichiometricMatrix = S;
+
+StoichiometricSym = initSsym(StoichiometricMatrix);
+f = StoichiometricSym*r;
 
     function StoichiometricSym = initSsym(StoichiometricMatrix)
         Sind = find(StoichiometricMatrix(:) ~= 0);
@@ -197,39 +290,23 @@ end
         StoichiometricSym = initializeMatrixMupad(Si,Sj,Ss,Ssize(1),Ssize(2));
     end
 
-y       = SymModel.y;
-ny      = numel(y);
-
-if isfield(SymModel, 'yNames')
-    yNames = SymModel.yNames;
-elseif isfield(SymModel, 'ySyms')
-    yNames = cell(ny,1);
-    for iy = 1:ny
-        yNames{iy} = char(SymModel.ySyms(iy));
-    end
-else
-    % A reasonable name for each y is not strictly necessary
-    yNames = cell(ny,1);
-    for iy = 1:ny
-        yNames{iy} = char(y(iy));
-    end
-end
-
-yStrings = SymModel.yStrings;
-
-% Convert compartment volumes to parameters or constants
+%% Convert compartment volumes to parameters or constants
 if opts.VolumeToParameter
     nk = nk + nv;
     kNames = [kNames; vNames];
     k = [k; v];
     kSyms = [kSyms; vSyms];
-else% ~VolumeToParameter
+else
     r = subs(r, vSyms, v);
     f = subs(f, vSyms, v);
     y = subs(y, vSyms, v);
 end
 
+%% Sanity checks
+% TODO: make sure initial conditions are only functions of seeds
+
 % Check original symbols for reserved MuPAD names
+% Note: shouldn't be needed since symbols are usually autogenerated UUIDs
 old_symbols_strs = fastchar([kSyms; sSyms; xSyms; uSyms]);
 reservednames = {'pi','PI','eulergamma','EULER','catalan','CATALAN'};
 for rni = 1:length(reservednames)
@@ -241,64 +318,6 @@ for rni = 1:length(reservednames)
             'It is recommended to change the symbolic variable''s name.'])
     end
 end
-
-% Sanitize symbols
-oldSymbols = [kSyms; sSyms; xSyms; uSyms];
-newSymbols = sym('sy%dx',[nk+ns+nx+nu,1]);
-
-kSyms = newSymbols(1:nk);
-sSyms = newSymbols(nk+1:nk+ns);
-xSyms = newSymbols(nk+ns+1:nk+ns+nx);
-uSyms = newSymbols(nk+ns+nx+1:nk+ns+nx+nu);
-f  = fastsubs(f,  oldSymbols, newSymbols);
-r  = fastsubs(r,  oldSymbols, newSymbols);
-x0 = fastsubs(x0, oldSymbols, newSymbols);
-y  = fastsubs(y,  oldSymbols, newSymbols);
-
-% String representations that will be useful
-vStrs = fastchar(vSyms);
-% vStrs = cell(nv,1);
-% for iv = 1:nv
-%     vStrs{iv} = char(vSyms(iv));
-% end
-
-kStrs = fastchar(kSyms);
-% kStrs = cell(nk,1);
-% for ik = 1:nk
-%     kStrs{ik} = char(kSyms(ik));
-% end
-
-sStrs = fastchar(sSyms);
-% sStrs = cell(ns,1);
-% for is = 1:ns
-%     sStrs{is} = char(sSyms(is));
-% end
-
-uStrs = fastchar(uSyms);
-uNamesFull = cell(nu,1);
-for iu = 1:nu
-    uNamesFull{iu} = [vNames{vuInd(iu)} '.' uNames{iu}];
-end
-
-xStrs = fastchar(xSyms);
-xNamesFull = cell(nx,1);
-for ix = 1:nx
-    xNamesFull{ix} = [vNames{vxInd(ix)} '.' xNames{ix}];
-end
-
-
-%%% For now, models will only contain constant default values of inputs %%%
-% q = SymModel.q;
-% nq = SymModel.nq;
-% qStrs = cell(nq,1);
-% qSyms = SymModel.qSyms;
-% 
-% % Standardize names of input parameters
-% newqSyms = sym('q%dx',[nq,1]);
-% u = fastsubs(u, qSyms, newqSyms);
-% qSyms = newqSyms; clear newqSyms
-% qStrs = fastchar(qSyms);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Determine the species and parameters in each reaction
 
@@ -323,11 +342,6 @@ yhasu = exprhasvar(ystr,uStrs,ny,nu);
 yhask = exprhasvar(ystr,kStrs,ny,nk);
 
 x0hass = exprhasvar(x0str,sStrs,nx,ns);
-
-%%% For now, models will only contain constant default values of inputs %%%
-% ustr = fastchar(u);
-% uhasq = exprhasvar(ustr,qStrs,nu,nq);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     function out = exprhasvar(exprStrs, varStrs, nExprs, nVars)
         
@@ -359,9 +373,6 @@ sizes.k = nk;
 sizes.x = nx;
 sizes.u = nu;
 sizes.s = ns;
-%%% For now, models will only contain constant default values of inputs %%%
-%sizes.q = nq;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 sizes.y = ny;
 
 % The above logical arrays are the nonzero elements of the first derivative
@@ -390,11 +401,6 @@ nz('yx') = yhasx;
 nz('yu') = yhasu;
 nz('yk') = yhask;
 nz('xs') = x0hass;
-
-%%% For now, models will only contain constant default values of inputs %%%
-% nz('u') = true(nu,1);
-% nz('uq') = uhasq;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     function nzout = getNonZeroEntries(num, dens)
         % Inputs:
@@ -459,15 +465,7 @@ nz('xs') = x0hass;
 if verbose; fprintf('\n'); end
 
 %% Generate derivatives of desired order
-
 if order >= 1
-    
-%%% For now, models will only contain constant default values of inputs %%%
-    % Gradient of u with respect to q
-%     if verbose; fprintf('Calculating dudq...'); end
-%     dudq = calcDerivative(u, qSyms);
-%     if verbose; fprintf('Done.\n'); end
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Gradient of r with respect to x
     if verbose; fprintf('Calculating drdx...'); end
@@ -653,7 +651,7 @@ if order >= 2
         d2fdudk = reshapeDerivative(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
         if verbose; fprintf('Done.\n'); end
         
-    else
+    else % not used
         
         % Gradient of dfdx with respect to x
         if verbose; fprintf('Calculating d2fdx2...'); end
@@ -800,44 +798,7 @@ else
 end
 
 %% Extract seed information
-
-initial_values = fastchar(fastsubs(x0,sSyms,sNames));
-
-% % Take derivative of initial condition expressions with respect to seed
-% % parameters
-% dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
-%
-% % Convert nonzero terms to doubles (we currently expect only linear
-% % combinations of seeds with added constant factors for each x0)
-% dx0ds_logical = getNonZeroEntries('x','s');
-% dx0ds_index = find(dx0ds_logical(:));
-% dx0ds_nz = double(dx0ds(dx0ds_index));
-% 
-% % Initialize sparse matrix with these double values
-% [dx0ds_i,dx0ds_j] = find(dx0ds_logical);
-% dx0ds = sparse(dx0ds_i,dx0ds_j,dx0ds_nz,nx,ns);
-% 
-% % Calculate constant terms of ICs by setting seeds to 0
-% x0c = double(fastsubs(x0,sSyms,zeros(size(sSyms))));
-% 
-% % Store information about seeds and ICs
-% initial_values = cell(nx,1);
-% for ix = 1:nx
-%     % Add constant value first
-%     if x0c(ix)
-%         values_i = {'', x0c(ix)};
-%     else
-%         values_i = cell(0,2);
-%     end
-%     
-%     % Append seed parameters
-%     nonzero_seed_indexes = logical(dx0ds(ix,:));
-%     values_i = [values_i; 
-%                 vec(sStrs(nonzero_seed_indexes)), vec(num2cell(dx0ds(ix,nonzero_seed_indexes)))];
-%     
-%     % Store values
-%     initial_values{ix} = values_i;
-% end
+% initial_values = fastchar(fastsubs(x0,sSyms,sNames)); % TODO: what's this for?
 
 %% Convert symbolic expressions to function handles
 
@@ -848,19 +809,16 @@ else
 end
 
 if verbose; fprintf('Converting symbolics to functions...\n'); end
-% Convert the symbolics into strings
-%%% For now, models will only contain constant default values of inputs %%%
-%u        = symbolic2function('u', 'u', {});
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% for i = 1:length(f)
+%     i
+%     test1 = symbolic2function(f(i), 'f', {});
+% end
 f        = symbolic2function(f, 'f', {});
 r        = symbolic2function(r, 'r', {});
 y        = symbolic2function(y, 'y', {});
 x0       = symbolic2function(x0, 'x', {});
 
 if order >= 1
-%%% For now, models will only contain constant default values of inputs %%%
-    %dudq     = symbolic2function('dudq', 'u', 'q');
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dfdx     = symbolic2function(dfdx, 'f', 'x');
     dfdu     = symbolic2function(dfdu, 'f', 'u');
     dfdk     = symbolic2function(dfdk, 'f', 'k');
@@ -933,27 +891,6 @@ clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms ...
     uqi qsinui nz sizes symbolic2stringmethod...
     thistime defaultMEXdirectory
 
-m = InitializeModelMassActionAmount();
-
-m.Type = 'Model.AnalyticReactions';
-m.Name = name;
-
-m.Compartments = struct('Name', vNames, 'Dimension', num2cell(dv));
-m.Parameters   = struct('Name', kNames, 'Value', num2cell(k));
-m.Seeds        = struct('Name', sNames, 'Value', num2cell(s));
-m.Inputs       = struct('Name', uNames, 'Compartment', vNames(vuInd));
-m.States       = struct('Name', xNames, 'Compartment', vNames(vxInd), 'InitialValue', initial_values);
-m.Reactions    = struct('Name', rNames);
-% Old code for when y values were not functions
-% if isempty(yMembers)
-%     Expressions = [];
-% else
-%     Expressions = mat2cell([vertcat(yMembers{:}), num2cell(vertcat(yValues{:}))], cellfun(@length,yMembers), 2);
-% end
-% m.Outputs      = struct('Name', yNames, 'Expressions', Expressions );
-% m.Outputs      = struct('Name', yNames);
-m.Outputs      = struct('Name', yNames, 'Expression', yStrings);
-
 m.nv = nv;
 m.nk = nk;
 m.ns = ns;
@@ -961,28 +898,15 @@ m.nu = nu;
 m.nx = nx;
 m.nr = nr;
 m.ny = ny;
+m.nz = nRules;
 
 m.dv = dv;
 m.k  = k;
 m.s  = s;
-%m.x0c = x0c;
-
-%%% For now, models will only contain constant default values of inputs %%%
-% m.u    = setfun_u(u,q);
-% m.q    = q;
-% m.dudq = dudq;
-% m.nqu  = zeros(nu,1);
-m.u     = u;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+m.u  = u;
 
 m.vxInd = vxInd;
 m.vuInd = vuInd;
-%rOrder
-%krInd
-
-%As
-%Bs
-%Cs
 
 clear vNames kNames sNames uNames xNames rNames yNames yMembers yValues
 
@@ -1081,7 +1005,10 @@ if verbose; fprintf('done.\n'); end
     function varargout = update(newk)
         % Apply changes
         k = newk;
-
+        
+        kAssign = num2cell(k);
+        [m.Parameters.Value] = kAssign{:};
+        
         m.k  = k;
         
         % Update function handles
@@ -1352,7 +1279,7 @@ if verbose; fprintf('done.\n'); end
             % Only update the key for f if no information about this
             % particular derivative was previously stored in nz
             if ~isKey(nz, nzkey_f)
-                nztemp = logical(abs(StoichiometricMatrix)*reshape(nze, [ny_, nx1_*nx2_]));
+                nztemp = full(logical(abs(StoichiometricMatrix)*reshape(nze, [ny_, nx1_*nx2_])));
                 nz(nzkey_f) = reshape(nztemp, [nx, nx1_, nx2_]);
             end
         end
@@ -1424,12 +1351,6 @@ function fun = setfun_rf(basefun, k)
     fun = @(t,x,u)basefun(t,x,u,k);
 end
 
-%%% For now, models will only contain constant default values of inputs %%%
-% function fun = setfun_u(basefun, q)
-%     fun = @(t)basefun(t,q);
-% end
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 function fun = setfun_y(basefun, is0order, k, ny)
     if is0order
         fun = @(t,x,u) vectorize_y(basefun, t, x, u, k, ny);
@@ -1453,4 +1374,17 @@ function val = vectorize_y(y, t, x, u, k, ny)
     for it = 1:nt
         val(:,it) = y(t(it), x(:,it), u(:,it), k);
     end
+end
+
+function rOut = evaluateExternalFunctions(rIn, ids)
+% Evaluate symbolic functions/pull in functions defined in path
+%   Necessary for "power" and other MathML function translation
+% Initialize symbolic variables
+syms(ids{:});
+
+% Evaluate the expressions to remove function calls
+rOut = eval(rIn);
+
+% Clear the symbolic variables
+clear(ids{:})
 end
