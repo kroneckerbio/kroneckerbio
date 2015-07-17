@@ -2,20 +2,20 @@ function tests = UT09_Hessian()
 tests = functiontests(localfunctions);
 end
 
-function testDoseModel(a)
-[m, con, obj, opts] = dose_model();
-
-verifyHessian(a, m, con(1), obj, opts)
-verifyHessian(a, m, con(2), obj, opts)
-verifyHessian(a, m, con(3), obj, opts)
-end
-
 function testObjectiveHessianSimple(a)
 [m, con, obj, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
 verifyHessian(a, m, con, obj, opts)
+end
+
+function testDoseModel(a)
+[m, con, obj, opts] = dose_model();
+
+verifyHessian(a, m, con(1), obj, opts)
+verifyHessian(a, m, con(2), obj, opts)
+verifyHessian(a, m, con(3), obj, opts)
 end
 
 function testObjectiveHessianSimpleSteadyState(a)
