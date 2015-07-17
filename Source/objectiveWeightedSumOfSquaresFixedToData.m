@@ -56,7 +56,7 @@ obj.Fn = @Fn;
 
 obj.AddData = @AddData;
 
-obj = pastestruct(Gzero, obj);
+obj = pastestruct(objectiveZero, obj);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Parameter fitting functions %%%%%

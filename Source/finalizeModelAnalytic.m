@@ -39,7 +39,9 @@ function m = finalizeModelAnalytic(m, opts)
 %           evaluated with symbolic input arguments to obtain a symbolic
 %           version of the output that can be differentiated. If set to
 %           false, derivatives of external function calls cannot be
-%           computed.
+%           computed. Note: required to evaluate exponents written usen the pow
+%           function. Try setting this to true if pow functions aren't
+%           recognized in final symbolic expressions and function handles.
 %
 %   Outputs
 %   m: [ Model.Analytic ]
@@ -173,6 +175,13 @@ m.add.States       = growStatesAnalytic;
 m.add.Reactions    = growReactionsAnalytic;
 m.add.Outputs      = growOutputsAnalytic;
 m.add.Rules        = growRulesAnalytic;
+m.add.nv = 0;
+m.add.nk = 0;
+m.add.ns = 0;
+m.add.nu = 0;
+m.add.nx = 0;
+m.add.nr = 0;
+m.add.nz = 0;
 
 %% Process expressions and turn strings into symbolics
 % Initial conditions - arbitrary expressions of seeds

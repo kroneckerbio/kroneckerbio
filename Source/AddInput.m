@@ -15,7 +15,7 @@ function m = AddInput(m, varargin)
 %   Model.Analytic
 %       help addInputAnalytic
 
-% (c) 2015 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen
 % This work is released under the MIT license.
 
 if is(m, 'Model.MassActionAmount')

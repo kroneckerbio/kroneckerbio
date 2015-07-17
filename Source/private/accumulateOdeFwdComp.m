@@ -1,6 +1,6 @@
 function cum_sol = accumulateOdeFwdComp(der, jac, t0, tF, ic, discontinuities, nonnegative, RelTol, AbsTol, delta, events, is_finished)
-% function cumSol = accumulateOdeFwd(der, jac, t0, tF, ic, discontinuities, 
-% nonnegative, RelTol, AbsTol, delta, events, t_frst_event, n_events)
+% function cumSol = accumulateOdeFwdCom[(der, jac, t0, tF, ic, discontinuities, 
+% nonnegative, RelTol, AbsTol, delta, events, is_finished)
 
 % All discontinuities must be equal to their limit from right
 
@@ -47,7 +47,11 @@ for k = 1:(N-1)
     i1 = k+1;
     
     % Integration time interval between discontinuities
-    t_int = [discontinuities(i0), discontinuities(i1) - forward_boost*eps(discontinuities(i1))];
+    if isinf(discontinuities(i1))
+        t_int = [discontinuities(i0), discontinuities(i1)];
+    else
+        t_int = [discontinuities(i0), discontinuities(i1) - forward_boost*eps(discontinuities(i1))];
+    end
     
     % Initialize variables for tracking events
     t_event_int = t_int;
@@ -112,9 +116,14 @@ else
     % Handle final point (mainly because of delta at last point)
     if all(ic == sim_sol.y(:,end))
         % Just assume that we made it to the end
-        cum_sol.x(end) = tF;
+        if ~isinf(tF)
+            % Don't replace final point with Inf because this causes
+            % interpolation errors
+            cum_sol.x(end) = tF;
+        end
     else
         % A new point has to be added to the end to handle discontinuities
+        % or t=Inf
         sim_sol = struct;
         sim_sol.solver = 'ode15s';
         sim_sol.extdata = [];
@@ -130,7 +139,7 @@ else
 end
 
 % Make non-events solutions compatible with those that expect them
-if isempty(events) || isempty(cum_sol.ie)
+if isempty(events) || ~isfield(cum_sol, 'ie') || isempty(cum_sol.ie)
     cum_sol.xe = zeros(1,0);
     cum_sol.ye = zeros(size(cum_sol.y,1),0);
     cum_sol.ie = zeros(1,0);

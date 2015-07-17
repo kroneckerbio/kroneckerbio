@@ -31,7 +31,7 @@ obj.logp   = @logp;
 obj.F      = @F;
 obj.Fn     = @Fn;
 
-obj = pastestruct(Gzero, obj);
+obj = pastestruct(objectiveZero, obj);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Parameter fitting functions %%%%%

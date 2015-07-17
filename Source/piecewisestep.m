@@ -39,7 +39,7 @@ for ind = 1:count
     
     %not bigger than any of them, so take the first
     if isempty(k)
-        val(ind) = pvalues(1);
+        val(ind,:) = pvalues(1,:);
         
     %is greater than one of them, take its value
     else

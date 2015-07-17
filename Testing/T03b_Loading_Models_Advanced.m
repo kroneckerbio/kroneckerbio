@@ -1,4 +1,7 @@
-%% Load various SBML models of increasing size
+%% Load various SBML and SimBiology models
+% Important Note: Remember to call FinalizeModel after loading and before
+% running kroneckerbio analysis functions.
+
 opts = [];
 opts.Verbose = 2;
 
@@ -20,6 +23,8 @@ m2 = FinalizeModel(m2, opts);
 %% Simple mass saction model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 opts = [];
 opts.Verbose = 2;
+% m3 = LoadModelSbmlMassAction('simple_massaction.xml', opts);
+% m3 = FinalizeModel(m3);
 m3 = LoadModelSbmlAnalytic('simple_massaction.xml', opts);
 m3 = FinalizeModel(m3, opts);
 

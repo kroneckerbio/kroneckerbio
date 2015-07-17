@@ -33,7 +33,7 @@ obj.logp   = @logp;
 obj.F      = @F;
 obj.Fn     = @Fn;
 
-obj = pastestruct(Gzero, obj);
+obj = pastestruct(objectiveZero, obj);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Parameter fitting functions %%%%%
@@ -58,7 +58,7 @@ obj = pastestruct(Gzero, obj);
         val = diff.' * FlogTbars * diff;
     end
 
-    function val = dGds(t,sol)
+    function val = dGds(sol)
         ns = numel(sol.s);
         nTs = nnz(sol.UseSeeds);
         Ts = sol.s(sol.UseSeeds);
@@ -73,12 +73,10 @@ obj = pastestruct(Gzero, obj);
         FlogTbars = infoinv(VlogTbars);
 
         val = zeros(ns,1);
-        if t == 0
-            val(sol.UseSeeds) = 2 * (diag(Ts.^(-1)) * (FlogTbars * (logTs - logTbars)));
-        end
+        val(sol.UseSeeds) = 2 * (diag(Ts.^(-1)) * (FlogTbars * (logTs - logTbars)));
     end
 
-    function val = d2Gds2(t,sol)
+    function val = d2Gds2(sol)
         ns = numel(sol.s);
         nTs = nnz(sol.UseSeeds);
         Ts = sol.s(sol.UseSeeds);
@@ -93,9 +91,7 @@ obj = pastestruct(Gzero, obj);
         FlogTbars = infoinv(VlogTbars);
 
         val = zeros(ns,ns);
-        if t == 0
-            val(sol.UseSeeds,sol.UseSeeds) = 2 * diag(Ts.^(-1)) * FTbars * diag(Ts.^(-1)) - 2 * diag(Ts.^(-2)) * diag(FlogTbars * (logTs - logTbars));
-        end
+        val(sol.UseSeeds,sol.UseSeeds) = 2 * diag(Ts.^(-1)) * FTbars * diag(Ts.^(-1)) - 2 * diag(Ts.^(-2)) * diag(FlogTbars * (logTs - logTbars));
     end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%

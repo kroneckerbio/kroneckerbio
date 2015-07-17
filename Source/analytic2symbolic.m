@@ -49,40 +49,53 @@ end
 %% Extract model components
 if verbose; fprintf('Extracting model components...'); end
 
-% Compartments
+%% Compartments
 nv     = m.nv;
 vNames = {m.Compartments.Name}';
 vIDs   = {m.Compartments.ID}';
 v      = [m.Compartments.Size]';
 dv     = [m.Compartments.Dimension]';
 
-% States
+%% States
 nx      = m.nx;
 xNames  = {m.States.Name}';
 xIDs    = {m.States.ID}';
 xvNames = {m.States.Compartment}';
 x       = {m.States.InitialValue}';
 
-% Inputs
+%% Inputs
 nu      = m.nu;
 uNames  = {m.Inputs.Name}';
 uIDs    = {m.Inputs.ID}';
 uvNames = {m.Inputs.Compartment}';
 u       = [m.Inputs.DefaultValue]';
+% Handle blank inputs
+if nu == 0
+    uNames  = cell(0,1);
+    uIDs    = cell(0,1);
+    uvNames = cell(0,1);
+    u       = zeros(0,1);
+end
 
-% Seeds
+%% Seeds
 ns      = m.ns;
 sNames  = {m.Seeds.Name}';
 sIDs    = {m.Seeds.ID}';
 s       = [m.Seeds.Value]';
+% Handle blank seeds
+if ns == 0
+    sNames  = cell(0,1);
+    sIDs    = cell(0,1);
+    s       = zeros(0,1);
+end
 
-% Parameters
+%% Parameters
 nk      = m.nk;
 kNames  = {m.Parameters.Name}';
 kIDs    = {m.Parameters.ID}';
 k       = [m.Parameters.Value]';
 
-% Reactions
+%% Reactions
 nr      = m.nr;
 rNames  = {m.Reactions.Name}';
 rIDs    = {m.Reactions.ID}';
@@ -91,19 +104,19 @@ for i = 1:nr
     reaction = m.Reactions(i);
     
     % Replace cell arrays of empty double vector (no product or reactant) with
-    % empty spot
+    % 0x1 cell array
     reactants = reaction.Reactants;
     if iscell(reactants) && isempty(reactants{1})
-        reactants = [];
+        reactants = cell(1,0);
     end
     products = reaction.Products;
     if iscell(products) && isempty(products{1})
-        products = [];
+        products = cell(1,0);
     end
     r(i,:) = {reactants, products, reaction.Rate};
 end
 
-% Rules
+%% Rules
 nz      = m.nz;
 zNames  = {m.Rules.Name}';
 zIDs    = {m.Rules.ID}';
@@ -129,6 +142,11 @@ nz = nz - sum(zInvalid);
 zNames(zInvalid) = [];
 zIDs(zInvalid)   = [];
 z(zInvalid,:)    = []; 
+% Handle blank rules
+if nz == 0
+    zNames = cell(0,1);
+    zIDs   = cell(0,1);
+end
 
 if verbose; fprintf('done.\n'); end
 

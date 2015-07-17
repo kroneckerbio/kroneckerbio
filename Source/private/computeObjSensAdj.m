@@ -14,6 +14,7 @@ n_obj = size(obj,1);
 
 y = m.y;
 dydx = m.dydx;
+dydu = m.dydu;
 dydk = m.dydk;
 
 % Initialize variables
@@ -56,9 +57,7 @@ for i_con = 1:n_con
     % * Integrate to steady-state
     if con(i_con).SteadyState
         ssSol = integrateSteadystateSys(m, con(i_con), opts_i);
-        
-        % Apply steady-state solution to initial conditions
-        ic = ssSol.y(:,end);
+        ic = ssSol.ye(:,end);
     else
         order = 0;
         ic = extractICs(m,con(i_con),opts_i,order);
@@ -77,27 +76,28 @@ for i_con = 1:n_con
     end
     
     % Work down
+    int_sys = struct;
     int_sys.Type = 'Integration.System.Complex';
-    int_sys.Name = [m.Name ' in ' con.Name];
+    int_sys.Name = [m.Name ' in ' con(i_con).Name];
 
     int_sys.nx = nx;
     int_sys.ny = m.ny;
     int_sys.nu = m.nu;
     int_sys.nk = m.nk;
     int_sys.ns = m.ns;
-    int_sys.nq = con.nq;
-    int_sys.nh = con.nh;
+    int_sys.nq = con(i_con).nq;
+    int_sys.nh = con(i_con).nh;
     int_sys.k = m.k;
-    int_sys.s = con.s;
-    int_sys.q = con.q;
-    int_sys.h = con.h;
+    int_sys.s = con(i_con).s;
+    int_sys.q = con(i_con).q;
+    int_sys.h = con(i_con).h;
     
     int_sys.dydx = m.dydx;
     int_sys.dydu = m.dydu;
     
     int_sys.t = sol_sys.x;
     int_sys.x = @(t)devals(sol_sys, t);
-    int_sys.u = con.u;
+    int_sys.u = con(i_con).u;
     int_sys.y = @(t)y(t, devals(sol_sys, t), u(t));
     
     int_sys.ie = sol_sys.ie;
@@ -108,16 +108,25 @@ for i_con = 1:n_con
     
     int_sys.sol = sol_sys;
     
+    int_sys.UseParams = opts.UseParams;
+    int_sys.UseSeeds = opts.UseSeeds(:,i_con);
+    
     % Distribute times for each observation
     int_sys = repmat(int_sys, n_obj,1);
-    for i_obj = 1:n_obj
-        if obj(i_obj).Complex
+    
+    % Determine which objectives to evaluate for this experiment (those
+    % that are not objectiveZero)
+    isobjzero = strcmp('Objective.Data.Zero',{obj(:,i_con).Type});
+    nonzeroobjs = find(~isobjzero);
+    
+    for i_obj = nonzeroobjs
+        if obj(i_obj,i_con).Complex
             % Only reveal time points in range of observation
             % Note: deval will still not throw an error outside this range
-            int_sys(i_obj).t = [int_sys(i_obj).t(int_sys(i_obj).t < obj(i_obj).tF), obj(i_obj).tF];
+            int_sys(i_obj).t = [int_sys(i_obj).t(int_sys(i_obj).t < obj(i_obj,i_con).tF), obj(i_obj,i_con).tF];
         else
             % Evaluate all requested time points
-            int_sys(i_obj).t = obj(i_obj).DiscreteTimes;
+            int_sys(i_obj).t = obj(i_obj,i_con).DiscreteTimes;
             int_sys(i_obj).x = int_sys(i_obj).x(int_sys(i_obj).t);
             int_sys(i_obj).u = int_sys(i_obj).u(int_sys(i_obj).t);
             int_sys(i_obj).y = int_sys(i_obj).y(int_sys(i_obj).t);
@@ -135,7 +144,7 @@ for i_con = 1:n_con
     % Compute discrete term
     G_disc = 0;
     discrete_times_all = cell(n_obj,1);
-    for i_obj = 1:n_obj
+    for i_obj = nonzeroobjs
         [iDiscG, temp] = obj(i_obj,i_con).G(int_sys(i_obj));
         discrete_times_all{i_obj} = row(unique(temp));
         G_disc = G_disc + opts.ObjWeights(i_obj,i_con) * iDiscG;
@@ -154,7 +163,7 @@ for i_con = 1:n_con
     ic = zeros(nx+inT,1);
     
     % Integrate [lambda; D] backward in time
-    sol = accumulateOdeRevSelect(der, jac, 0, tF, ic, [con(i_con).Discontinuities; discrete_times], 0, [], opts.RelTol, opts_i.AbsTol(nx+opts.continuous(i_con)+1:nx+opts.continuous(i_con)+nx+nT), del);
+    sol = accumulateOdeRevSelect(der, jac, 0, tF, ic, [con(i_con).Discontinuities; discrete_times], 0, [], opts.RelTol, opts_i.AbsTol(nx+opts.continuous(i_con)+1:nx+opts.continuous(i_con)+nx+inT), del);
     
     % * Complete steady-state *
     if con(i_con).SteadyState
@@ -165,7 +174,7 @@ for i_con = 1:n_con
         ic = sol.y;
         
         % Integrate [lambda; D] backward in time and replace previous run
-        sol = accumulateOdeRevSelect(der, jac, 0, ssSol.x(end), ic, [], 0, [], opts.RelTol, opts_i.AbsTol(nx+opts.continuous(i_con)+1:nx+opts.continuous(i_con)+nx+nT));
+        sol = accumulateOdeRevSelect(der, jac, 0, ssSol.xe, ic, con(i_con).private.BasalDiscontinuities, 0, [], opts.RelTol, opts_i.AbsTol(nx+opts.continuous(i_con)+1:nx+opts.continuous(i_con)+nx+inT));
     end
     
     % *Add contributions to derivative*
@@ -243,15 +252,17 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             u_i = u(t);
             x_i = deval(sol_sys, t, 1:nx);
             dydx_i = dydx(t, x_i, u_i);
+            dydu_i = dydu(t, x_i, u_i);
             dydk_i = dydk(t, x_i, u_i);
             dGdx = zeros(nx,1);
             dGdT = zeros(inT,1);
             for i = 1:n_obj
-                dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*obj(i,i_con).dGdy(t, int_sys(i));
-                dGdk = obj(i,i_con).dGdk(int_sys(i)) + dydk_i.' * obj(i,i_con).dGdy(t, int_sys(i)); % k_ % partial dGdk(i)
+                dGdy = obj(i,i_con).dGdy(t, int_sys(i));
+                dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*dGdy;
+                dGdk = obj(i,i_con).dGdk(int_sys(i)) + dydk_i.' * dGdy; % k_ % partial dGdk(i)
                 dGds = obj(i,i_con).dGds(int_sys(i)); % s_ % partial dGds(i)
-                dGdq = obj(i,i_con).dGdq(int_sys(i)); % q_ % partial dGdq(i)
-                dGdh = obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdq(i)
+                dGdq = obj(i,i_con).dGdq(int_sys(i)) + dudq(t).' * dydu_i.' * dGdy; % q_ % partial dGdq(i)
+                dGdh = obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdh(i)
                 dGdT = dGdT + opts.ObjWeights(i,i_con)*[dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseInputControls_i); dGdh(UseDoseControls_i)]; % T_ + (k_ -> T_) -> T_
             end
             
@@ -260,7 +271,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             dddh_i = dddh(t);
             dddh_i = dddh_i(:,UseDoseControls_i);
             dose_change = dddh_i.' * dx0dd_i.' * lambda;
-            dGdT = dGdT + [zeros(nTk,1); zeros(nTs,1); zeros(nTq,1); dose_change];
+            dGdT = dGdT + [zeros(nTk,1); zeros(inTs,1); zeros(inTq,1); dose_change];
             
             val = [dGdx; dGdT];
         end
@@ -278,37 +289,34 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         dfdu = m.dfdu;
         dfdk = m.dfdk;
         dfdT = @dfdTSub;
-        if opts.UseModelInputs
-            dudq = m.dudq;
-        else
-            dudq = con.dudq;
-        end
+        basal_u = con(i_con).private.basal_u;
+        basal_dudq = con(i_con).private.basal_dudq;
         
         der = @derivative;
         jac = @jacobian;
         
         % Derivative of [lambda; D] with respect to time
         function val = derivative(t, joint)
-            ui = u(-1);
+            ui = basal_u(t);
             x = deval(ssSol, t, 1:nx);
             l = joint(1:nx);
             
-            val = -[dfdx(-1,x,ui).'; dfdT(-1,x,ui).'] * l;
+            val = -[dfdx(-1,x,ui).'; dfdT(t,x,ui).'] * l;
         end
         
         % Jacobian of [lambda; D] derivative
         function val = jacobian(t, joint)
-            ui = u(-1);
+            ui = basal_u(t);
             x = deval(ssSol, t, 1:nx);
             
             val = [-dfdx(-1,x,ui).', sparse(nx,inT);
-                   -dfdT(-1,x,ui).', sparse(inT,inT)];
+                   -dfdT(t,x,ui).', sparse(inT,inT)];
         end
         
         % Modifies dfdk to relate only to the parameters of interest
         function val = dfdTSub(t, x, u)
             val = dfdk(-1,x,u);
-            dfdq = dfdu(-1,x,u) * dudq(-1);
+            dfdq = dfdu(-1,x,u) * basal_dudq(t);
             val = [val(:,opts.UseParams), zeros(nx,inTs), dfdq(:,UseInputControls_i), sparse(nx,inTh)];
         end
     end

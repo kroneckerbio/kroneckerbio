@@ -17,6 +17,7 @@ q = zeros(nq,1);
 index = 0;
 for iCon = 1:nCon
     q(index+1:index+con(iCon).nq) = con(iCon).q;
+    index = index+con(iCon).nq;
 end
 
 nh = sum(cat(1,con.nh));
@@ -24,6 +25,7 @@ h = zeros(nh,1);
 index = 0;
 for iCon = 1:nCon
     h(index+1:index+con(iCon).nh) = con(iCon).h;
+    index = index+con(iCon).nh;
 end
 
 % Construct starting variable parameter set

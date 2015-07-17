@@ -33,13 +33,13 @@ obj.logp   = @logp;
 obj.F      = @F;
 obj.Fn     = @Fn;
 
-obj = pastestruct(Gzero, obj);
+obj = pastestruct(objectiveZero, obj);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Parameter fitting functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function [val stopTimes] = G(sol)
+    function [val, stopTimes] = G(sol)
         nk = numel(sol.k);
         nTk = nnz(sol.UseParams);
         Tk = sol.k(sol.UseParams);
@@ -58,7 +58,7 @@ obj = pastestruct(Gzero, obj);
         val = diff.' * FlogTbark * diff;
     end
 
-    function val = dGdk(t,sol)
+    function val = dGdk(sol)
         nk = numel(sol.k);
         nTk = nnz(sol.UseParams);
         Tk = sol.k(sol.UseParams);
@@ -73,12 +73,10 @@ obj = pastestruct(Gzero, obj);
         FlogTbark = infoinv(VlogTbark);
 
         val = zeros(nk,1);
-        if t == 0
-            val(sol.UseParams) = 2 * (diag(Tk.^(-1)) * (FlogTbark * (logTk - logTbark)));
-        end
+        val(sol.UseParams) = 2 * (diag(Tk.^(-1)) * (FlogTbark * (logTk - logTbark)));
     end
 
-    function val = d2Gdk2(t,sol)
+    function val = d2Gdk2(sol)
         nk = numel(sol.k);
         nTk = nnz(sol.UseParams);
         Tk = sol.k(sol.UseParams);
@@ -93,9 +91,7 @@ obj = pastestruct(Gzero, obj);
         FlogTbark = infoinv(VlogTbark);
 
         val = zeros(nk,nk);
-        if t == 0
-            val(sol.UseParams,sol.UseParams) = 2 * diag(Tk.^(-1)) * FTbark * diag(Tk.^(-1)) - 2 * diag(Tk.^(-2)) * diag(FlogTbark * (logTk - logTbark));
-        end
+        val(sol.UseParams,sol.UseParams) = 2 * diag(Tk.^(-1)) * FTbark * diag(Tk.^(-1)) - 2 * diag(Tk.^(-2)) * diag(FlogTbark * (logTk - logTbark));
     end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%

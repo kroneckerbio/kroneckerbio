@@ -16,7 +16,7 @@ order = 1;
 ic = extractICs(m,con,opts,order);
 
 % Integrate [f; dfdT] over time
-sol = accumulateOdeFwdSelect(der, jac, 0, inf, ic, con.Discontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, [], 1);
+sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.private.BasalDiscontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, @(cum_sol)true);
 
 % Return steady-state value
 ic = sol.ye;
@@ -37,12 +37,14 @@ ic = sol.ye;
         f       = m.f;
         dfdx    = m.dfdx;
         dfdu    = m.dfdu;
+        dfdk    = m.dfdk;
         dfdT    = @dfdTSub;
         d2fdx2  = m.d2fdx2;
         d2fdudx = m.d2fdudx;
+        d2fdkdx = m.d2fdkdx;
         d2fdTdx = @d2fdTdxSub;
-        uf      = con.u;
-        dudq    = con.dudq;
+        uf      = con.private.basal_u;
+        dudq    = con.private.basal_dudq;
         
         der = @derivative;
         jac = @jacobian;
@@ -50,12 +52,12 @@ ic = sol.ye;
         
         % Derivative of [x; dxdT] with respect to time
         function val = derivative(t, joint)
-            u = uf(-1);            
+            u = uf(t);            
             x = joint(1:nx);
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % xT_ --> x_T
             
             % Derivative of dxdT
-            dxdTdot = dfdx(-1,x,u) * dxdT + dfdT(-1,x,u); % f_x * x_T + f_T --> f_T
+            dxdTdot = dfdx(-1,x,u) * dxdT + dfdT(t,x,u); % f_x * x_T + f_T --> f_T
             
             % Combine
             val = [f(-1,x,u); vec(dxdTdot)];
@@ -63,12 +65,12 @@ ic = sol.ye;
         
         % Jacobian of [x; dxdT] derivative
         function val = jacobian(t, joint)
-            u = uf(-1);            
+            u = uf(t);            
             x = joint(1:nx); % x_
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % x_T
             
             % Compute d/dx(dfdT)
-            d2xdxdT = sparse(d2fdx2(-1,x,u) * dxdT) + d2fdTdx(-1,x,u); % fx_T
+            d2xdxdT = sparse(d2fdx2(-1,x,u) * dxdT) + d2fdTdx(t,x,u); % fx_T
             d2xdxdT = spermute132(d2xdxdT, [nx,nx,nT], [nx*nT,nx]);
             
             % Combine
@@ -78,25 +80,25 @@ ic = sol.ye;
         
         % Modifies dfdk to relate only to the parameters of interest
         function val = dfdTSub(t, x, u)
-            val = m.dfdk(t,x,u);
-            dfdq = dfdu(t,x,u) * dudq(t);
-            val = [val(:,opts.UseParams), sparse(nx,nTs), dfdq(:,opts.UseInputControls), sparse(nx,nTq)];
+            val = dfdk(-1,x,u);
+            dfdq = dfdu(-1,x,u) * dudq(t);
+            val = [val(:,opts.UseParams), sparse(nx,nTs), dfdq(:,opts.UseInputControls), sparse(nx,nTh)];
         end
         
         % Modifies d2fdkdx to relate only to the parameters of interest
         function val = d2fdTdxSub(t, x, u)
-            val = m.d2fdkdx(t,x,u); % fx_k
-            d2fdqdx = d2fdudx(t,x,u) * dudq(t); % fx_u * u_q -> fx_q
-            val = [val(:,opts.UseParams), sparse(nx*nx, nTs), d2fdqdx(:,opts.UseInputControls), sparse(nx*nx,nTq)]; % fx_T
+            val = d2fdkdx(-1,x,u); % fx_k
+            d2fdqdx = d2fdudx(-1,x,u) * dudq(t); % fx_u * u_q -> fx_q
+            val = [val(:,opts.UseParams), sparse(nx*nx, nTs), d2fdqdx(:,opts.UseInputControls), sparse(nx*nx,nTh)]; % fx_T
         end
         
         % Steady-state event
         function [value, isTerminal, direction] = events(t, joint)
-            u = uf(-1);
+            u = uf(t);
             x = joint(1:nx); % x_
 
             % Absolute change
-            absDiff = con.tF * f(-1,x,u); % Change over an entire simulation
+            absDiff = con.private.TimeScale * f(-1,x,u); % Change over an entire simulation
             
             % Relative change
             relDiff = absDiff ./ x;

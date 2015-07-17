@@ -52,7 +52,11 @@ for k = 1:(N-1)
     i1 = k+1;
     
     % Integration time interval between discontinuities
-    t_int = [discontinuities(i0), discontinuities(i1) - forward_boost*eps(discontinuities(i1))];
+    if isinf(discontinuities(i1))
+        t_int = [discontinuities(i0), discontinuities(i1)];
+    else
+        t_int = [discontinuities(i0), discontinuities(i1) - forward_boost*eps(discontinuities(i1))];
+    end
     
     % Initialize variables for tracking events
     t_event_int = t_int;

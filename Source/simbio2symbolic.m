@@ -144,7 +144,7 @@ for i = 1:nr
     assert(all(mod(reaction.Stoichiometry, 1) == 0), 'simbio2symbolic: stoichiometries of reaction %s not all integers', rNames{i})
     
     nReactants = length(reaction.Reactants);
-    reactants = cell(0,1);
+    reactants = cell(1,0);
     for j = 1:nReactants
         S = abs(reaction.Stoichiometry(Sindex));
         reactants = [reactants, repmat({reaction.Reactants(j).Name}, [1,S])];
@@ -152,7 +152,7 @@ for i = 1:nr
     end
     
     nProducts = length(reaction.Products);
-    products = cell(0,1);
+    products = cell(1,0);
     for j = 1:nProducts
         S = abs(reaction.Stoichiometry(Sindex));
         products = [products, repmat({reaction.Products(j).Name}, [1,S])];

@@ -48,6 +48,33 @@ a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
 a.verifyEqual(Dfwd, Dadj, 'RelTol', 0.001)
 end
 
+function testObjectiveGradientSimpleSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
+
+m = m.Update(rand(m.nk,1)+1);
+con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+
+% Forward
+opts.UseAdjoint = false;
+Dfwd = ObjectiveGradient(m, con, obj, opts);
+
+% Adjoint
+opts.UseAdjoint = true;
+Dadj = ObjectiveGradient(m, con, obj, opts);
+
+% Discrete
+Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
+
+a.verifyEqual(size(Dfwd), [nT,1])
+a.verifyEqual(size(Dadj), [nT,1])
+a.verifyEqual(size(Ddisc), [nT,1])
+
+a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+end
+
 function testObjectiveGradientSimple(a)
 [m, con, obj, opts] = simple_model();
 nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);

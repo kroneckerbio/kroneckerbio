@@ -37,6 +37,28 @@ a.verifyEqual(size(sim.u), [m.nu,2])
 a.verifyEqual(size(sim.y), [m.ny,2])
 end
 
+function testSimulateSimpleSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, unused, opts, con_sscheck] = simple_model(simpleopts);
+
+sim = SimulateSystem(m, con, 6, opts);
+
+tbig = 10000;
+sim_sscheck = SimulateSystem(m, con_sscheck, tbig, opts);
+
+a.verifyEqual(numel(sim.x(4)), m.nx)
+a.verifyEqual(numel(sim.u(4)), m.nu)
+a.verifyEqual(numel(sim.y(4)), m.ny)
+
+% Verify steady state works correctly by simulating an initial value
+% experiment for a long time.
+% Dosing adds to states at t=0, which won't be reflected in the steady
+% state. Subtract off the dose.
+dose_t0 = m.x0(con.d(0)) - m.x0(zeros(m.ns,1));
+x_ss_predose = sim.x(0) - dose_t0;
+a.verifyEqual(x_ss_predose, sim_sscheck.x(tbig), 'AbsTol', 1e-7)
+end
+
 function testSimulateEvent(a)
 [m, con, ~, opts] = simple_model();
 eve1 = eventDropsBelow(m, 10, 15);
@@ -78,7 +100,7 @@ function testLinearNoiseApproximationOnSimple(a)
 [m, con, ~, opts] = simple_model();
 opts.AbsTol = nan;
 
-sim = SimulateLna(m, con, opts);
+sim = SimulateLna(m, con, 10, opts);
 
 Vy = sim.Vy([2;4]);
 a.verifyEqual(size(Vy), [m.ny^2,2])

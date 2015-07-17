@@ -29,6 +29,16 @@ tGet = 1:6;
 verifySensitivity(a, m, con, tGet, opts)
 end
 
+function testSimulateSensitivitySimpleSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, unused, opts] = simple_model(simpleopts);
+m = m.Update(rand(m.nk,1)+1);
+con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+tGet = 1:6;
+
+verifySensitivity(a, m, con, tGet, opts)
+end
+
 function testSimulateSensitivitySimpleEvent(a)
 [m, con, unused, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);

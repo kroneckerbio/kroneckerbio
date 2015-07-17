@@ -1,7 +1,7 @@
-function m = addParameterMassAction(m, name, value)
-%addParameterMassAction Add a rate parameter to a KroneckerBio model
+function m = addParameterMassActionAmount(m, name, value)
+%AddParameter Add a rate parameter to a KroneckerBio model
 %
-%   m = addParameterMassAction(m, name, value)
+%   m = AddParameter(m, name, value)
 %
 %   Rate parameters determine the rate of reactions to which they are
 %   associated.

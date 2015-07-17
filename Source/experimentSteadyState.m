@@ -2,7 +2,7 @@ function con = experimentSteadyState(m, s, basal_input, inp, dos, time_scale, na
 %SteadyStateExperiment Construct a KroneckerBio experimental conditions
 %   structure describing a initial value problem first run to steady state
 %
-%   con = SteadyStateExperiment(m, tF, s, inp, dos, name)
+%   con = experimentSteadyState(m, s, basal_input, inp, dos, time_scale, name)
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -10,10 +10,16 @@ function con = experimentSteadyState(m, s, basal_input, inp, dos, time_scale, na
 %   s: [ nonnegative vector ns ]
 %       Default = m.s
 %       The values of the seed parameters
+%   basal_input [ input struct scalar | handle @(t) returns nonegative vector nu |
+%          nonnegative vector nu ]
+%       Default = m.u
+%       The definition of the input species values to be applied at t < 0,
+%       during the simulation up to steady state
 %   inp: [ input struct scalar | handle @(t) returns nonegative vector nu |
 %          nonnegative vector nu ]
 %       Default = m.u
-%       The definition of the input species values
+%       The definition of the input species values to be applied at t >= 0,
+%       after steady state has been reached
 %   dos: [ dose struct scalar ]
 %       Default = doseZero(m)
 %       The definition of the dose amounts and schedule
@@ -35,16 +41,19 @@ function con = experimentSteadyState(m, s, basal_input, inp, dos, time_scale, na
 % This work is released under the MIT license.
 
 % Clean-up inputs
-if nargin < 6
+if nargin < 7
     name = [];
-    if nargin < 5
+    if nargin < 6
         time_scale = [];
-        if nargin < 4
+        if nargin < 5
             dos = [];
-            if nargin < 3
+            if nargin < 4
                 inp = [];
-                if nargin < 2
-                    s = [];
+                if nargin < 3
+                    basal_input = [];
+                    if nargin < 2
+                        s = [];
+                    end
                 end
             end
         end
@@ -56,6 +65,9 @@ if isempty(time_scale)
 end
 if isempty(s)
     s = m.s;
+end
+if isempty(basal_input)
+    basal_input = inputConstant(m, m.u);
 end
 if isempty(inp)
     inp = inputConstant(m, m.u);
@@ -84,6 +96,14 @@ end
 
 assert(is(inp, 'Input'), 'KroneckerBio:Experiment:inp', 'inp must be an Input')
 
+% basal_input
+if isnumeric(basal_input)
+    assert(numel(basal_input) == m.nu, 'KroneckerBio:Experiment:basal_input', 'basal_input, when numeric, must have a length of m.nu')
+    basal_input = inputConstant(m, basal_input);
+end
+
+assert(is(basal_input, 'Input'), 'KroneckerBio:Experiment:basal_input', 'basal_input must be an Input')
+
 % dos
 assert(is(dos, 'Dose'), 'KroneckerBio:Experiment:dos', 'dos must be a Dose')
 
@@ -100,7 +120,7 @@ con.nh = numel(dos.h);
 con.s  = s;
 con.q  = inp.q;
 con.h  = dos.h;
-[con.u,con.dudq,con.d2udq2] = getU(inp,m.nu);
+[con.u,con.dudq,con.d2udq2] = getU(inp, m.nu);
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
@@ -111,10 +131,18 @@ con.Periodic = false;
 con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
 con.private.BasalInput = basal_input;
+[con.private.basal_u, con.private.basal_dudq, con.private.basal_d2udq2] = getU(basal_input, m.nu);
 con.private.TimeScale = time_scale;
+con.private.BasalDiscontinuities = vec(unique([basal_input.discontinuities]));
 
     function con_out = update(s, q, h)
-        con_out = experimentSteadyState(m, s, basal_input, inp.Update(q), dos.Update(h), time_scale, name);
+        
+        % Check that a basal input has been provided
+        if isempty(basal_input)
+            warning(['Steady state experiment "' name '" appears to have no basal input. This may be because this experiment was built using an older version of KroneckerBio. Inputs may not be assigned the correct values in the simulation up to steady state.'])
+        end
+        
+        con_out = experimentSteadyState(m, s, basal_input.Update(q), inp.Update(q), dos.Update(h), time_scale, name);
     end
 
 end
@@ -129,11 +157,11 @@ clear inp
 u_t = @(t) u_tq(t,q);
 
 % Determine if u is vectorized, and fix if not
-testut = u_t([1 2]);
-if size(testut,2) == 1
+try
+    testut = u_t([1 2]);
+    assert(size(testut) == [nu,2])
+catch
     u_t = @ut_vectorized;
-elseif size(testut,2) ~= 2
-    error('u should return an nu-by-1 or nu-by-nt vector of input values')
 end
 
 dudq_t = @(t) dudq_tq(t,q);

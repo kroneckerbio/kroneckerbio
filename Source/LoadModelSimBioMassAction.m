@@ -8,7 +8,7 @@ function m = LoadModelSimBioMassAction(simbio, opts)
 %   simbio: [ simbio model object ]
 %       Matlab SimBiology Model object
 %   opts: [ options struct scalar {} ]
-%       .Verbose [ logical scalar {false} ]
+%       .Verbose [ true | {false} ]
 %       	Print progress to command window
 
 %% Clean up inputs
@@ -19,12 +19,14 @@ end
 % Default options
 opts_.Verbose = 0;
 opts_.Validate = false;
-opts_.UseNames = false;
 
 opts = mergestruct(opts_, opts);
 
 %% Convert model
 symbolic = simbio2symbolic(simbio, opts);
+
+assert(isValidSymbolicModel(symbolic), 'LoadModelSbmlAnalytic:InvalidSymbolicModel', 'Symbolic model intermediate failed validation check')
+
 m = symbolic2massaction(symbolic, opts);
 
 end

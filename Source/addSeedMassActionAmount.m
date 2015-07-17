@@ -1,5 +1,5 @@
-function m = addSeedMassAction(m, name, value)
-%AddSeed Add a seed parameter to a Model.MassAction
+function m = addSeedMassActionAmount(m, name, value)
+%AddSeed Add a seed parameter to a KroneckerBio model
 %
 %   m = AddSeed(m, name, value)
 %

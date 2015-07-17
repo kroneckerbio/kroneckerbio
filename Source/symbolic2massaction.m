@@ -126,8 +126,8 @@ xuNamesFull = xuNames;
 
 % Make symbolic variables
 vSyms = sym(vIDs);
-kSyms = sym(kIDs);
 xuSyms = sym(xuIDs);
+kSyms = sym(kIDs);
 
 % Note second-order parameters that have the volume baked in
 kBaked = zeros(nk,1);
@@ -153,7 +153,9 @@ for i = 1:nr
     end
     reactants = sym(reactants);
     products = sym(products);
+    
     rate = sym(name2id(rate, allNames, allIDs, xuvNames));
+    rate = evaluateExternalFunctions(rate, allIDs); % for resolving "power" function
     
     % Extract variables in the rate - Note: vars cell array of strings is in
     %   alphabetic order
@@ -396,4 +398,17 @@ function expr = quoteInvalid(expr)
 if regexp(expr, '\W') % wrap in quotes if invalid chars present in state name
     expr = ['"', expr, '"'];
 end
+end
+
+function rOut = evaluateExternalFunctions(rIn, ids)
+% Evaluate symbolic functions/pull in functions defined in path
+%   Necessary for "power" and other MathML function translation
+% Initialize symbolic variables
+syms(ids{:});
+
+% Evaluate the expressions to remove function calls
+rOut = eval(rIn);
+
+% Clear the symbolic variables
+clear(ids{:})
 end

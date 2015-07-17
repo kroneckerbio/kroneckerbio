@@ -206,7 +206,9 @@ for i = 1:nr
     % Reaction rate - keep as IDs
     %   UUID-like IDs won't have any problems when IDs are attempted to be
     %   subbed in here again when the model is parsed
-    rate = reaction.kineticLaw.math;
+    % Formula uses "power" which is recognized by Matlab's symbolic toolbox
+    %   Math uses "pow" which is not
+    rate = reaction.kineticLaw.formula;
     
     r(i,:) = {reactants, products, rate};
     
@@ -216,24 +218,26 @@ if verbose; fprintf('done.\n'); end
 
     function speciesNames = getSpeciesNames(species)
         % Get reactant and product species' names from their IDs. Needed as
-        % kroneckerbio analytic model parsing uses speices names in reactants,
-        % not IDs.
+        % kroneckerbio analytic model parsing uses species names in reactants,
+        % not IDs. Species with stoichiometries > 1 are repeated.
         % Inputs:
         %   species [ SBML reaction.reactant|product struct ]
         %       libSBML Matlab loader reaction.* struct
         % Outputs:
         %   speciesNames [ 1 x nSpecies cell array of strings ]
-        %       Cell array of compartment.name strings
+        %       Cell array of compartment.name strings with species repeated
+        %       according to stoichiometry.
         nSpecies = numel(species);
-        speciesNames = cell(1,nSpecies);
+        speciesNames = cell(1,0);
         for iSpecies = 1:nSpecies
             xuID = species(iSpecies).species;
+            stoich = species(iSpecies).stoichiometry;
             if opts.UseNames
                 xuID = xuIDs(ismember(xuID, xuNames));
             end
             [~, xuInd] = ismember(xuID, xuIDs);
             xuName = strcat(xuvNames{xuInd}, '.', xuNames{xuInd});
-            speciesNames{iSpecies} = xuName;
+            speciesNames = [speciesNames, repmat({xuName},1,stoich)];
         end
     end
 

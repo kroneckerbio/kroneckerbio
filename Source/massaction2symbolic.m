@@ -50,14 +50,14 @@ end
 %% Extract model components
 if verbose; fprintf('Extracting model components...'); end
 
-% Compartments
+%% Compartments
 nv     = m.nv;
 vNames = {m.Compartments.Name}';
 vIDs   = cellfun(@(x)genUID, vNames, 'UniformOutput', false);
 v      = [m.Compartments.Size]';
 dv     = [m.Compartments.Dimension]';
 
-% States
+%% States
 nx      = m.nx;
 xNames  = {m.States.Name}';
 xIDs    = cellfun(@(x)genUID, xNames, 'UniformOutput', false);
@@ -88,26 +88,39 @@ for i = 1:nx
     x{i} = xi;
 end
 
-% Inputs
+%% Inputs
 nu      = m.nu;
 uNames  = {m.Inputs.Name}';
 uIDs    = cellfun(@(x)genUID, uNames, 'UniformOutput', false);
 uvNames = {m.Inputs.Compartment}';
 u       = [m.Inputs.DefaultValue]';
+% Handle blank inputs
+if nu == 0
+    uNames  = cell(0,1);
+    uIDs    = cell(0,1);
+    uvNames = cell(0,1);
+    u       = zeros(0,1);
+end
 
-% Seeds
+%% Seeds
 ns      = m.ns;
 sNames  = {m.Seeds.Name}';
 sIDs    = cellfun(@(x)genUID, sNames, 'UniformOutput', false);
 s       = [m.Seeds.Value]';
+% Handle blank seeds
+if ns == 0
+    sNames  = cell(0,1);
+    sIDs    = cell(0,1);
+    s       = zeros(0,1);
+end
 
-% Parameters
+%% Parameters
 nk      = m.nk;
 kNames  = {m.Parameters.Name}';
 kIDs    = cellfun(@(x)genUID, kNames, 'UniformOutput', false);
 k       = [m.Parameters.Value]';
 
-% Reactions
+%% Reactions
 %   Each reaction is a microscopic reaction (forward/reverse are kept separate)
 %   TODO: potentially search for and combine forward and reverse reactions
 nr      = m.nr;
@@ -153,7 +166,7 @@ for i = 1:nr
     r(i,:) = {reactants, products, rate};
 end
 
-% Rules
+%% Rules
 nz      = m.nz;
 zNames  = {m.Rules.Name}';
 zIDs    = {m.Rules.ID}';
@@ -178,7 +191,12 @@ zInvalid = cellfun(@isempty,z(:,3));
 nz = nz - sum(zInvalid);
 zNames(zInvalid) = [];
 zIDs(zInvalid)   = [];
-z(zInvalid,:)    = []; 
+z(zInvalid,:)    = [];
+% Handle blank rules
+if nz == 0
+    zNames = cell(0,1);
+    zIDs   = cell(0,1);
+end
 
 if verbose; fprintf('done.\n'); end
 

@@ -32,10 +32,9 @@ function sim = SimulateSystem(m, con, obs, opts)
 %
 %   Outputs
 %   sim: [ simulation struct matrix size(obs) ]
-%   	A matrix of simulation structures the same size as obs. The field
-%   	names are always the same (otherwise, Matlab won't make a matrix)
-%   	but the exact type and meaning is determined by the observation
-%   	scheme. The fields below are for when obs is supplied as a number.
+%   	A matrix of simulation structures the same size as obs. The fields
+%   	and values differ depending on the observation scheme used. The
+%   	fields below are for when obs is supplied as a number.
 %       .t [ sorted nonnegative row vector ]
 %           Time points chosen by the ode solver
 %       .x [ handle @(t,ind) returns matrix numel(ind) by numel(t) ]

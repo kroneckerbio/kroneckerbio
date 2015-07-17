@@ -1,5 +1,5 @@
 function m = AddParameter(m, varargin)
-%AddParameter Add a parameter to a generic model
+%AddParameter Add a rate parameter to a generic model
 %
 %   m = AddParameter(m, ...)
 %
@@ -7,21 +7,23 @@ function m = AddParameter(m, varargin)
 %   depending on the type of the model.
 %
 %   Model.MassActionAmount
-%       help addParameterMassAction
+%       help addParameterMassActionAmount
 %
 %   Model.MassActionConcentration
-%       help addParameterMassAction
+%       help addParameterMassActionConcentration
 %
 %   Model.Analytic
-%       help addParameterMassAnalytic
+%       help addParameterAnalytic
 
-% (c) 2015 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen
 % This work is released under the MIT license.
 
-if is(m, 'Model.MassActionAmount') || is(m, 'Model.MassActionConcentration')
-    m = addParameterMassAction(m, varargin{:});
+if is(m, 'Model.MassActionAmount')
+    m = addParameterMassActionAmount(m, varargin{:});
+elseif is(m, 'Model.MassActionConcentration')
+    m = addParameterMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = addParameterAnalytic(m, varargin{:});
 else
-    error('KroneckerBio:AddCompartment:m', 'm must be a model')
+    error('KroneckerBio:AddParameter:m', 'm must be a model')
 end

@@ -18,6 +18,15 @@ con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 verifyHessian(a, m, con, obj, opts)
 end
 
+function testObjectiveHessianSimpleSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+m = m.Update(rand(m.nk,1)+1);
+con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+
+verifyHessian(a, m, con, obj, opts)
+end
+
 function testObjectiveHessianMichaelisMenten(a)
 [m, con, obj, opts] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+1);

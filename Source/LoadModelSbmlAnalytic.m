@@ -52,6 +52,9 @@ if verbose; fprintf('done.\n'); end
 
 %% Convert model
 symbolic = sbml2symbolic(sbml, opts);
+
+assert(isValidSymbolicModel(symbolic), 'LoadModelSbmlAnalytic:InvalidSymbolicModel', 'Symbolic model intermediate failed validation check')
+    
 m = symbolic2analytic(symbolic, opts);
 
 end
