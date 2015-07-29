@@ -23,18 +23,21 @@ m2 = FinalizeModel(m2, opts);
 %% Simple mass saction model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 opts = [];
 opts.Verbose = 2;
-% m3 = LoadModelSbmlMassAction('simple_massaction.xml', opts);
-% m3 = FinalizeModel(m3);
-m3 = LoadModelSbmlAnalytic('simple_massaction.xml', opts);
-m3 = FinalizeModel(m3, opts);
+m3 = LoadModelSbmlMassAction('simple_massaction.xml', opts);
+m3 = FinalizeModel(m3);
+% m3 = LoadModelSbmlAnalytic('simple_massaction.xml', opts);
+% m3 = FinalizeModel(m3, opts);
 
 %% Bigger mass action %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% m4 = LoadModelSbmlAnalytic('../Models/Chen2009_ErbB_A431.xml', opts);
-% m4 = FinalizeModel(m4, opts);
-m4 = LoadModelSbmlMassAction('../Models/Chen2009_ErbB_A431.xml', opts);
-m4 = FinalizeModel(m4);
+% Warning: loading as a massaction model is slow
+m4 = LoadModelSbmlAnalytic('../Models/Chen2009_ErbB_A431.xml', opts);
+m4 = FinalizeModel(m4, opts);
+% m4 = LoadModelSbmlMassAction('../Models/Chen2009_ErbB_A431.xml', opts);
+% m4 = FinalizeModel(m4);
 
 %% Bonus: Load SimBiology model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+opts = [];
+opts.Verbose = 2;
 load('simple_massaction_simbio_model.mat')
 % m5 = LoadModelSimBioAnalytic(simbiomodel, opts);
 % m5 = FinalizeModel(m5, opts);

@@ -12,6 +12,12 @@ function valid = isValidSymbolicModel(s, detailed)
 %
 % Note: Throws error when model is invalid for now. Consider fixing to errors
 %   are caught returning valid = false (w/ helpful message)
+% Note: Symbolic model reaction rates can be given as either names or ids
+%   Names all model types except SBML imported models - easy to make/read
+%       SimBio imported models prefix all species with compartments
+%       Manually assembled analytic models 
+%   IDs from SBML imported models - easier to process (no postprocessing needed)
+%   TODO: consider forcing IDs?
 % TODO: implement detailed checking
 % TODO: if this function remains fast, put in all model conversion code as
 %   a sanity check
@@ -121,6 +127,9 @@ assert(all(cellfun(@isValidRuleType, s.z(:,3))), 'isValidSymbolicModel:RuleType'
 %   - Names aren't blank strings
 %   - IDs are valid variables (+ possibly not substrings of each other - required for symbolic subs later)
 %   - Reactants and products in reactions refer to existing things
+if detailed
+    warning('isValidSymbolicModel: Detailed checks not implemented yet.')
+end
 
 %% Completed all checks
 valid = true;

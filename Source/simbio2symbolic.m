@@ -24,7 +24,7 @@ verbose = logical(opts.Verbose);
 if verbose; fprintf('Extracting model components...'); end
 
 %% Compartments
-nv = length(simbio.compartment);
+nv     = length(simbio.compartment);
 vNames = cell(nv,1);
 vIDs   = cell(nv,1);
 v      = zeros(nv,1);
@@ -41,12 +41,12 @@ for i = 1:nv
 end
 
 %% Species, turned into states and inputs below
-nxu = length(simbio.species);
-xuNames          = cell(nxu,1);
-xuIDs            = cell(nxu,1);
-xu0              = zeros(nxu,1);
-xuvNames         = cell(nxu,1);
-isu              = false(nxu,1);
+nxu       = length(simbio.species);
+xuNames   = cell(nxu,1);
+xuIDs     = cell(nxu,1);
+xu0       = zeros(nxu,1);
+xuvNames  = cell(nxu,1);
+isu       = false(nxu,1);
 for i = 1:nxu
     
     species = simbio.Species(i);
@@ -54,23 +54,23 @@ for i = 1:nxu
     xuNames{i}  = species.Name;
     xuIDs{i}    = genUID;
     xu0(i)      = species.InitialAmount;
-    xuvNames{i} = vNames{ismember(species.Parent.Name, vNames)};
+    xuvNames{i} = vNames{ismember(vNames, species.Parent.Name)};
     isu(i)      = species.BoundaryCondition || species.ConstantAmount;
     
 end
 
 %% States and seeds
 % Make a seed for each state, equaling initial condition
-nx = sum(~isu);
-xNames  = xuNames(~isu);
-xIDs    = xuIDs(~isu);
-xvNames = xuvNames(~isu);
-ns = nx;
-sNames = strcat(xNames, '_0');
-sNamesQuoted = sNames;
+nx           = sum(~isu);
+xNames       = xuNames(~isu);
+xIDs         = xuIDs(~isu);
+xvNames      = xuvNames(~isu);
+ns           = nx;
+sNames       = strcat(xvNames, '_', xNames, '_0');
+sNamesQuoted = sNames; % initial expression requires quotes around invalid names
 for i = 1:ns
-    if regexp(sNamesQuoted{i}, '\W') % wrap in quotes if invalid chars present in state name
-        sNamesQuoted{i} = ['"', sNamesQuoted{i}, '"'];
+    if regexp(sNames{i}, '\W')
+        sNamesQuoted{i} = ['"', sNames{i}, '"'];
     end
 end
 sIDs   = cellfun(@(x)genUID, sNames, 'UniformOutput', false);
@@ -86,7 +86,7 @@ u       = xu0(isu);
 
 %% Parameters
 % Global
-nk  = length(simbio.Parameters);
+nk     = length(simbio.Parameters);
 kNames = cell(nk,1);
 kIDs   = cell(nk,1);
 k      = zeros(nk,1);
@@ -121,6 +121,7 @@ for i = 1:nr
             kNames = [kNames; name];
             kIDs   = [kIDs; id];
             k      = [k; value];
+            
         end
     end
     
@@ -140,14 +141,16 @@ for i = 1:nr
     rIDs{i} = genUID;
     
     % Get reactant and product names
+    %   Prepend compartment names
     Sindex = 1; % keep track of stoichiometry to determine how many species to add
-    assert(all(mod(reaction.Stoichiometry, 1) == 0), 'simbio2symbolic: stoichiometries of reaction %s not all integers', rNames{i})
+    assert(all(mod(reaction.Stoichiometry, 1) == 0), 'simbio2symbolic:invalidStoich', 'Stoichiometries of reaction %s not all integers', rNames{i})
     
     nReactants = length(reaction.Reactants);
     reactants = cell(1,0);
     for j = 1:nReactants
         S = abs(reaction.Stoichiometry(Sindex));
-        reactants = [reactants, repmat({reaction.Reactants(j).Name}, [1,S])];
+        reactant = [reaction.Reactants(j).Parent.Name '.' reaction.Reactants(j).Name];
+        reactants = [reactants, repmat({reactant}, [1,S])];
         Sindex = Sindex + 1;
     end
     
@@ -155,15 +158,18 @@ for i = 1:nr
     products = cell(1,0);
     for j = 1:nProducts
         S = abs(reaction.Stoichiometry(Sindex));
-        products = [products, repmat({reaction.Products(j).Name}, [1,S])];
+        product = [reaction.Products(j).Parent.Name '.' reaction.Products(j).Name];
+        products = [products, repmat({product}, [1,S])];
         Sindex = Sindex + 1;
     end
-    assert(Sindex == length(reaction.Stoichiometry)+1, 'simbio2symbolic: missing reactants or products') % didn't get them all somehow
+    assert(Sindex == length(reaction.Stoichiometry)+1, 'simbio2symbolic:missingReactantsOrProducts' ,'Missing reactants or products') % didn't get them all somehow
     
-    % Reaction rate - keep as IDs
-    %   UUID-like IDs won't have any problems when IDs are attempted to be
-    %   subbed in here again when the model is parsed
-    rate = cleanSimBioExpr(reaction.ReactionRate);
+    % Reaction rates are strings containing names
+    %   SimBio wraps invalid names with square brackets [] - replace with quotes
+    %   If name is invalid, brackets surround only the invalid part, not
+    %       the full name, i.e. cell.[C:C]. Change this to surround the full 
+    %       name as kroneckerbio expects
+    rate = simbioExpr2kroneckerbioExpr(reaction.ReactionRate);
     
     r(i,:) = {reactants, products, rate};
     
@@ -191,7 +197,7 @@ for i = 1:nz
         case 'initialAssignment'
             % pass
         otherwise
-            warning('simbio2symbolic: rule %s with type %s not recognized. Ignoring', zNames{i}, type)
+            warning('simbio2symbolic:invalidRuleType', 'Rule %s with type %s not recognized. Ignoring', zNames{i}, type)
             continue
     end
     
@@ -259,11 +265,4 @@ symbolic.z      = z; % cell matrix
 
 if verbose; fprintf('done.\n'); end
 
-end
-
-function expr = cleanSimBioExpr(expr)
-% Clean up SimBio expressions that use square brackets to indicate components
-% with invalid names to kroneckerbio expressions that use double-quotes for the
-% same thing
-expr = regexprep(expr, '[\[\]]', '"');
 end

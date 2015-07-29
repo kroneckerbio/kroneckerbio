@@ -189,12 +189,12 @@ for i = 1:nx
     x0{i} = name2id(x0{i}, sNames, sStrs);
 end
 
-% Reaction rates - arbitrary expressions of anything
+% Reaction rates - arbitrary expressions of species, parameters, and inputs (no seeds for now)
 for i = 1:nr
-    r{i} = name2id(r{i}, allNames, allIDs, xuvNames);
+    r{i} = name2id(r{i}, outputNames, outputIDs, xuvNames);
 end
 
-% Outputs - arbitrary expressions of states and parameters
+% Outputs - arbitrary expressions of species, parameters, and inputs
 for i = 1:ny
     y{i} = name2id(y{i}, outputNames, outputIDs, xuvNames);
 end

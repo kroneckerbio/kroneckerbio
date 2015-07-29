@@ -8,6 +8,7 @@
   <model id="mw5c8dd553_1a5f_448e_9706_24bd82f9be02" name="simple_massaction">
     <listOfCompartments>
       <compartment id="mw3b5cf017_4336_4325_9585_1a156354bd36" name="cell" size="1"/>
+      <compartment id="mw0fe8cd13_5e70_4159_9268_465e10fe01ef" name="ecm" size="1"/>
     </listOfCompartments>
     <listOfSpecies>
       <species id="mwc479c396_5843_46b6_ad4d_975c12b41199" name="A" compartment="mw3b5cf017_4336_4325_9585_1a156354bd36" initialAmount="2"/>
@@ -16,6 +17,7 @@
       <species id="mwd9a6e0fe_25c1_4f80_b646_567e7fb71235" name="C:C" compartment="mw3b5cf017_4336_4325_9585_1a156354bd36" initialAmount="0"/>
       <species id="mwfb297d44_1f12_48c2_a354_8b877faf7847" name="Bx" compartment="mw3b5cf017_4336_4325_9585_1a156354bd36" initialAmount="0"/>
       <species id="mwe1e554a8_edb7_4f70_a579_47d90c9209c0" name="D" compartment="mw3b5cf017_4336_4325_9585_1a156354bd36" initialAmount="0"/>
+      <species id="mwb9f20041_6b37_485e_8169_7c930c3ba758" name="C" compartment="mw0fe8cd13_5e70_4159_9268_465e10fe01ef" initialAmount="0"/>
     </listOfSpecies>
     <listOfParameters>
       <parameter id="mw10cfde8e_4d05_444d_8f86_fb8111c22789" name="k1" value="1"/>
@@ -28,6 +30,7 @@
       <parameter id="mw8b38bec7_711e_402c_9713_6fb52959ad64" name="k8" value="1"/>
       <parameter id="mwde2eb888_54ed_40ec_bb95_3dc8d8a5ef5c" name="k9" value="1"/>
       <parameter id="mw39cb2c47_c9c6_4823_b676_535106b68558" name="k10" value="1"/>
+      <parameter id="mw68544bb2_858d_41dd_ae52_781caedad331" name="k11" value="1"/>
     </listOfParameters>
     <listOfReactions>
       <reaction id="mw72654828_9435_400b_8468_353f8f0015ed" name="r1" fast="false">
@@ -143,12 +146,19 @@
         </kineticLaw>
       </reaction>
       <reaction id="mwfe3cb0b8_39d2_467d_ba66_946e83204aa8" name="r5" reversible="false" fast="false">
+        <listOfReactants>
+          <speciesReference species="mwb9f20041_6b37_485e_8169_7c930c3ba758"/>
+        </listOfReactants>
         <listOfProducts>
           <speciesReference species="mw7002c18e_2352_4b9f_8455_1680c1877b2e"/>
         </listOfProducts>
         <kineticLaw>
           <math xmlns="http://www.w3.org/1998/Math/MathML">
-            <ci> mwde2eb888_54ed_40ec_bb95_3dc8d8a5ef5c </ci>
+            <apply>
+              <times/>
+              <ci> mwde2eb888_54ed_40ec_bb95_3dc8d8a5ef5c </ci>
+              <ci> mwb9f20041_6b37_485e_8169_7c930c3ba758 </ci>
+            </apply>
           </math>
         </kineticLaw>
       </reaction>
@@ -163,6 +173,16 @@
               <ci> mw39cb2c47_c9c6_4823_b676_535106b68558 </ci>
               <ci> mwfb297d44_1f12_48c2_a354_8b877faf7847 </ci>
             </apply>
+          </math>
+        </kineticLaw>
+      </reaction>
+      <reaction id="mwa064a92e_fbc2_4fbe_b054_cbe0184f860b" name="r7" reversible="false" fast="false">
+        <listOfProducts>
+          <speciesReference species="mwb9f20041_6b37_485e_8169_7c930c3ba758"/>
+        </listOfProducts>
+        <kineticLaw>
+          <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <ci> mw68544bb2_858d_41dd_ae52_781caedad331 </ci>
           </math>
         </kineticLaw>
       </reaction>

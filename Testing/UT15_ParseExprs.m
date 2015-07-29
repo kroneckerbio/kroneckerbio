@@ -100,3 +100,16 @@ assert(all(size(names)) == all(size(ids)), 'size of names and ids don''t match')
 assert(length(xuvNames) < length(names), 'more species volumes than possible species')
 assert(all(size(names)) == all(size(values)), 'size of names and values don''t match')
 end
+
+function testSimBioExprParser(a)
+exprsIn = {'cpt.spc', '[spc*]', 'cpt.[spc*]', '[cpt*].spc', '[cpt*].[spc*]', ...
+    'cpt.[spc*]+cptcpt.[spc*]', 'cptcpt.[spc*]+cpt.[spc*]'};
+exprsExpected = {'cpt.spc', '"spc*"', '"cpt.spc*"', '"cpt*.spc"', '"cpt*.spc*"', ...
+    '"cpt.spc*"+"cptcpt.spc*"', '"cptcpt.spc*"+"cpt.spc*"'};
+assert(length(exprsIn) == length(exprsExpected))
+
+for i = 1:length(exprsIn)
+    exprOut = simbioExpr2kroneckerbioExpr(exprsIn{i});
+    a.verifyEqual(exprOut, exprsExpected{i});
+end
+end

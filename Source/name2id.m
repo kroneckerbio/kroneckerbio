@@ -7,7 +7,6 @@ function expr = name2id(expr, names, ids, xuvNames)
 %       names with invalid characters with double-quotes.
 %   names [ cell array of strings ]
 %       Cell array of user-specified names. States and inputs appear first.
-%       Invalid names should not be surrounded by quotes.
 %   ids [ cell array of strings ]
 %       Cell array of valid IDs in same order as names
 %   xuvNames [ cell array of strings {''} ]
@@ -21,9 +20,13 @@ if nargin < 4
     xuvNames = [];
 end
 
+% Remove quotes from name strings if present
+names = strrep(names, '"', '');
+
 % Make list of compartment.species
 nxu = length(xuvNames);
 if ~isempty(xuvNames)
+    xuvNames = strrep(xuvNames, '"', '');
     xuFullNames = strcat(xuvNames, '.', names(1:nxu));
 end
 

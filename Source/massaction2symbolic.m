@@ -23,6 +23,21 @@ opts = mergestruct(opts_, opts);
 
 verbose = logical(opts.Verbose);
 
+%% Assign reaction names if missing
+nr = m.nr;
+for i = 1:nr
+    if isempty(m.Reactions(i).Name)
+        m.Reactions(i).Name = ['rxn_' num2str(i)];
+    end
+end
+
+nradd = m.add.nr;
+for i = 1:nradd
+    if isempty(m.add.Reactions(i).Name)
+        m.add.Reactions(i).Name = ['rxn_' num2str(nr+i)];
+    end
+end
+
 %% Copy m.add.* fields in non-finalized models
 if ~opts.Finalized
     if verbose; fprintf('Copying nonfinalized componenets...'); end
@@ -102,6 +117,10 @@ if nu == 0
     u       = zeros(0,1);
 end
 
+% Make combined states/inputs names and compartments for convenience
+xuNames  = [xNames; uNames];
+xuvNames = [xvNames; uvNames];
+
 %% Seeds
 ns      = m.ns;
 sNames  = {m.Seeds.Name}';
@@ -157,7 +176,21 @@ for i = 1:nr
         if isempty(reactant) % shouldn't be necessary
             continue
         end
-        if regexp(reactant, '\W') % wrap in quotes if invalid chars present in state name
+        
+        % Prefix species name with compartment name if it doesn't already have it
+        % Make sure compartment name is valid if it does
+        compartment = xuvNames{ismember(xuNames, reactant)};
+        if isempty(regexp(reactant, '\.', 'once'))
+            reactant = [compartment '.' reactant];
+        else
+            parts = strsplit(reactant, '.');
+            assert(length(parts) == 2, 'massaction2symbolic:badReactantName', 'Reactant %s has too many parts', reactant)
+            compartmentInReactant = strrep(parts{1}, '"', '');
+            assert(strcmp(compartment, compartmentInReactant), 'massaction2symbolic:compartmentNotMatchReactant', 'Reactant with full name %s doesn''t match listed compartment %s', reactant, compartment)
+        end
+        
+        % Wrap in quotes if invalid chars (excluding the dot) present in full reactant name
+        if regexp(reactant, '[^\w\.]') 
             reactant = ['"', reactant, '"'];
         end
         rate = [rate '*' reactant];

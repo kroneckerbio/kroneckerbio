@@ -107,7 +107,7 @@ xNames  = xuNames(~isu);
 xIDs    = xuIDs(~isu);
 xvNames = xuvNames(~isu);
 ns = nx;
-sNames = strcat(xNames, '_0');
+sNames = strcat(xvNames, '_', xNames, '_0');
 sNamesQuoted = sNames;
 for i = 1:ns
     if regexp(sNamesQuoted{i}, '\W') % wrap in quotes if invalid chars present in state name
@@ -127,6 +127,7 @@ u       = xu0(isu);
 
 %% Parameters
 % Global
+% Ignore params added as targets of rules - appear as constant = false
 nk  = length(sbml.parameter);
 kNames = cell(nk,1);
 kIDs   = cell(nk,1);
@@ -134,6 +135,10 @@ k      = zeros(nk,1);
 for i = 1:nk
     
     parameter = sbml.parameter(i);
+    
+    if ~boolean(parameter.constant) % changing params aren't valid kronecker params
+        continue
+    end
     
     if opts.UseNames
         name = parameter.id;
@@ -148,6 +153,12 @@ for i = 1:nk
     k(i) = parameter.value;
     
 end
+% Clean up empty spaces from invalid params
+kMask = cellfun(@isempty, kIDs);
+nk = nk - sum(kMask);
+kNames(kMask) = [];
+kIDs(kMask) = [];
+k(kMask) = [];
 
 % Reaction-local
 nr = length(sbml.reaction);
@@ -276,7 +287,13 @@ z      = cell(nz,3); % [target, expression, type]
 if isfield(sbml, 'rule') && ~isempty(sbml.rule)
     for i = 1:length(sbml.rule)
         rule = sbml.rule(i);
-        name = rule.name; % doesn't map to anything?
+        
+        if isempty(rule.name) % doesn't map to anything?
+            name = ['rule_' rule.variable];
+        else
+            name = rule.name; 
+        end
+        
         id = genUID; % libSBML Matlab loader doesn't generate rule IDs
         target = rule.variable;
         expression = rule.formula;

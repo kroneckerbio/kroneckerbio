@@ -28,6 +28,19 @@ a.verifyEqual(symbolic.nz, 0);
 a.assertTrue(isValidSymbolicModel(symbolic));
 end
 
+function testMassaction2symbolic(a)
+m = LoadModelMassAction('Simple.txt');
+symbolic = massaction2symbolic(m);
+a.verifyEqual(symbolic.nv, 4);
+a.verifyEqual(symbolic.nx, 10);
+a.verifyEqual(symbolic.nu, 2);
+a.verifyEqual(symbolic.ns, 3);
+a.verifyEqual(symbolic.nk, 10);
+a.verifyEqual(symbolic.nr, 12); % separates forward and reverse rxns
+a.verifyEqual(symbolic.nz, 0);
+a.assertTrue(isValidSymbolicModel(symbolic));
+end
+
 %% More comprehensive advanced model loading
 function testBasicSBMLLoading(a)
 opts = [];
@@ -76,7 +89,10 @@ verifyDerivatives(a, m);
 end
 
 function testSimpleMassActionSBMLLoading(a)
+warning('off', 'symbolic2massaction:repeatedSpeciesNames'); % suppress warning for repeated species C
 m = LoadModelSbmlMassAction('simple_massaction.xml');
+warning('on', 'symbolic2massaction:repeatedSpeciesNames'); % reenable warning for continued session
+
 m = FinalizeModel(m);
 
 verifyDerivatives(a, m);
@@ -91,9 +107,13 @@ m = FinalizeModel(m, opts);
 verifyDerivatives(a, m);
 end
 
-function testSimpleMassActionSimBiologyLLoading(a)
+function testSimpleMassActionSimBiologyLoading(a)
 load('simple_massaction_simbio_model.mat')
+
+warning('off', 'symbolic2massaction:repeatedSpeciesNames'); % suppress warning for repeated species C
 m = LoadModelSimBioMassAction(simbiomodel);
+warning('on', 'symbolic2massaction:repeatedSpeciesNames'); % reenable warning for continued session
+
 m = FinalizeModel(m);
 
 verifyDerivatives(a, m);
