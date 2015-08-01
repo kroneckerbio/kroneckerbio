@@ -244,7 +244,7 @@ if verbose; fprintf('done.\n'); end
             xuID = species(iSpecies).species;
             stoich = species(iSpecies).stoichiometry;
             if opts.UseNames
-                xuID = xuIDs(ismember(xuID, xuNames));
+                xuID = xuIDs(ismember(xuNames, xuID));
             end
             [~, xuInd] = ismember(xuID, xuIDs);
             xuName = strcat(xuvNames{xuInd}, '.', xuNames{xuInd});

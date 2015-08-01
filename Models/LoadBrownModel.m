@@ -76,14 +76,19 @@ yNames2 = {'Out1'; 'Out2'};
 % yExprs2 = {'EGF + 2*NGF', '(RasGapActive + kSos*RapGapActive)/2 + sqrt(AktActive)^(kRap1ToBRaf)'};
 yExprs2 = {'("RasGapActive" + kSos*RapGapActive)/2 + sqrt(AktActive)^(kRap1ToBRaf)', 'EGF + 2*NGF'};
 
-symModel = sbml2Symbolic('Brown_EGFNGF.xml', opts);
+% Convert SBML file into Kronecker model
+m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', opts);
 
-% symModel = AddOutputsToSymbolic(symModel, yNames, [], opts);
-symModel = AddOutputsToSymbolic(symModel, yNames2, yExprs2, opts);
+% Add outputs
+for yi = 1:length(yNames)
+    m = AddOutput(m, yNames{yi}, yNames{yi});
+end
+for yi = 1:length(yNames2)
+    m = AddOutput(m, yNames2{yi}, yExprs2{yi});
+end
 
-% m = LoadModelSbmlAnalytic('Brown_EGFNGF.xml', yNames, [], [], opts);
-m = symbolic2PseudoKronecker(symModel, opts);
-
+% Finalize model
+m = FinalizeModel(m);
 if opts.UseMEX
     compileMEXFunctions(opts.MEXDirectory);
 end
