@@ -319,8 +319,13 @@ for iFile = 1:nFiles
                         end
                     end
                     
+                    reactants = tokens(1:2);
+                    reactants = reactants(~strcmp(reactants, '0'));
+                    products = tokens(3:4);
+                    products = products(~strcmp(products, '0'));
+                    
                     % This is a normal line
-                    m = AddReaction(m, tokens(7:end), tokens{1}, tokens{2}, tokens{3}, tokens{4}, parameters(1,:), parameters(2,:));
+                    m = AddReaction(m, tokens(7:end), reactants, products, parameters(1,:), parameters(2,:));
                 else
                     % Split between the equal sign
                     parameter = regexp(tokens{end}, '=', 'split');
@@ -334,8 +339,13 @@ for iFile = 1:nFiles
                         parameter = {parameter{1}, 1};
                     end
                     
+                    reactants = tokens(2:3);
+                    reactants = reactants(~strcmp(reactants, '0'));
+                    products = tokens(4:end-1);
+                    products = products(~strcmp(products, '0'));
+
                     % This is the special syntax for a multi-product line
-                    m = AddLargeSizeReaction(m, [], tokens(2:3), tokens(4:end-1), parameter);
+                    m = AddReaction(m, [], reactants, products, parameter);
                 end
             else
                 error('KroneckerBio:LoadModelMassAction:SectionNotSpecified', 'Line %i in %s occurs before any section header: %s', lineNumber, files{iFile}, line)

@@ -81,7 +81,7 @@ rNames = symbolic.rNames;
 rIDs   = symbolic.rIDs;
 r      = symbolic.r; % cell matrix
 for i = 1:nr
-    m = addReactionManySpeciesAnalytic(m, rNames{i}, r{i,1}, r{i,2}, r{i,3}, [], [], rIDs{i});
+    m = addReactionAnalytic(m, rNames{i}, r{i,1}, r{i,2}, r{i,3}, [], [], rIDs{i});
 end
 
 % Rules

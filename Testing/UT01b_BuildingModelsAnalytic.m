@@ -57,14 +57,14 @@ end
 
 function testAddReactionFwd(a)
 [m, x0, u0] = model_with_some_species();
-m = AddReaction(m, 'test', 'x1', 'x2', 'x3', '', 'k1*x1*x2'); % must be specified explicitly in analytic model
+m = AddReaction(m, 'test', {'x1', 'x2'}, 'x3', 'k1*x1*x2'); % must be specified explicitly in analytic model
 m = FinalizeModel(m);
 a.verifyEqual(m.f(0,x0,u0), [-24;-24;24;0])
 end
 
 function testAddReactionRev(a)
 [m, x0, u0] = model_with_some_species();
-m = AddReaction(m, 'test', 'x1', 'x2', 'x3', '', '', 'k2*x3');
+m = AddReaction(m, 'test', {'x1', 'x2'}, 'x3', '', 'k2*x3');
 m = FinalizeModel(m);
 a.verifyEqual(m.f(0,x0,u0), [15;15;-15;0])
 end

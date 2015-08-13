@@ -1,8 +1,7 @@
-function m = addReactionAnalytic(m, name, reactant1, reactant2, product1, product2, kForward, kReverse, compartment, id)
+function m = addReactionAnalytic(m, name, reactants, products, kForward, kReverse, compartment, id)
 %AddReaction Add a reaction to a Model.Analytic
 %
-%   m = AddReaction(m, name, reactant1, reactant2, product1,
-%                   product2, kForward, kReverse)
+%   m = AddReaction(m, name, reactants, products, kForward, kReverse)
 %
 %   A reaction is a conversion of one or two reactant species into one or
 %   two product species associated with a rate expression. The
@@ -31,15 +30,11 @@ function m = addReactionAnalytic(m, name, reactant1, reactant2, product1, produc
 %       reverse reactions. Reaction names do not need to be unique, so if
 %       only one name is provided, it will be identical for the forward and
 %       reverse reactions.
-%   reactant1: [ string ]
+%   reactants: [ cell array of strings | string | empty ]
 %       This is a species full name in the model or just a species name
 %       that can accept a string in compartment as its compartment.
-%   reactant2: [ string ]
-%       Like reactant1.
-%   product1: [ string ]
-%       Like reactant1.
-%   product2: [ string ]
-%       Like reactant1.
+%   products: [ string ]
+%       Like reactants
 %   kForward: [ string ]
 %       Expression for forward reaction rate
 %   kReverse: [ string {''} ]
@@ -55,15 +50,12 @@ function m = addReactionAnalytic(m, name, reactant1, reactant2, product1, produc
 %       The model with the new reaction added.
 
 % Clean-up
-if nargin < 10
+if nargin < 8
     id = [];
-    if nargin < 9
+    if nargin < 7
         compartment = [];
-        if nargin < 8
+        if nargin < 6
             kReverse = [];
-            if nargin < 7
-                kForward = [];
-            end
         end
     end
 end
@@ -104,10 +96,15 @@ end
 [name1, name2] = fixReactionName(name, kForward, kReverse);
 
 % Standardize species names into compartment.species
-reactant1 = fixSpeciesFullName(reactant1, compartment, m);
-reactant2 = fixSpeciesFullName(reactant2, compartment, m);
-product1  = fixSpeciesFullName(product1, compartment, m);
-product2  = fixSpeciesFullName(product2, compartment, m);
+reactants = fixReactionSpecies(reactants);
+products =  fixReactionSpecies(products);
+
+for i = 1:numel(reactants)
+    reactants{i} = fixSpeciesFullName(reactants{i}, compartment, m);
+end
+for i = 1:numel(products)
+    products{i} = fixSpeciesFullName(products{i}, compartment, m);
+end
 
 % Standardize reaction rate expressions
 kForward    = fixRateExpressionAnalytic(kForward);
@@ -127,21 +124,9 @@ if ~isempty(kForward)
     end
     m.add.Reactions(nr).ID = id1;
     
-    m.add.Reactions(nr).Reactants = cell(1,2);
-    if ~isempty(reactant1)
-        m.add.Reactions(nr).Reactants{1} = reactant1;
-    end
-    if ~isempty(reactant2)
-        m.add.Reactions(nr).Reactants{2} = reactant2;
-    end
+    m.add.Reactions(nr).Reactants = reactants;
     
-    m.add.Reactions(nr).Products = cell(1,2);
-    if ~isempty(product1)
-        m.add.Reactions(nr).Products{1} = product1;
-    end
-    if ~isempty(product2)
-        m.add.Reactions(nr).Products{2} = product2;
-    end
+    m.add.Reactions(nr).Products = products;
     
     m.add.Reactions(nr).Rate = kForward;
     
@@ -160,21 +145,9 @@ if ~isempty(kReverse)
     end
     m.add.Reactions(nr).ID = id2;
     
-    m.add.Reactions(nr).Reactants = cell(1,1);
-    if ~isempty(product1)
-        m.add.Reactions(nr).Reactants{1} = product1;
-    end
-    if ~isempty(product2)
-        m.add.Reactions(nr).Reactants{2} = product2;
-    end
+    m.add.Reactions(nr).Reactants = products;
     
-    m.add.Reactions(nr).Products = cell(1,2);
-    if ~isempty(reactant1)
-        m.add.Reactions(nr).Products{1} = reactant1;
-    end
-    if ~isempty(reactant2)
-        m.add.Reactions(nr).Products{2} = reactant2;
-    end
+    m.add.Reactions(nr).Products = reactants;
     
     m.add.Reactions(nr).Rate = kReverse;
     

@@ -22,7 +22,7 @@ function m = addSeedAnalytic(m, name, value, id)
 %       The model with the new parameter added
 
 % Generate new ID if not supplied
-if nargin < 5
+if nargin < 4
     id = [];
 end
 if isempty(id)

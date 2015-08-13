@@ -36,50 +36,50 @@ m = AddParameter(m, 'k2', 2);
 m = AddParameter(m, 'k3', 3);
 
 %% Add Reactions
-m = AddReaction(m, 'r1', '', '', '', '', 'k1');
-m = AddReaction(m, 'r2', '', '', 'x3', '', 'k1');
-m = AddReaction(m, 'r3', '', '', 'x3', 'x4', 'k1');
-m = AddReaction(m, 'r4', '', '', 'u3', 'x4', 'k1');
-m = AddReaction(m, 'r5', '', '', 'u3', 'u4', 'k1');
-m = AddReaction(m, 'r6', '', '', 'u3', '', 'k1');
+m = AddReaction(m, 'r1', {}, {}, 'k1');
+m = AddReaction(m, 'r2', {}, 'x3', 'k1');
+m = AddReaction(m, 'r3', {}, {'x3', 'x4'}, 'k1');
+m = AddReaction(m, 'r4', {}, {'u3', 'x4'}, 'k1');
+m = AddReaction(m, 'r5', {}, {'u3', 'u4'}, 'k1');
+m = AddReaction(m, 'r6', {}, 'u3', 'k1');
 
-m = AddReaction(m, 'r7', 'x1', '', '', '', 'k1');
-m = AddReaction(m, 'r8', 'x1', '', 'x3', '', 'k1');
-m = AddReaction(m, 'r9', 'x1', '', 'x3', 'x4', 'k1');
-m = AddReaction(m, 'r10', 'x1', '', 'u3', 'x4', 'k1');
-m = AddReaction(m, 'r11', 'x1', '', 'u3', 'u4', 'k1');
-m = AddReaction(m, 'r12', 'x1', '', 'u3', '', 'k1');
+m = AddReaction(m, 'r7', 'x1', {}, 'k1');
+m = AddReaction(m, 'r8', 'x1', 'x3', 'k1');
+m = AddReaction(m, 'r9', 'x1', {'x3', 'x4'}, 'k1');
+m = AddReaction(m, 'r10', 'x1', {'u3', 'x4'}, 'k1');
+m = AddReaction(m, 'r11', 'x1', {'u3', 'u4'}, 'k1');
+m = AddReaction(m, 'r12', 'x1', 'u3', 'k1');
 
-m = AddReaction(m, 'r13', 'x1', 'x2', '', '', 'k1');
-m = AddReaction(m, 'r14', 'x1', 'x2', 'x3', '', 'k1');
-m = AddReaction(m, 'r15', 'x1', 'x2', 'x3', 'x4', 'k1');
-m = AddReaction(m, 'r16', 'x1', 'x2', 'u3', 'x4', 'k1');
-m = AddReaction(m, 'r17', 'x1', 'x2', 'u3', 'u4', 'k1');
-m = AddReaction(m, 'r18', 'x1', 'x2', 'u3', '', 'k1');
+m = AddReaction(m, 'r13', {'x1', 'x2'}, {}, 'k1');
+m = AddReaction(m, 'r14', {'x1', 'x2'}, 'x3', 'k1');
+m = AddReaction(m, 'r15', {'x1', 'x2'}, {'x3', 'x4'}, 'k1');
+m = AddReaction(m, 'r16', {'x1', 'x2'}, {'u3', 'x4'}, 'k1');
+m = AddReaction(m, 'r17', {'x1', 'x2'}, {'u3', 'u4'}, 'k1');
+m = AddReaction(m, 'r18', {'x1', 'x2'}, 'u3', 'k1');
 
-m = AddReaction(m, 'r19', 'x1', 'u2', '', '', 'k1');
-m = AddReaction(m, 'r20', 'x1', 'u2', 'x3', '', 'k1');
-m = AddReaction(m, 'r21', 'x1', 'u2', 'x3', 'x4', 'k1');
-m = AddReaction(m, 'r22', 'x1', 'u2', 'u3', 'x4', 'k1');
-m = AddReaction(m, 'r23', 'x1', 'u2', 'u3', 'u4', 'k1');
-m = AddReaction(m, 'r24', 'x1', 'u2', 'u3', '', 'k1');
+m = AddReaction(m, 'r19', {'x1', 'u2'}, {}, 'k1');
+m = AddReaction(m, 'r20', {'x1', 'u2'}, 'x3', 'k1');
+m = AddReaction(m, 'r21', {'x1', 'u2'}, {'x3', 'x4'}, 'k1');
+m = AddReaction(m, 'r22', {'x1', 'u2'}, {'u3', 'x4'}, 'k1');
+m = AddReaction(m, 'r23', {'x1', 'u2'}, {'u3', 'u4'}, 'k1');
+m = AddReaction(m, 'r24', {'x1', 'u2'}, 'u3', 'k1');
 
-m = AddReaction(m, 'r25', 'u1', 'u2', '', '', 'k1');
-m = AddReaction(m, 'r26', 'u1', 'u2', 'x3', '', 'k1');
-m = AddReaction(m, 'r27', 'u1', 'u2', 'x3', 'x4', 'k1');
-m = AddReaction(m, 'r28', 'u1', 'u2', 'u3', 'x4', 'k1');
-m = AddReaction(m, 'r29', 'u1', 'u2', 'u3', 'u4', 'k1');
-m = AddReaction(m, 'r30', 'u1', 'u2', 'u3', '', 'k1');
+m = AddReaction(m, 'r25', {'u1', 'u2'}, {}, 'k1');
+m = AddReaction(m, 'r26', {'u1', 'u2'}, 'x3', 'k1');
+m = AddReaction(m, 'r27', {'u1', 'u2'}, {'x3', 'x4'}, 'k1');
+m = AddReaction(m, 'r28', {'u1', 'u2'}, {'u3', 'x4'}, 'k1');
+m = AddReaction(m, 'r29', {'u1', 'u2'}, {'u3', 'u4'}, 'k1');
+m = AddReaction(m, 'r30', {'u1', 'u2'}, 'u3', 'k1');
 
-m = AddReaction(m, 'r31', '', 'u2', '', '', 'k1');
-m = AddReaction(m, 'r32', '', 'u2', 'x3', '', 'k1');
-m = AddReaction(m, 'r33', '', 'u2', 'x3', 'x4', 'k1');
-m = AddReaction(m, 'r34', '', 'u2', 'u3', 'x4', 'k1');
-m = AddReaction(m, 'r35', '', 'u2', 'u3', 'u4', 'k1');
-m = AddReaction(m, 'r36', '', 'u2', 'u3', '', 'k1');
+m = AddReaction(m, 'r31', 'u2', {}, 'k1');
+m = AddReaction(m, 'r32', 'u2', 'x3', 'k1');
+m = AddReaction(m, 'r33', 'u2', {'x3', 'x4'}, 'k1');
+m = AddReaction(m, 'r34', 'u2', {'u3', 'x4'}, 'k1');
+m = AddReaction(m, 'r35', 'u2', {'u3', 'u4'}, 'k1');
+m = AddReaction(m, 'r36', 'u2', 'u3', 'k1');
 
 % Add identical reaction
-m = AddReaction(m, 'r22', 'x1', 'u2', 'x4', 'u3', 'k1');
+m = AddReaction(m, 'r22', {'x1', 'u2'}, {'x4', 'u3'}, 'k1');
 
 %% Finalize Model
 m = FinalizeModel(m);

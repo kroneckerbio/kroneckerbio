@@ -28,12 +28,12 @@ m = AddParameter(m, 'k2', 2);
 m = AddParameter(m, 'k3', 3);
 
 %% Add Reactions
-m = AddReaction(m, 'r7', 'x1', '', '', '', 'k1');
-m = AddReaction(m, 'r8', 'x1', '', 'x2', '', 'k1');
-m = AddReaction(m, 'r9', 'x1', '', 'x1', 'x2', 'k1');
-m = AddReaction(m, 'r10', 'x1', '', 'u3', 'x2', 'k1');
-m = AddReaction(m, 'r11', 'x1', '', 'u3', 'u1', 'k1');
-m = AddReaction(m, 'r12', 'x1', '', 'u3', '', 'k1');
+m = AddReaction(m, 'r7', 'x1', {}, 'k1');
+m = AddReaction(m, 'r8', 'x1', 'x2', 'k1');
+m = AddReaction(m, 'r9', 'x1', {'x1', 'x2'}, 'k1');
+m = AddReaction(m, 'r10', 'x1', {'u3', 'x2'}, 'k1');
+m = AddReaction(m, 'r11', 'x1', {'u3', 'u1'}, 'k1');
+m = AddReaction(m, 'r12', 'x1', 'u3', 'k1');
 
 %% Finalize Model
 m = FinalizeModel(m);

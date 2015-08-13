@@ -16,7 +16,7 @@ m = AddParameter(m, 'kcat', 2);
 
 m = AddSeed(m, 'S0', 5);
 
-m = AddReaction(m, 'rxn1', 'S', '', 'P', '', 'kcat*E*S/(Km+S)');
+m = AddReaction(m, 'rxn1', 'S', 'P', 'kcat*E*S/(Km+S)');
 
 m = AddOutput(m, 'S', 'S');
 m = AddOutput(m, 'P', 'P');

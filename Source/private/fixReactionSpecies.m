@@ -1,20 +1,14 @@
-function name = fixReactionSpecies(name, compartment)
+function names = fixReactionSpecies(names)
+% Standardize a vector of species as a cell row of strings
 
-% Empty species is empty string
-if isempty(name) || strcmp(name, '0')
-    name = '';
+if isempty(names) || ischar(names) && strcmp(names, '0')
+    names = cell(1,0);
     return
 end
 
-if nargin == 1
-    if isempty(name)
-        name = '';
-    end
-else
-    if any(name == '.')
-        % Name is complete, do not modify
-    else
-        % Add the compartment to the name
-        name = [compartment '.' name];
-    end
+if ischar(names)
+    names = {names};
 end
+
+assert(iscellstr(names), 'KroneckerBio:fixReactionSpecies:names', 'names must be a cell array of strings or a string or empty')
+names = row(names);
