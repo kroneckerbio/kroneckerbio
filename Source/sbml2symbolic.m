@@ -136,7 +136,7 @@ for i = 1:nk
     
     parameter = sbml.parameter(i);
     
-    if ~boolean(parameter.constant) % changing params aren't valid kronecker params
+    if ~logical(parameter.constant) % changing params aren't valid kronecker params
         continue
     end
     
