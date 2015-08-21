@@ -50,11 +50,13 @@ sbml = TranslateSBML(filename, double(opts.Validate), opts.Verbose);
 
 if verbose; fprintf('done.\n'); end
 
-%% Convert model
-symbolic = sbml2symbolic(sbml, opts);
+m = sbml2analytic(sbml);
 
-assert(isValidSymbolicModel(symbolic), 'LoadModelSbmlAnalytic:InvalidSymbolicModel', 'Symbolic model intermediate failed validation check')
-    
-m = symbolic2analytic(symbolic, opts);
+%% Convert model
+% symbolic = sbml2symbolic(sbml, opts);
+% 
+% assert(isValidSymbolicModel(symbolic), 'LoadModelSbmlAnalytic:InvalidSymbolicModel', 'Symbolic model intermediate failed validation check')
+%     
+% m = symbolic2analytic(symbolic, opts);
 
 end

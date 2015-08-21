@@ -15,9 +15,6 @@ function m = finalizeModelAnalytic(m, opts)
 %           respect to x and p. Each level increases the cost
 %           exponentially, but increases the number of Kronecker Bio
 %           functions that can be run on the model.
-%       .VolumeToParameter [ true | {false} ]
-%           Should the volume of the compartments be converted to
-%           parameters or converted to immutable constants
 %       .Verbose [ nonnegative integer scalar {1} ]
 %           Bigger number displays more progress information
 %       .UseMEX [ true | {false} ]
@@ -60,14 +57,13 @@ thistime = [thistime{:}];
 defaultMEXdirectory = ['mexfuns_' regexprep(thistime,'\.','_') filesep];
 
 % Default options
-opts_.Order                     = 2;
-opts_.VolumeToParameter         = false;
-opts_.Verbose                   = 0;
-opts_.UseMEX                    = false;
-opts_.MEXDirectory              = defaultMEXdirectory;
-opts_.EvaluateExternalFunctions = false; % needed for calls to power() and other functions
+default_opts.Order                     = 2;
+default_opts.Verbose                   = 0;
+default_opts.UseMEX                    = false;
+default_opts.MEXDirectory              = defaultMEXdirectory;
+default_opts.EvaluateExternalFunctions = false; % needed for calls to power() and other functions
 
-opts = mergestruct(opts_, opts);
+opts = mergestruct(default_opts, opts);
 
 verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
@@ -78,197 +74,232 @@ if opts.UseMEX && exist(opts.MEXDirectory,'dir') ~= 7
     mkdir(opts.MEXDirectory);
 end
 
-%% Extract symbolic values from IDs
-% Compartments
-m.Compartments = combineComponents(m.Compartments, m.add.Compartments, opts.Verbose);
-vStrs  = {m.Compartments.ID}';
-vSyms  = sym(vStrs);
-vNames = {m.Compartments.Name}';
-dv     = [m.Compartments.Dimension]';
-v      = [m.Compartments.Size]';
-nv     = numel(v);
+%% Trim m.add.* components to only those actually added
+m.add.Compartments = m.add.Compartments(1:m.add.nv);
+m.add.Seeds = m.add.Seeds(1:m.add.ns);
+m.add.Parameters = m.add.Parameters(1:m.add.nk);
+m.add.Inputs = m.add.Inputs(1:m.add.nu);
+m.add.States = m.add.States(1:m.add.nx);
+m.add.Reactions = m.add.Reactions(1:m.add.nr);
+m.add.Rules = m.add.Rules(1:m.add.nz);
+m.add.Outputs = m.add.Outputs(1:m.add.ny);
 
-% Parameters
-m.Parameters = combineComponents(m.Parameters, m.add.Parameters, opts.Verbose);
-kStrs  = {m.Parameters.ID}';
-kSyms  = sym(kStrs);
-kNames = {m.Parameters.Name}';
-k      = [m.Parameters.Value]';
-nk     = numel(k);
+%% Check for uniqueness of names and IDs
+% Blank IDs are ignored as they will be automatically generated later
+all_existing_ids = vec({m.Compartments.ID, m.Seeds.ID, m.Parameters.ID, m.Inputs.ID, m.States.ID, m.Reactions.ID, m.Rules.ID, m.Outputs.ID});
+all_existing_ids = check_unique_name_id('compartment', {m.add.Compartments().Name}, {m.add.Compartments.ID}, {m.Compartments.Name}, all_existing_ids);
+all_existing_ids = check_unique_name_id('seed', {m.add.Seeds.Name}, {m.add.Seeds.ID}, {m.Seeds.Name}, all_existing_ids);
+all_existing_ids = check_unique_name_id('parameter', {m.add.Parameters.Name}, {m.add.Parameters.ID}, {m.Parameters.Name}, all_existing_ids);
+all_existing_ids = check_unique_name_id('input', {m.add.Inputs.Name}, {m.add.Inputs.ID}, {m.Inputs.Name, m.States.Name}, all_existing_ids);
+all_existing_ids = check_unique_name_id('state', {m.add.States.Name}, {m.add.States.ID}, {m.Inputs.Name, m.States.Name}, all_existing_ids);
+all_existing_ids = check_unique_name_id('reaction', {}, {m.add.Reactions.ID}, {}, all_existing_ids); % Reactions don't need names
+all_existing_ids = check_unique_name_id('rule', {m.add.Rules.Name}, {m.add.Rules.ID}, {m.Rules.Name}, all_existing_ids);
+all_existing_ids = check_unique_name_id('output', {m.add.Outputs.Name}, {m.add.Outputs.ID}, {m.Outputs.Name}, all_existing_ids);
 
-% Seeds
-m.Seeds = combineComponents(m.Seeds, m.add.Seeds, opts.Verbose);
-sStrs  = {m.Seeds.ID}';
-sSyms  = sym(sStrs);
-sNames = {m.Seeds.Name}';
-s      = [m.Seeds.Value]';
-ns     = numel(s);
+%% Add in m.add.* components
+m.Compartments = [m.Compartments; m.add.Compartments];
+m.Seeds = [m.Seeds; m.add.Seeds];
+m.Parameters = [m.Parameters; m.add.Parameters];
+m.Inputs = [m.Inputs; m.add.Inputs];
+m.States = [m.States; m.add.States];
+m.Reactions = [m.Reactions; m.add.Reactions];
+m.Rules = [m.Rules; m.add.Rules];
+m.Outputs = [m.Outputs; m.add.Outputs];
 
-% States
-m.States = combineComponents(m.States, m.add.States, opts.Verbose);
-xStrs   = {m.States.ID}';
-xSyms   = sym(xStrs);
-xNames  = {m.States.Name}';
-xvNames = {m.States.Compartment}';
-x0      = {m.States.InitialValue}';
-nx      = numel(x0);
-
-% Inputs
-m.Inputs = combineComponents(m.Inputs, m.add.Inputs, opts.Verbose);
-uStrs   = {m.Inputs.ID}';
-uSyms   = sym(uStrs);
-uNames  = {m.Inputs.Name}';
-uvNames = {m.Inputs.Compartment}';
-u       = [m.Inputs.DefaultValue]';
-nu      = numel(u);
-
-% Species compartments
-[~, vxInd] = ismember(xvNames, vNames);
-[~, vuInd] = ismember(uvNames, vNames);
-
-% Reactions
-rprovided = true;
-m.Reactions = combineComponents(m.Reactions, m.add.Reactions, opts.Verbose);
-rNames = {m.Reactions.Name}';
-r = {m.Reactions.Rate}';
-nr = numel(r);
-
-% Outputs
-m.Outputs = combineComponents(m.Outputs, m.add.Outputs, opts.Verbose);
-yStrs  = {m.Outputs.ID}';
-ySyms  = sym(yStrs);
-yNames = {m.Outputs.Name}';
-y      = {m.Outputs.Expression}';
-ny     = numel(y);
-
-% Initialize outputs properly if no outputs specified in model
-if ny == 0
-    yStrs  = cell(0,1);
-    ySyms  = sym(yStrs);
-    yNames = cell(0,1);
-    y      = cell(0,1);
-end
-
-% Rules
-m.Rules = combineComponents(m.Rules, m.add.Rules, opts.Verbose);
-zStrs    = {m.Rules.ID}';
-zSyms    = sym(zStrs);
-zNames   = {m.Rules.Name}';
-z        = {m.Rules.Expression}';
-zTargets = {m.Rules.Target}';
-zTypes   = {m.Rules.Type}';
-nRules   = numel(z); % nz clashes with another variable below
-
-% Useful combinations of names and IDs
-outputNames = [xNames; uNames; vNames; kNames];
-outputIDs   = [xStrs; uStrs; vStrs; kStrs];
-allNames    = [outputNames; sNames];
-allIDs      = [outputIDs; sStrs];
-xuvNames = [xvNames; uvNames];
-
-%% Clean up m.add.* fields
 m.add.Compartments = growCompartmentsAnalytic;
-m.add.Parameters   = growParametersAnalytic;
-m.add.Seeds        = growSeedsAnalytic;
-m.add.Inputs       = growInputsAnalytic;
-m.add.States       = growStatesAnalytic;
-m.add.Reactions    = growReactionsAnalytic;
-m.add.Outputs      = growOutputsAnalytic;
-m.add.Rules        = growRulesAnalytic;
+m.add.Parameters = growParametersAnalytic;
+m.add.Seeds = growSeedsAnalytic;
+m.add.Inputs = growInputsAnalytic;
+m.add.States = growStatesAnalytic;
+m.add.Reactions = growReactionsAnalytic;
+m.add.Rules = growRulesAnalytic;
+m.add.Outputs = growOutputsAnalytic;
+
 m.add.nv = 0;
 m.add.nk = 0;
 m.add.ns = 0;
 m.add.nu = 0;
 m.add.nx = 0;
-m.add.nr = 0;
 m.add.nz = 0;
+m.add.nr = 0;
 
-%% Process expressions and turn strings into symbolics
-% Initial conditions - arbitrary expressions of seeds
-for i = 1:nx
-    x0{i} = name2id(x0{i}, sNames, sStrs);
-end
+%% Extract values
+nv = numel(m.Compartments);
+nk = numel(m.Parameters);
+ns = numel(m.Seeds);
+nu = numel(m.Inputs);
+nx = numel(m.States);
+nr = numel(m.Reactions);
+nz = numel(m.Rules);
+ny = numel(m.Outputs);
 
-% Reaction rates - arbitrary expressions of species, parameters, and inputs (no seeds for now)
-for i = 1:nr
-    r{i} = name2id(r{i}, outputNames, outputIDs, xuvNames);
-end
+% String representations of symbolics. Some may be empty and will be assigned later
+v_strs = vec({m.Compartments.ID});
+k_strs = vec({m.Parameters.ID});
+s_strs = vec({m.Seeds.ID});
+u_strs = vec({m.Inputs.ID});
+x_strs = vec({m.States.ID});
+z_strs = vec({m.Rules.ID});
+y_strs = vec({m.Outputs.ID});
 
-% Outputs - arbitrary expressions of species, parameters, and inputs
-for i = 1:ny
-    y{i} = name2id(y{i}, outputNames, outputIDs, xuvNames);
-end
+v_names = vec({m.Compartments.Name});
+k_names = vec({m.Parameters.Name});
+s_names = vec({m.Seeds.Name});
+u_names = vec({m.Inputs.Name});
+x_names = vec({m.States.Name});
+r_names = vec({m.Reactions.Name});
+z_names = vec({m.Rules.Name});
+y_names = vec({m.Outputs.Name});
 
-% Convert to symbolics
+% Some of these will be converted to symbolics later after all default symbolics have been added
+dv = vec([m.Compartments.Dimension]);
+v = vec({m.Compartments.Size});
+
+s = vec([m.Seeds.Value]);
+
+k = vec([m.Parameters.Value]);
+
+vu_names = vec({m.Inputs.Compartment});
+[~, vuInd] = ismember(vu_names, v_names);
+u = vec([m.Inputs.DefaultValue]);
+
+vx_names = vec({m.States.Compartment});
+[~, vxInd] = ismember(vx_names, v_names);
+x0 = vec({m.States.InitialValue});
+
+r = vec({m.Reactions.Rate});
+
+z = {m.Rules.Expression}';
+
+y = vec({m.Outputs.Expression});
+
+%% Assign missing IDs
+[v_strs, all_existing_ids] = update_unique_ids(v_names, v_strs, all_existing_ids);
+if ~isempty(v_strs); [m.Compartments.ID] = deal(v_strs{:}); end % Matlab bug will not deal to empty stucts
+[k_strs, all_existing_ids] = update_unique_ids(k_names, k_strs, all_existing_ids);
+if ~isempty(k_strs); [m.Parameters.ID] = deal(k_strs{:}); end
+[s_strs, all_existing_ids] = update_unique_ids(s_names, s_strs, all_existing_ids);
+if ~isempty(s_strs); [m.Seeds.ID] = deal(s_strs{:}); end
+[u_strs, all_existing_ids] = update_unique_ids(u_names, u_strs, all_existing_ids);
+if ~isempty(u_strs); [m.Inputs.ID] = deal(u_strs{:}); end
+[x_strs, all_existing_ids] = update_unique_ids(x_names, x_strs, all_existing_ids);
+if ~isempty(x_strs); [m.States.ID] = deal(x_strs{:}); end
+[y_strs, all_existing_ids] = update_unique_ids(y_names, y_strs, all_existing_ids);
+if ~isempty(y_strs); [m.Outputs.ID] = deal(y_strs{:}); end
+
+%% Assemble symbolic representations of model components
+v_syms = sym(v_strs);
+k_syms = sym(k_strs);
+s_syms = sym(s_strs);
+u_syms = sym(u_strs);
+x_syms = sym(x_strs);
+z_syms = sym(z_strs);
+y_syms = sym(y_strs);
+
+%% Build map of names to IDs
+all_names = [v_names; s_names; k_names; u_names; x_names; z_names; y_names];
+all_ids = [v_strs; s_strs; k_strs; u_strs; x_strs; z_strs; y_strs];
+
+% Remove all names containing a double quote
+bad_names = cellfun(@(str)ismember('"',str), all_names);
+all_names = all_names(~bad_names);
+all_ids = all_ids(~bad_names);
+
+%% Extract symbolic values from IDs
+% Reactions
+rprovided = true;
+
+% Rules
+% zTargets = {m.Rules.Target}';
+% zTypes   = {m.Rules.Type}';
+% nRules   = numel(z); % nz clashes with another variable below
+
+% Useful combinations of names and IDs
+% output_names = [x_names; u_names; v_names; k_names];
+% output_ids   = [x_strs; u_strs; v_strs; k_strs];
+% all_names    = [output_names; s_names];
+% all_ids      = [output_ids; s_strs];
+% xuv_names = [vx_names; vu_names];
+
+%% Replace names with symbolics and convert to symbolics
+v = replace_names(v, all_names, all_ids);
+x0 = replace_names(x0, all_names, all_ids);
+z = replace_names(z, all_names, all_ids);
+r = replace_names(r, all_names, all_ids);
+y = replace_names(y, all_names, all_ids);
+
+v = sym(v);
 x0 = sym(x0);
+z = sym(z);
 r = sym(r);
 y = sym(y);
 
-%% Perform rule substitutions
-% Note/TODO: zTargets substitution probably too permissive - lets anything be replaced, but backend won't handle this properly
-for i = 1:nRules
-    zTargets{i} = name2id(zTargets{i}, allNames, allIDs, xuvNames);
-    z{i} = name2id(z{i}, allNames, allIDs, xuvNames);
-end
-zTargets = sym(zTargets);
-z = sym(z);
-
-% Repeated assignment subs in reaction rates
-%   Makes n repeated assignment rules passes, O(n^2) to ensure all subs
-zRAInds = strcmpi(zTypes, 'repeated assignment');
-zTargetsRA = zTargets(zRAInds);
-zRA        = z(zRAInds);
-for i = 1:length(zTargetsRA)
-    r = subs(r, zTargetsRA, zRA);
+%% Standardize all symbolic names
+% Changing all the symbols to a standard format ensures that string replacement works later
+old_symbols = [s_syms; k_syms; u_syms; x_syms];
+new_symbols = sym(zeros(nk+ns+nx+nu,1));
+for i = 1:nk+ns+nx+nu
+    new_symbols(i) = sym(sprintf('sy%dx', i));
 end
 
-% Repeated assignment subs in initial assignment rules
-zIAInds = strcmpi(zTypes, 'initial assignment');
-zTargetsIA = zTargets(zIAInds);
-zIA        = z(zIAInds);
-for i = 1:length(zTargetsRA)
-    zTargetsIA = subs(zTargetsIA, zTargetsRA, zRA);
+v_syms = fastsubs(v_syms, old_symbols, new_symbols);
+k_syms = fastsubs(k_syms, old_symbols, new_symbols);
+s_syms = fastsubs(s_syms, old_symbols, new_symbols);
+u_syms = fastsubs(u_syms, old_symbols, new_symbols);
+x_syms = fastsubs(x_syms, old_symbols, new_symbols);
+z_syms = fastsubs(z_syms, old_symbols, new_symbols);
+y_syms = fastsubs(y_syms, old_symbols, new_symbols);
+
+v = fastsubs(v, old_symbols, new_symbols);
+x0 = fastsubs(x0, old_symbols, new_symbols);
+z = fastsubs(z, old_symbols, new_symbols);
+r = fastsubs(r, old_symbols, new_symbols);
+y = fastsubs(y, old_symbols, new_symbols);
+
+v_strs = fastchar(v_syms);
+k_strs = fastchar(k_syms);
+s_strs = fastchar(s_syms);
+u_strs = fastchar(u_syms);
+x_strs = fastchar(x_syms);
+z_strs = fastchar(z_syms);
+y_strs = fastchar(y_syms);
+
+%% Substitute in expressions
+% Everything that is substitutable
+substitutable_ids = [v_syms; z_syms; y_syms];
+substitutable_exps = [v; z; y];
+
+% Need to substitute n times to ensure that all substitutions are complete
+n_subs = numel(substitutable_ids);
+for i = 1:n_subs
+    substitutable_exps = subs(substitutable_exps, substitutable_ids, substitutable_exps);
 end
 
-% Initial assignment and repeated assignment subs in initial conditions
-%   Note: kronecker currently separates k (params valid at all times) from s
-%   (seeds valid only at initial time). If a model has initial assignment rules
-%   that depend on k, the initial condition will respect substituting k.
-%   However, if k changes, the entire model needs to be rebuilt as during
-%   fitting, and the constant initial condition will no longer be valid.
-%   Workaround: make 2 parameters, 1 k and 1 s, and set them equal with linear
-%   equality constraints when fitting.
-%   Note/TODO: inputs can't be assigned with initial assignment rules yet. SBML
-%   models with states set to constant that have initial assignment rules won't
-%   convert correctly for now. Should be a quick change to assign input default
-%   values, though.
-%   TODO: consider merging k and s
-[~, IAInd] = ismember(char(zTargetsIA), xStrs);
-subTarget = [vSyms; kSyms; xSyms; uSyms];
-subExpr   = [sym(v); sym(k); x0; sym(u)];
-for i = 1:length(zTargetsIA);
-    x0(IAInd(i)) = subs(zIA(i), subTarget, subExpr);
-end
+% Extract or replace
+v = substitutable_exps(1:nv,1);
+x0 = subs(x0, substitutable_ids, substitutable_exps);
+z = substitutable_exps(nv+(1:nz),1);
+y = substitutable_exps(nv+nz+(1:ny),1);
 
 %% Evaluate external functions
 if opts.EvaluateExternalFunctions
-    r = evaluateExternalFunctions(r, [vStrs; xStrs; uStrs; kStrs]);
+    r = evaluate_external_functions(r, [x_strs; u_strs; k_strs]);
 end
 
 %% Process stoichiometry and rate forms/RHS's
 % Make stoichiometry matrix nSpecies x nReactions
-xuFullNames = strcat([xvNames; uvNames], '.', [xNames; uNames]);
+xu_names = strcat([x_names; u_names]);
 SEntries = zeros(0,3);
 for i = 1:nr
     for j = 1:length(m.Reactions(i).Reactants)
         if ~isempty(m.Reactions(i).Reactants{j})
-            [~, ind] = ismember(m.Reactions(i).Reactants{j}, xuFullNames);
+            [~, ind] = ismember(m.Reactions(i).Reactants{j}, xu_names);
             SEntries = [SEntries; ind, i, -1];
         end
     end
     for j = 1:length(m.Reactions(i).Products)
         if ~isempty(m.Reactions(i).Products{j})
-            [~, ind] = ismember(m.Reactions(i).Products{j}, xuFullNames);
+            [~, ind] = ismember(m.Reactions(i).Products{j}, xu_names);
             SEntries = [SEntries; ind, i, 1];
         end
     end
@@ -290,24 +321,12 @@ f = StoichiometricSym*r;
         StoichiometricSym = initializeMatrixMupad(Si,Sj,Ss,Ssize(1),Ssize(2));
     end
 
-%% Convert compartment volumes to parameters or constants
-if opts.VolumeToParameter
-    nk = nk + nv;
-    kNames = [kNames; vNames];
-    k = [k; v];
-    kSyms = [kSyms; vSyms];
-else
-    r = subs(r, vSyms, v);
-    f = subs(f, vSyms, v);
-    y = subs(y, vSyms, v);
-end
-
 %% Sanity checks
 % TODO: make sure initial conditions are only functions of seeds
 
 % Check original symbols for reserved MuPAD names
 % Note: shouldn't be needed since symbols are usually autogenerated UUIDs
-old_symbols_strs = fastchar([kSyms; sSyms; xSyms; uSyms]);
+old_symbols_strs = fastchar([k_syms; s_syms; x_syms; u_syms]);
 reservednames = {'pi','PI','eulergamma','EULER','catalan','CATALAN'};
 for rni = 1:length(reservednames)
     isreservedname = strcmp(old_symbols_strs,reservednames{rni});
@@ -326,22 +345,22 @@ ystr = fastchar(y);
 
 x0str = fastchar(x0);
 
-rhasx = exprhasvar(rstr,xStrs,nr,nx);
-rhasu = exprhasvar(rstr,uStrs,nr,nu);
-rhask = exprhasvar(rstr,kStrs,nr,nk);
+rhasx = exprhasvar(rstr,x_strs,nr,nx);
+rhasu = exprhasvar(rstr,u_strs,nr,nu);
+rhask = exprhasvar(rstr,k_strs,nr,nk);
 
 if ~rprovided
     fstr = fastchar(f);
-    fhasx = exprhasvar(fstr,xStrs,nx,nx);
-    fhasu = exprhasvar(fstr,uStrs,nx,nu);
-    fhask = exprhasvar(fstr,kStrs,nx,nk);
+    fhasx = exprhasvar(fstr,x_strs,nx,nx);
+    fhasu = exprhasvar(fstr,u_strs,nx,nu);
+    fhask = exprhasvar(fstr,k_strs,nx,nk);
 end
 
-yhasx = exprhasvar(ystr,xStrs,ny,nx);
-yhasu = exprhasvar(ystr,uStrs,ny,nu);
-yhask = exprhasvar(ystr,kStrs,ny,nk);
+yhasx = exprhasvar(ystr,x_strs,ny,nx);
+yhasu = exprhasvar(ystr,u_strs,ny,nu);
+yhask = exprhasvar(ystr,k_strs,ny,nk);
 
-x0hass = exprhasvar(x0str,sStrs,nx,ns);
+x0hass = exprhasvar(x0str,s_strs,nx,ns);
 
     function out = exprhasvar(exprStrs, varStrs, nExprs, nVars)
         
@@ -381,26 +400,26 @@ sizes.y = ny;
 % nonzero or, in the absence of this information, calculate whether 
 % higher-order derivatives can contain a given parameter, input, or state 
 % based on the lower derivatives.
-nz = containers.Map;
-nz('r') = true(nr,1);
-nz('f') = true(nx,1);
-nz('y') = true(ny,1);
-nz('rx') = rhasx;
-nz('ru') = rhasu;
-nz('rk') = rhask;
+nonzero_map = containers.Map;
+nonzero_map('r') = true(nr,1);
+nonzero_map('f') = true(nx,1);
+nonzero_map('y') = true(ny,1);
+nonzero_map('rx') = rhasx;
+nonzero_map('ru') = rhasu;
+nonzero_map('rk') = rhask;
 if rprovided
-    nz('fx') = logical(abs(StoichiometricMatrix)*rhasx); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
-    nz('fu') = logical(abs(StoichiometricMatrix)*rhasu);
-    nz('fk') = logical(abs(StoichiometricMatrix)*rhask);
+    nonzero_map('fx') = logical(full(abs(StoichiometricMatrix)*rhasx)); % Take the absolute value of S so that there are no accidental cancellations between positive and negative terms
+    nonzero_map('fu') = logical(full(abs(StoichiometricMatrix)*rhasu));
+    nonzero_map('fk') = logical(full(abs(StoichiometricMatrix)*rhask));
 else
-    nz('fx') = fhasx;
-    nz('fu') = fhasu;
-    nz('fk') = fhask;
+    nonzero_map('fx') = fhasx;
+    nonzero_map('fu') = fhasu;
+    nonzero_map('fk') = fhask;
 end
-nz('yx') = yhasx;
-nz('yu') = yhasu;
-nz('yk') = yhask;
-nz('xs') = x0hass;
+nonzero_map('yx') = yhasx;
+nonzero_map('yu') = yhasu;
+nonzero_map('yk') = yhask;
+nonzero_map('xs') = x0hass;
 
     function nzout = getNonZeroEntries(num, dens)
         % Inputs:
@@ -433,8 +452,8 @@ nz('xs') = x0hass;
         nzout = [];
         nzfound = false;
         while ~nzfound
-            if isKey(nz,nzkey)
-                nzout = nz(nzkey);
+            if isKey(nonzero_map,nzkey)
+                nzout = nonzero_map(nzkey);
                 nzfound = true;
             else
                 nzkey = nzkey(1:end-1);
@@ -450,7 +469,7 @@ nz('xs') = x0hass;
         singletondims = 3:(ndens+1);
         for nzi = denstoestimate(:)'
             nzaddkey = [num dens{nzi}];
-            nztoadd = nz(nzaddkey);
+            nztoadd = nonzero_map(nzaddkey);
             if length(singletondims) <= 1
                 permutedims = [1 singletondims(1:nzi-1) 2];
             else
@@ -469,17 +488,17 @@ if order >= 1
 
     % Gradient of r with respect to x
     if verbose; fprintf('Calculating drdx...'); end
-    drdx = calcDerivative(r, xSyms, 'r', {'x'});
+    drdx = calcDerivative(r, x_syms, 'r', {'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to u
     if verbose; fprintf('Calculating drdu...'); end
-    drdu = calcDerivative(r, uSyms, 'r', {'u'});
+    drdu = calcDerivative(r, u_syms, 'r', {'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to k
     if verbose; fprintf('Calculating drdk...'); end
-    drdk = calcDerivative(r, kSyms, 'r', {'k'});
+    drdk = calcDerivative(r, k_syms, 'r', {'k'});
     if verbose; fprintf('Done.\n'); end
     
     if rprovided
@@ -503,39 +522,39 @@ if order >= 1
         
         % Gradient of f with respect to x
         if verbose; fprintf('Calculating dfdx...'); end
-        dfdx = calcDerivative(f, xSyms, 'f', {'x'});
+        dfdx = calcDerivative(f, x_syms, 'f', {'x'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of f with respect to u
         if verbose; fprintf('Calculating dfdu...'); end
-        dfdu = calcDerivative(f, uSyms, 'f', {'u'});
+        dfdu = calcDerivative(f, u_syms, 'f', {'u'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of f with respect to k
         if verbose; fprintf('Calculating dfdk...'); end
-        dfdk = calcDerivative(f, kSyms, 'f', {'k'});
+        dfdk = calcDerivative(f, k_syms, 'f', {'k'});
         if verbose; fprintf('Done.\n'); end
         
     end
         
     % Gradient of y with respect to x
     if verbose; fprintf('Calculating dydx...'); end
-    dydx = calcDerivative(y, xSyms, 'y', {'x'});
+    dydx = calcDerivative(y, x_syms, 'y', {'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to u
     if verbose; fprintf('Calculating dydu...'); end
-    dydu = calcDerivative(y, uSyms, 'y', {'u'});
+    dydu = calcDerivative(y, u_syms, 'y', {'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to k
     if verbose; fprintf('Calculating dydk...'); end
-    dydk = calcDerivative(y, kSyms, 'y', {'k'});
+    dydk = calcDerivative(y, k_syms, 'y', {'k'});
     if verbose; fprintf('Done.\n'); end
 
     % Gradient of x0 with respect to s
     if verbose; fprintf('Calculating dx0ds...'); end
-    dx0ds = calcDerivative(x0, sSyms, 'x', {'s'});
+    dx0ds = calcDerivative(x0, s_syms, 'x', {'s'});
     if verbose; fprintf('Done.\n'); end
 
 else
@@ -552,47 +571,47 @@ end
 if order >= 2
     % Gradient of drdx with respect to x
     if verbose; fprintf('Calculating d2rdx2...'); end
-    d2rdx2 = calcDerivative(drdx, xSyms, 'r', {'x','x'});
+    d2rdx2 = calcDerivative(drdx, x_syms, 'r', {'x','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to u
     if verbose; fprintf('Calculating d2rdu2...'); end
-    d2rdu2 = calcDerivative(drdu, uSyms, 'r', {'u','u'});
+    d2rdu2 = calcDerivative(drdu, u_syms, 'r', {'u','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to x
     if verbose; fprintf('Calculating d2rdxdu...'); end
-    d2rdxdu = calcDerivative(drdu, xSyms, 'r', {'u','x'});
+    d2rdxdu = calcDerivative(drdu, x_syms, 'r', {'u','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdx with respect to u
     if verbose; fprintf('Calculating d2rdudx...'); end
-    d2rdudx = calcDerivative(drdx, uSyms, 'r', {'x','u'});
+    d2rdudx = calcDerivative(drdx, u_syms, 'r', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to k
     if verbose; fprintf('Calculating d2rdk2...'); end
-    d2rdk2 = calcDerivative(drdk, kSyms, 'r', {'k','k'});
+    d2rdk2 = calcDerivative(drdk, k_syms, 'r', {'k','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdx with respect to k
     if verbose; fprintf('Calculating d2rdkdx...'); end
-    d2rdkdx = calcDerivative(drdx, kSyms, 'r', {'x','k'});
+    d2rdkdx = calcDerivative(drdx, k_syms, 'r', {'x','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to k
     if verbose; fprintf('Calculating d2rdkdu...'); end
-    d2rdkdu = calcDerivative(drdu, kSyms, 'r', {'u','k'});
+    d2rdkdu = calcDerivative(drdu, k_syms, 'r', {'u','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to x
     if verbose; fprintf('Calculating d2rdxdk...'); end
-    d2rdxdk = calcDerivative(drdk, xSyms, 'r', {'k','x'});
+    d2rdxdk = calcDerivative(drdk, x_syms, 'r', {'k','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to u
     if verbose; fprintf('Calculating d2rdudk...'); end
-    d2rdudk = calcDerivative(drdk, uSyms, 'r', {'k','u'});
+    d2rdudk = calcDerivative(drdk, u_syms, 'r', {'k','u'});
     if verbose; fprintf('Done.\n'); end
     
     if rprovided
@@ -655,90 +674,90 @@ if order >= 2
         
         % Gradient of dfdx with respect to x
         if verbose; fprintf('Calculating d2fdx2...'); end
-        d2fdx2 = calcDerivative(dfdx, xSyms, 'f', {'x','x'});
+        d2fdx2 = calcDerivative(dfdx, x_syms, 'f', {'x','x'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdu with respect to u
         if verbose; fprintf('Calculating d2fdu2...'); end
-        d2fdu2 = calcDerivative(dfdu, uSyms, 'f', {'u','u'});
+        d2fdu2 = calcDerivative(dfdu, u_syms, 'f', {'u','u'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdu with respect to x
         if verbose; fprintf('Calculating d2fdxdu...'); end
-        d2fdxdu = calcDerivative(dfdu, xSyms, 'f', {'u','x'});
+        d2fdxdu = calcDerivative(dfdu, x_syms, 'f', {'u','x'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdx with respect to u
         if verbose; fprintf('Calculating d2fdudx...'); end
-        d2fdudx = calcDerivative(dfdx, uSyms, 'f', {'x','u'});
+        d2fdudx = calcDerivative(dfdx, u_syms, 'f', {'x','u'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdk with respect to k
         if verbose; fprintf('Calculating d2fdk2...'); end
-        d2fdk2 = calcDerivative(dfdk, kSyms, 'f', {'k','k'});
+        d2fdk2 = calcDerivative(dfdk, k_syms, 'f', {'k','k'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdx with respect to k
         if verbose; fprintf('Calculating d2fdkdx...'); end
-        d2fdkdx = calcDerivative(dfdx, kSyms, 'f', {'x','k'});
+        d2fdkdx = calcDerivative(dfdx, k_syms, 'f', {'x','k'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdu with respect to k
         if verbose; fprintf('Calculating d2fdkdu...'); end
-        d2fdkdu = calcDerivative(dfdu, kSyms, 'f', {'u','k'});
+        d2fdkdu = calcDerivative(dfdu, k_syms, 'f', {'u','k'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdk with respect to x
         if verbose; fprintf('Calculating d2fdxdk...'); end
-        d2fdxdk = calcDerivative(dfdk, xSyms, 'f', {'k','x'});
+        d2fdxdk = calcDerivative(dfdk, x_syms, 'f', {'k','x'});
         if verbose; fprintf('Done.\n'); end
 
         % Gradient of dfdk with respect to u
         if verbose; fprintf('Calculating d2fdudk...'); end
-        d2fdudk = calcDerivative(dfdk, uSyms, 'f', {'k','u'});
+        d2fdudk = calcDerivative(dfdk, u_syms, 'f', {'k','u'});
         if verbose; fprintf('Done.\n'); end
         
     end
     
     % Output's second derivatives
     if verbose; fprintf('Calculating d2ydx2...'); end
-    d2ydx2 = calcDerivative(dydx, xSyms, 'y', {'x','x'});
+    d2ydx2 = calcDerivative(dydx, x_syms, 'y', {'x','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydu2...'); end
-    d2ydu2 = calcDerivative(dydu, uSyms, 'y', {'u','u'});
+    d2ydu2 = calcDerivative(dydu, u_syms, 'y', {'u','u'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydk2...'); end
-    d2ydk2 = calcDerivative(dydk, kSyms, 'y', {'k','k'});
+    d2ydk2 = calcDerivative(dydk, k_syms, 'y', {'k','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydudx...'); end
-    d2ydudx = calcDerivative(dydx, uSyms, 'y', {'x','u'});
+    d2ydudx = calcDerivative(dydx, u_syms, 'y', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydkdx...'); end
-    d2ydkdx = calcDerivative(dydx, kSyms, 'y', {'x','k'});
+    d2ydkdx = calcDerivative(dydx, k_syms, 'y', {'x','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydxdu...'); end
-    d2ydxdu = calcDerivative(dydu, xSyms, 'y', {'u','x'});
+    d2ydxdu = calcDerivative(dydu, x_syms, 'y', {'u','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydkdu...'); end
-    d2ydkdu = calcDerivative(dydu, kSyms, 'y', {'u','k'});
+    d2ydkdu = calcDerivative(dydu, k_syms, 'y', {'u','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydxdk...'); end
-    d2ydxdk = calcDerivative(dydk, xSyms, 'y', {'k','x'});
+    d2ydxdk = calcDerivative(dydk, x_syms, 'y', {'k','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydudk...'); end
-    d2ydudk = calcDerivative(dydk, uSyms, 'y', {'k','u'});
+    d2ydudk = calcDerivative(dydk, u_syms, 'y', {'k','u'});
     if verbose; fprintf('Done.\n'); end
 
     if verbose; fprintf('Calculating d2x0ds2...'); end
-    d2x0ds2 = calcDerivative(dx0ds, sSyms, 'x', {'s','s'});
+    d2x0ds2 = calcDerivative(dx0ds, s_syms, 'x', {'s','s'});
     if verbose; fprintf('Done.\n'); end
     
 else
@@ -774,10 +793,10 @@ end
 
 if order >= 3
     %Gradient of d2rdx2 with respect to x
-    d3rdx3 = calcDerivative(d2rdx2, xSyms, 'r', {'x','x','x'});
+    d3rdx3 = calcDerivative(d2rdx2, x_syms, 'r', {'x','x','x'});
     
     %Gradient of d2rdx2 with respect to k
-    d3rdkdx2 = calcDerivative(d2rdx2, kSyms, 'r', {'x','x','k'});
+    d3rdkdx2 = calcDerivative(d2rdx2, k_syms, 'r', {'x','x','k'});
     
     %Gradient of d2fdx2 with respect to x
     d3fdx3 = StoichiometricSym*reshapeDerivative(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
@@ -788,7 +807,7 @@ if order >= 3
     d3fdkdx2 = reshapeDerivative(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
     
     % Gradient of d2x0ds2 with respect to s
-    d3x0ds3 = calcDerivative(d2x0ds2, sSyms, 'x', {'s','s','s'});
+    d3x0ds3 = calcDerivative(d2x0ds2, s_syms, 'x', {'s','s','s'});
 else
     d3rdx3   = '';
     d3rdkdx2 = '';
@@ -888,7 +907,7 @@ clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms ...
     addlength currentLength iExpr ind match nAdd nExpr uAddInd sys_string ...
     i iv ik is iq iu ix ir iy ...
     rstates rinputs rparams statesubs inputsubs paramssubs rstatesi rinputsi rparamsi...
-    uqi qsinui nz sizes symbolic2stringmethod...
+    uqi qsinui nonzero_map sizes symbolic2stringmethod...
     thistime defaultMEXdirectory
 
 m.nv = nv;
@@ -898,7 +917,7 @@ m.nu = nu;
 m.nx = nx;
 m.nr = nr;
 m.ny = ny;
-m.nz = nRules;
+m.nz = nz;
 
 m.dv = dv;
 m.k  = k;
@@ -1124,7 +1143,7 @@ if verbose; fprintf('done.\n'); end
                 nzsizes = [sizes.(num) cellfun(@(den)sizes.(den),dens(:)')];
                 
                 % Generate mex C code
-                getMexReadyCode(dsym,nzi,nzsizes,xSyms,uSyms,kSyms,variable_name,opts.MEXDirectory)
+                getMexReadyCode(dsym,nzi,nzsizes,x_syms,u_syms,k_syms,variable_name,opts.MEXDirectory)
              
                 fun = str2func([variable_name 'fun']);
         end
@@ -1212,7 +1231,7 @@ if verbose; fprintf('done.\n'); end
             sindexstring = textscan(sindexstring,'%s','Delimiter','\n');
             sindexstring = sindexstring{1};
         end
-        string_rep = regexprep(string_rep, [xStrs; uStrs; kStrs; sStrs], [xindexstring; uindexstring; kindexstring; sindexstring], 0);
+        string_rep = regexprep(string_rep, [x_strs; u_strs; k_strs; s_strs], [xindexstring; uindexstring; kindexstring; sindexstring], 0);
         
     end         
 
@@ -1271,16 +1290,16 @@ if verbose; fprintf('done.\n'); end
         % Update the non-zero map to account for newly discovered zero
         % terms
         nzkey = [num dens{:}];
-        nz(nzkey) = nze;
+        nonzero_map(nzkey) = nze;
         
         % Also get information about f derivative, if numerator is r
         if strcmp(num,'r')
             nzkey_f = strrep(nzkey,'r','f');
             % Only update the key for f if no information about this
             % particular derivative was previously stored in nz
-            if ~isKey(nz, nzkey_f)
+            if ~isKey(nonzero_map, nzkey_f)
                 nztemp = full(logical(abs(StoichiometricMatrix)*reshape(nze, [ny_, nx1_*nx2_])));
-                nz(nzkey_f) = reshape(nztemp, [nx, nx1_, nx2_]);
+                nonzero_map(nzkey_f) = reshape(nztemp, [nx, nx1_, nx2_]);
             end
         end
         
@@ -1376,7 +1395,7 @@ function val = vectorize_y(y, t, x, u, k, ny)
     end
 end
 
-function rOut = evaluateExternalFunctions(rIn, ids)
+function rOut = evaluate_external_functions(rIn, ids)
 % Evaluate symbolic functions/pull in functions defined in path
 %   Necessary for "power" and other MathML function translation
 % Initialize symbolic variables
@@ -1387,4 +1406,85 @@ rOut = eval(rIn);
 
 % Clear the symbolic variables
 clear(ids{:})
+end
+
+function name = replace_special_chars(name)
+name = regexprep(name,'[^a-zA-Z0-9]','_');
+end
+
+function all_ids = check_unique_name_id(type, new_names, new_ids, old_names, all_ids)
+new_names = vec(new_names);
+new_ids = vec(new_ids);
+old_names = vec(old_names);
+all_ids = vec(all_ids);
+
+n_new = numel(new_names);
+
+for i = 1:n_new
+    % Check if item by this name already exists
+    if ~isempty(new_names)
+        name = new_names{i};
+        if any(strcmp(name, [old_names; new_names(1:i-1)]))
+            error('KroneckerBio:FinalizeModel:RepeatName', ['There is already a ' type ' with the name %s (new ' type ' #%i)'], name, i)
+        end
+    end
+    
+    % Check if ID has already been used
+    id = new_ids{i};
+    if ~isempty(id) && any(strcmp(id, [all_ids; new_ids(1:i-1)]))
+        error('KroneckerBio:FinalizeModel:RepeatID', ['There is already a component with the id %s (new ' type ' #%i)'], id, i)
+    end
+end
+
+all_ids = [all_ids; new_ids(~strcmp('', new_ids))];
+end
+
+function [ids, all_ids] = update_unique_ids(names, ids, all_ids)
+n = numel(names);
+
+for i = 1:n
+    if isempty(ids{i})
+        % The standard ID is the name with all symbols converted to underscores
+        root_id = replace_special_chars(names{i});
+        id = root_id;
+        
+        % If the ID already exists, append a different number until it is unique
+        index = 1;
+        while ismember(id, all_ids)
+            id = [root_id, '_', num2str(index)];
+            index = index + 1;
+        end
+        
+        % Apply the new ID
+        all_ids = [all_ids; {id}];
+        ids{i} = id;
+    end
+end
+end
+
+function strs = replace_names(strs, names, ids)
+% Replace all quoted names in strs with their respective IDs
+
+if ischar(strs)
+    strs = {strs};
+end
+n = numel(strs);
+
+% Find all places where there are names embedded in the string expression
+[all_starts, all_ends, all_matches] = regexp(strs, '"[^"]*"', 'start', 'end', 'match');
+
+for i_str = 1:n
+    starts = all_starts{i_str};
+    ends = all_ends{i_str};
+    matches = cellfun(@(str){str(2:end-1)}, all_matches{i_str}); % Strip the quotes
+    inds_matching = lookup(matches, names);
+    
+    assert(all(inds_matching), 'KroneckerBio:finalizeModelAnalytic:UnknownName', 'In an expression (%s) a name was not found among the names of the model', strs{i_str})
+    
+    n_matches = numel(matches);
+    for i_match = n_matches:-1:1
+        % Keep the string before the quote and after the quote and replace the middle with the ID
+        strs{i_str} = [strs{i_str}(1:starts(i_match)-1), ids{inds_matching(i_match)}, strs{i_str}(ends(i_match)+1:end)];
+    end
+end
 end

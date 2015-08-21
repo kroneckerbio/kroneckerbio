@@ -13,7 +13,7 @@ function m = addInputAnalytic(m, name, compartment, default, id)
 %       The name of the compartment to which it will be added.
 %   default: [ nonnegative scalar {0} ]
 %       The default value for this input.
-%   id: [ string {random UUID} ]
+%   id: [ string {[]} ]
 %       A unique, valid variable name
 %
 %   Outputs
@@ -44,7 +44,9 @@ if isempty(default)
     default = 0;
 end
 if isempty(id)
-    id = genUID;
+    id = '';
+elseif issym(id)
+    id = char(id);
 end
 
 % Increment counter

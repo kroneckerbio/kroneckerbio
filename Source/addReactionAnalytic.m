@@ -1,7 +1,7 @@
-function m = addReactionAnalytic(m, name, reactants, products, kForward, kReverse, compartment, id)
+function m = addReactionAnalytic(m, name, reactants, products, kForward, kReverse, id)
 %AddReaction Add a reaction to a Model.Analytic
 %
-%   m = AddReaction(m, name, reactants, products, kForward, kReverse)
+%   m = AddReaction(m, name, reactants, products, kForward, kReverse, id)
 %
 %   A reaction is a conversion of one or two reactant species into one or
 %   two product species associated with a rate expression. The
@@ -39,10 +39,7 @@ function m = addReactionAnalytic(m, name, reactants, products, kForward, kRevers
 %       Expression for forward reaction rate
 %   kReverse: [ string {''} ]
 %       Expression for reverse reaction rate
-%   compartment: [ string {'1st compartment of reaction'} ]
-%       Default compartment for species w/o a specified compartment if species
-%       isn't unique to another compartment
-%   id: [ string {random UUID} | 1 x 2 cell vector of strings ]
+%   id: [ string {[]} | 1 x 2 cell vector of strings ]
 %       A unique, valid variable name for the forward and reverse reactions
 %
 %   Outputs
@@ -50,33 +47,24 @@ function m = addReactionAnalytic(m, name, reactants, products, kForward, kRevers
 %       The model with the new reaction added.
 
 % Clean-up
-if nargin < 8
+if nargin < 7
     id = [];
-    if nargin < 7
-        compartment = [];
-        if nargin < 6
-            kReverse = [];
-        end
+    if nargin < 6
+        kReverse = [];
     end
 end
 
-% Get compartment names in model
-vNames = [{m.Compartments.Name}, {m.add.Compartments.Name}];
-vNames = unique(vNames(~cellfun('isempty',vNames)));
-if isempty(vNames)
-    error('addInputAnalytic: model has no compartments for state to reside in')
-end
-
 % Set defaults
-if isempty(compartment)
-    compartment = vNames{1};
+if isempty(id)
+    id = '';
 end
 
 % Standardize IDs
 if iscell(id)
     if numel(id) == 1
+        assert(isempty(kForward) || isempty(kReverse), 'KroneckerBio:AddReaction:id', 'One id was provided, but forward and reverse reactions both need an id.')
         id1 = id{1};
-        id2 = [];
+        id2 = id{1};
     elseif numel(id) >= 2
         id1 = id{1};
         id2 = id{2};
@@ -85,11 +73,12 @@ if iscell(id)
         id2 = [];
     end
 elseif ischar(id)
+    assert(isempty(kForward) || isempty(kReverse), 'KroneckerBio:AddReaction:id', 'One id was provided, but forward and reverse reactions both need an id.')
     id1 = id;
-    id2 = [];
+    id2 = id;
 elseif isempty(id)
-    id1 = [];
-    id2 = [];
+    id1 = '';
+    id2 = '';
 end
 
 % Standardize reaction name
@@ -98,13 +87,6 @@ end
 % Standardize species names into compartment.species
 reactants = fixReactionSpecies(reactants);
 products =  fixReactionSpecies(products);
-
-for i = 1:numel(reactants)
-    reactants{i} = fixSpeciesFullName(reactants{i}, compartment, m);
-end
-for i = 1:numel(products)
-    products{i} = fixSpeciesFullName(products{i}, compartment, m);
-end
 
 % Standardize reaction rate expressions
 kForward    = fixRateExpressionAnalytic(kForward);
@@ -120,8 +102,11 @@ if ~isempty(kForward)
     m.add.Reactions(nr).Name = name1;
     
     if isempty(id1)
-        id1 = genUID;
+        id1 = '';
+    elseif issym(id1)
+        id1 = char(id1);
     end
+    
     m.add.Reactions(nr).ID = id1;
     
     m.add.Reactions(nr).Reactants = reactants;
@@ -141,7 +126,9 @@ if ~isempty(kReverse)
     m.add.Reactions(nr).Name = name2;
     
     if isempty(id2)
-        id2 = genUID;
+        id2 = '';
+    elseif issym(id2)
+        id2 = char(id2);
     end
     m.add.Reactions(nr).ID = id2;
     

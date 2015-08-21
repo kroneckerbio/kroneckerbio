@@ -1,4 +1,4 @@
-function m = AddRuleAnalytic(m, name, target, expression, type, id)
+function m = addRuleAnalytic(m, name, target, expression, id)
 % Add a rule to a Model.Analytic. Separate rules field simplifies conversion
 % between kroneckerbio and SBML formats.
 % Inputs:
@@ -10,11 +10,7 @@ function m = AddRuleAnalytic(m, name, target, expression, type, id)
 %       LHS of rule
 %   expression [ string ]
 %       RHS of rule
-%   type [ string {repeated assignment} ]
-%       Type of rule, allowing:
-%           'repeated assignment': Affects rate expressions
-%           'initial assignment': Affects initial conditions
-%   id: [ string {random UUID}]
+%   id: [ string {[]}]
 %       A unique, valid variable name
 % Inputs:
 %   m [ Model.Analytic struct ]
@@ -28,18 +24,14 @@ function m = AddRuleAnalytic(m, name, target, expression, type, id)
 % Note: the `AddRule` function clashes with a function in the fuzzy logic
 %   toolbox
 
-if nargin < 6
+if nargin < 5
     id = [];
-    if nargin < 5
-        type = [];
-    end
 end
 
-if isempty(type)
-    type = 'repeated assignment';
-end
 if isempty(id)
-    id = genUID;
+    id = '';
+elseif issym(id)
+    id = char(id);
 end
 
 % Increment counter
@@ -52,6 +44,5 @@ m.add.Rules(nz).Name = name;
 m.add.Rules(nz).ID = id;
 m.add.Rules(nz).Target = target;
 m.add.Rules(nz).Expression = fixRuleExpression(expression);
-m.add.Rules(nz).Type = type;
 
 m.Ready = false;

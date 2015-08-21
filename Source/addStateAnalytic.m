@@ -15,7 +15,7 @@ function m = addStateAnalytic(m, name, compartment, seed, id)
 %   seed: [ string | nonnegative scalar {0} ]
 %       String expression for the initial condition in terms of seeds or
 %       nonnegative scalar initial amount.
-%   id: [ string {random UUID} ]
+%   id: [ string {[]} ]
 %       A unique, valid variable name
 %
 %   Outputs
@@ -49,7 +49,9 @@ if isempty(seed)
     seed = 0;
 end
 if isempty(id)
-    id = genUID;
+    id = '';
+elseif issym(id)
+    id = char(id);
 end
 
 % Clean up initial condition

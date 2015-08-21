@@ -1,10 +1,11 @@
 function m = addCompartmentAnalytic(m, name, dimension, size, id)
 %AddCompartment Add a compartment to a Model.Analytic
 %
-%   m = AddCompartment(m, name, dimension, size)
+%   m = AddCompartment(m, name, dimension, size, id)
 %
-%   Compartments hold species and have size. The size affects the rates of
-%   bimolecular reactions.
+%   Compartments hold species and have size. They are purely an
+%   organizational feature in analytic models and have no impact on the
+%   behavior of the model.
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -14,27 +15,28 @@ function m = addCompartmentAnalytic(m, name, dimension, size, id)
 %   dimension: [ 0 1 2 3 ]
 %       The dimensionality of the compartment. Example: the cytoplasm would
 %       be 3, the cell membrane would be 2, DNA would be 1, and the
-%       centromere would be zero. This is only used to determine which
-%       compartment's volume plays a part in the rate of a bimolecular
-%       reaction between compartments.
+%       centromere would be zero.
 %   size: [ positive scalar | string ]
 %       The size of the compartment. Example: the volume of the cytoplasm,
 %       the surface area of the membrane, or the length of the DNA. The
 %       compartment size can either be a constant or a string expression as a
 %       function of other components in the model.
-%   id: [ string {random UUID} ]
+%   id: [ string {[]} ]
 %       A unique, valid variable name
 %
 %   Outputs
 %   m: [ model struct scalar ]
 %       The model with the new compartment added.
 
-% Generate new ID if not supplied
+% Clean up inputs
 if nargin < 5
     id = [];
 end
+
 if isempty(id)
-    id = genUID;
+    id = '';
+elseif issym(id)
+    id = char(id);
 end
 
 % Increment counter

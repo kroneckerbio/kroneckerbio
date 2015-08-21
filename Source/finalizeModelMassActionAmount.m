@@ -81,7 +81,7 @@ new_names = vec({m.add.Inputs(1:nuNew).Name});
 for iu = 1:nuNew
     name = m.add.Inputs(iu).Name;
     
-    if any(strcmp(name, [existing_names, new_names(1:iu-1)]))
+    if any(strcmp(name, [existing_names; new_names(1:iu-1)]))
         error('KroneckerBio:FinalizeModel:RepeatSpecies', 'There is already an species with the name %s (new input #%i)', name, iu)
     end
 end

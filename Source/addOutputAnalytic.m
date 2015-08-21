@@ -21,7 +21,7 @@ function m = addOutputAnalytic(m, name, expression, id)
 %   expression: [ string {name} ]
 %       Mathematical expression for the output. If blank, expression is set to
 %       the state represented by the name, if possible.
-%   id: [ string {random UUID} ]
+%   id: [ string {[]} ]
 %       A unique, valid variable name
 %
 %   Outputs
@@ -41,7 +41,9 @@ if isempty(expression)
     expression = name;
 end
 if isempty(id)
-    id = genUID;
+    id = '';
+elseif issym(id)
+    id = char(id);
 end
 
 % Increment counter

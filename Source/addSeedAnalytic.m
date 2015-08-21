@@ -14,7 +14,7 @@ function m = addSeedAnalytic(m, name, value, id)
 %       refer to it.
 %   value: [ nonnegative scalar ]
 %       The numeric value of the parameter
-%   id: [ string {random UUID} ]
+%   id: [ string {[]} ]
 %       A unique, valid variable name
 %
 %   Outputs
@@ -26,7 +26,9 @@ if nargin < 4
     id = [];
 end
 if isempty(id)
-    id = genUID;
+    id = '';
+elseif issym(id)
+    id = char(id);
 end
 
 % Increment counter

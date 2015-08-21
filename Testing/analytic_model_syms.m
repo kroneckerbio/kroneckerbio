@@ -163,13 +163,7 @@ sm.S          = S(~isu,:);
 sm.Su         = S(isu,:);
 
 for i = 1:nr
-    if length(reactiontable{i,1}) == 1
-        reactiontable{i,1} = [reactiontable{i,1}, {''}];
-    end
-    if length(reactiontable{i,2}) == 1
-        reactiontable{i,2} = [reactiontable{i,2}, {''}];
-    end
-    m = AddReaction(m, reactiontable{i,4}, reactiontable{i,1}{1}, reactiontable{i,1}{2}, reactiontable{i,2}{1}, reactiontable{i,2}{2}, reactiontable{i,3});
+    m = AddReaction(m, reactiontable{i,4}, reactiontable{i,1}, reactiontable{i,2}, reactiontable{i,3});
 end
 
 %% Outputs
