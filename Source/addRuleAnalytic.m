@@ -1,4 +1,4 @@
-function m = addRuleAnalytic(m, name, target, expression, id)
+function m = addRuleAnalytic(m, name, expression, id)
 % Add a rule to a Model.Analytic. Separate rules field simplifies conversion
 % between kroneckerbio and SBML formats.
 % Inputs:
@@ -6,8 +6,6 @@ function m = addRuleAnalytic(m, name, target, expression, id)
 %       The model to which the rule will be added
 %   name [ string ]
 %       Name of rule
-%   target [ string ]
-%       LHS of rule
 %   expression [ string ]
 %       RHS of rule
 %   id: [ string {[]}]
@@ -42,7 +40,6 @@ m.add.Rules = growRulesAnalytic(m.add.Rules, m.add.nz);
 % Add item
 m.add.Rules(nz).Name = name;
 m.add.Rules(nz).ID = id;
-m.add.Rules(nz).Target = target;
 m.add.Rules(nz).Expression = fixRuleExpression(expression);
 
 m.Ready = false;

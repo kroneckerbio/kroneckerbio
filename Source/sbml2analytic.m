@@ -94,7 +94,7 @@ for ixu = 1:nxu
     xi = sbml.species(ixu);
     name = xi.name;
     id = xi.id;
-    compartment_index = find(strcmp(xi.compartment, v_ids), 1);
+    compartment_index = lookup(xi.compartment, v_ids);
     compartment = sbml.compartment(compartment_index).name;
     is_input = xi.boundaryCondition || xi.constant;
     
