@@ -28,6 +28,7 @@ end
 
 % Check for non-unique species names
 nxu = numel(sbml.species);
+xu_ids = vec({sbml.species.id});
 xu_names = vec({sbml.species.name});
 non_unique_species = false(nxu,1);
 for ixu = 1:nxu
@@ -58,12 +59,51 @@ for ir = 1:numel(sbml.reaction)
     end
 end
 
+z_handled = false(numel(sbml.rule),1); % Stores the rules need to be deleted
 for iz = 1:numel(sbml.rule)
-    zi = ri.rule(iz);
-    if isempty(zi.name)
-        ri.rule(iz).name = zi.id;
+    zi = sbml.rule(iz);
+    type = zi.typecode;
+    name = zi.name;
+    id = zi.metaid;
+    target = zi.variable;
+    formula = zi.formula;
+    
+    if strcmp(type, 'SBML_ASSIGNMENT_RULE')
+        % Normal rule
+    elseif strcmp(type, 'SBML_INITIAL_RULE')
+        % Copy to state initial condition
+        i_state = lookup(target, xu_ids);
+        
+        assert(i_state ~= 0, 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
+        
+        sbml.species(i_state).isSetInitialAmount = true;
+        sbml.species(i_state).initialAmount = formula;
+        
+        z_handled(iz) = true;
+    elseif strcmp(type, 'SBML_RATE_RULE')
+        % Append as a reaction with a single product
+        product = struct;
+        product.species = target;
+        product.stoichiometry = 1;
+        
+        kinetic_law = struct;
+        kinetic_law.formula = formula;
+
+        rate = struct;
+        rate.metaid = id;
+        rate.name = name;
+        rate.product = product;
+        rate.kineticLaw = kinetic_law;
+        
+        sbml.reaction = insertstruct(sbml.reaction, rate, numel(sbml.reaction)+1,1);
+
+        z_handled(iz) = true;
+    else
+        error('KroneckerBio:SBML:UnsupportedRuleType', 'Unsupported rule type %s', type)
     end
 end
+
+sbml.rule(z_handled) = [];
 
 %% Extract model
 for iv = 1:numel(sbml.compartment)
@@ -141,60 +181,53 @@ for ir = 1:numel(sbml.reaction)
 end
 
 for iz = 1:numel(sbml.rule)
+    % Only repeated assignment rules are left
+    
     zi = sbml.rule(iz);
-    type = zi.typecode;
     target = zi.variable;
     formula = zi.formula;
     
-    if strcmp(type, 'SBML_ASSIGNMENT_RULE')
-        % See if it is a compartment size
-        compartment_index = lookup(target, v_ids);
-        if compartment_index ~= 0
-            sbml.add.Compartment(compartment_index).Size = formula;
-            continue
+    % See if it is a compartment size
+    compartment_index = lookup(target, v_ids);
+    if compartment_index ~= 0
+        sbml.add.Compartment(compartment_index).Size = formula;
+        continue
+    end
+    
+    % See if it is a parameter value
+    k_names = vec({m.add.Parameter(1:m.add.nk).Name});
+    k_ids = vec({m.add.Parameter(1:m.add.nk).ID});
+    parameter_index = lookup(target, k_ids);
+    if parameter_index ~= 0
+        % Extract parameter
+        name = k_names{parameter_index};
+        id = k_ids{parameter_index};
+        
+        % Remove parameter
+        m = RemoveParameter(m, name);
+        
+        m = AddRule(m, name, formula, id);
+        continue
+    end
+    
+    % See if it is a species value
+    xu_names = vec({m.add.Inputs.Name, m.add.States.Name});
+    xu_ids = vec({m.add.Inputs.ID, m.add.States.ID});
+    species_index = lookup(target, xu_ids);
+    if species_index ~= 0
+        % Extract species
+        name = xu_names{species_index};
+        id = xu_ids{species_index};
+        
+        % Remove species
+        if species_index <= m.add.nu
+            m = RemoveInput(m, name);
+        else
+            m = RemoveState(m, name);
         end
         
-        % See if it is a parameter value
-        k_names = vec({m.add.Parameter(1:m.add.nk).Name});
-        k_ids = vec({m.add.Parameter(1:m.add.nk).ID});
-        parameter_index = lookup(target, k_ids);
-        if parameter_index ~= 0
-            % Extract parameter
-            name = k_names{parameter_index};
-            id = k_ids{parameter_index};
-            
-            % Remove parameter
-            m = RemoveParameter(m, name);
-            
-            m = AddRule(m, name, formula, id);
-            continue
-        end
-        
-        % See if it is a species value
-        xu_names = vec({m.add.Inputs.Name, m.add.States.Name});
-        xu_ids = vec({m.add.Inputs.ID, m.add.States.ID});
-        species_index = lookup(target, xu_ids);
-        if species_index ~= 0
-            % Extract species
-            name = xu_names{species_index};
-            id = xu_ids{species_index};
-            
-            % Remove species
-            if species_index <= m.add.nu
-                m = RemoveInput(m, name);
-            else
-                m = RemoveState(m, name);
-            end
-            
-            m = AddRule(m, name, formula, id);
-            continue
-        end
-    elseif strcmp(type, 'SBML_INITIAL_RULE')
-        error('KroneckerBio:SBML:UnsupportedRuleType', 'Unsuppoprted rule type %s', type)
-    elseif strcmp(type, 'SBML_RATE_RULE')
-        error('KroneckerBio:SBML:UnsupportedRuleType', 'Unsuppoprted rule type %s', type)
-    else
-        error('KroneckerBio:SBML:UnsupportedRuleType', 'Unsuppoprted rule type %s', type)
+        m = AddRule(m, name, formula, id);
+        continue
     end
 end
 
