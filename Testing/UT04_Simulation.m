@@ -1,5 +1,8 @@
 function tests = UT04_Simulation()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testDoseApplication(a)
@@ -19,6 +22,16 @@ function testSimulateSimple(a)
 [m, con, ~, opts] = simple_model();
 
 sim = SimulateSystem(m, con, 6, opts);
+
+a.verifyEqual(numel(sim.x(4)), m.nx)
+a.verifyEqual(numel(sim.u(4)), m.nu)
+a.verifyEqual(numel(sim.y(4)), m.ny)
+end
+
+function testSimulateSimpleAnalytic(a)
+[m, con, ~, opts] = simple_analytic_model();
+
+sim = SimulateSystem(m, con, 40, opts);
 
 a.verifyEqual(numel(sim.x(4)), m.nx)
 a.verifyEqual(numel(sim.u(4)), m.nu)
@@ -124,4 +137,19 @@ sim = SimulateSystem(m, con, obs, opts);
 a.verifyEqual(size(sim.ue,1), m.nu)
 a.verifyEqual(size(sim.xe,1), m.nx)
 a.verifyEqual(size(sim.ye,1), m.ny)
+end
+
+function testIntegrationFailure(a)
+m = InitializeModelAnalytic('infinity');
+m = AddCompartment(m, 'v', 3, 1);
+m = AddState(m, 'x', 'v', 4);
+m = AddReaction(m, '', 'x', [], '1.5'); % Malicious reaction
+m = FinalizeModel(m);
+
+con = experimentInitialValue(m);
+
+state = warning;
+finished = onCleanup(@() warning(state));
+warning('off', 'MATLAB:ode15s:IntegrationTolNotMet')
+a.verifyError(@()SimulateSystem(m, con, 10), 'KroneckerBio:accumulateOde:IntegrationFailure');
 end

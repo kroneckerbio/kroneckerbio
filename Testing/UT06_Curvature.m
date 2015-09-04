@@ -1,5 +1,35 @@
 function tests = UT06_Curvature()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
+end
+
+function testHigherOrderDose(a)
+m = InitializeModelAnalytic();
+m = AddCompartment(m, 'v', 3, 1);
+m = AddState(m, 'x1', 'v', 's1^2');
+m = AddState(m, 'x2', 'v', 's1*k1');
+m = AddState(m, 'x3', 'v', 'k1^2');
+m = AddState(m, 'x4', 'v', 's1*s2');
+m = AddState(m, 'x5', 'v', 'k1*k2');
+m = AddSeed(m, 's1', 0);
+m = AddSeed(m, 's2', 0);
+m = AddParameter(m, 'k1', 2);
+m = AddParameter(m, 'k2', 3);
+m = addStatesAsOutputs(m);
+m = FinalizeModel(m);
+
+dos = doseConstant(m, [5,7], 2:10);
+con = experimentInitialValue(m, [], [], dos);
+tGet = 0:10;
+opts.Verbose = false;
+opts.UseParams = 1:m.nk;
+opts.UseSeeds = [];
+opts.UseInputControls = [];
+opts.UseDoseControls = [];
+
+verifyCurvature(a, m, con, tGet, opts)
 end
 
 function testEquilibrium(a)
@@ -16,7 +46,7 @@ verifyCurvature(a, m, con, tGet, opts)
 end
 
 function testDoseModel(a)
-[m, con, unused, opts] = dose_model();
+[m, con, ~, opts] = dose_model();
 tGet = 1:6;
 
 verifyCurvature(a, m, con(1), tGet, opts)
@@ -25,7 +55,7 @@ verifyCurvature(a, m, con(3), tGet, opts)
 end
 
 function testSimulateCurvatureSimple(a)
-[m, con, unused, opts] = simple_model();
+[m, con, ~, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 tGet = 1:6;
@@ -34,7 +64,7 @@ verifyCurvature(a, m, con, tGet, opts)
 end
 
 function testSimulateCurvatureSimpleEvent(a)
-[m, con, unused, opts] = simple_model();
+[m, con, ~, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
@@ -47,9 +77,9 @@ end
 
 function testSimulateCurvatureSimpleSteadyState(a)
 simpleopts.steadyState = true;
-[m, con, unused, opts] = simple_model(simpleopts);
-% m = m.Update(rand(m.nk,1)+1);
-% con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+[m, con, ~, opts] = simple_model(simpleopts);
+m = m.Update((rand(m.nk,1)+0.5)/2);
+con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 tGet = 1:6;
 
 verifyCurvature(a, m, con, tGet, opts)
@@ -72,6 +102,15 @@ con = con.Update(rand(con.ns,1)+con.s+1, rand(con.nq,1)+con.q+1, rand(con.nh,1)+
 obs = observationEvents(10, eve);
 
 verifyCurvatureEvent(a, m, con, obs, opts)
+end
+
+function testSimulateCurvatureSimpleAnalytic(a)
+[m, con, ~, opts] = simple_analytic_model();
+%m = m.Update((rand(m.nk,1)+0.5)./2);
+%con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+tGet = 0:5:40;
+
+verifyCurvature(a, m, con, tGet, opts)
 end
 
 function verifyCurvature(a, m, con, tGet, opts)

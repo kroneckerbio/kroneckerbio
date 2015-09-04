@@ -1,5 +1,8 @@
 function tests = UT09_Hessian()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testObjectiveHessianSimple(a)
@@ -31,6 +34,14 @@ function testObjectiveHessianMichaelisMenten(a)
 [m, con, obj, opts] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+
+verifyHessian(a, m, con, obj, opts)
+end
+
+function testObjectiveHessianSimpleAnalytic(a)
+[m, con, obj, opts] = simple_analytic_model();
+%m = m.Update((rand(m.nk,1)+0.5)./2);
+%con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
 verifyHessian(a, m, con, obj, opts)
 end

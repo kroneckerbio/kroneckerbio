@@ -59,12 +59,25 @@ for ir = 1:numel(sbml.reaction)
     end
 end
 
+% Copy stand-alone initial conditions to states
+if isfield(sbml, 'initialAssignment')
+    for ii = 1:numel(sbml.initialAssignment)
+        i_i = sbml.initialAssignment(ii);
+        i_state = lookup(i_i.symbol, xu_ids);
+        
+        assert(i_state ~= 0, 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
+        
+        sbml.species(i_state).isSetInitialAmount = true;
+        sbml.species(i_state).initialAmount = i_i.math;
+    end
+end
+
 z_handled = false(numel(sbml.rule),1); % Stores the rules need to be deleted
 for iz = 1:numel(sbml.rule)
     zi = sbml.rule(iz);
     type = zi.typecode;
     name = zi.name;
-    id = zi.metaid;
+    metaid = zi.metaid;
     target = zi.variable;
     formula = zi.formula;
     
@@ -90,7 +103,7 @@ for iz = 1:numel(sbml.rule)
         kinetic_law.formula = formula;
 
         rate = struct;
-        rate.metaid = id;
+        rate.metaid = metaid;
         rate.name = name;
         rate.product = product;
         rate.kineticLaw = kinetic_law;
@@ -190,13 +203,13 @@ for iz = 1:numel(sbml.rule)
     % See if it is a compartment size
     compartment_index = lookup(target, v_ids);
     if compartment_index ~= 0
-        sbml.add.Compartment(compartment_index).Size = formula;
+        sbml.add.Compartments(compartment_index).Size = formula;
         continue
     end
     
     % See if it is a parameter value
-    k_names = vec({m.add.Parameter(1:m.add.nk).Name});
-    k_ids = vec({m.add.Parameter(1:m.add.nk).ID});
+    k_names = vec({m.add.Parameters(1:m.add.nk).Name});
+    k_ids = vec({m.add.Parameters(1:m.add.nk).ID});
     parameter_index = lookup(target, k_ids);
     if parameter_index ~= 0
         % Extract parameter
@@ -211,8 +224,8 @@ for iz = 1:numel(sbml.rule)
     end
     
     % See if it is a species value
-    xu_names = vec({m.add.Inputs.Name, m.add.States.Name});
-    xu_ids = vec({m.add.Inputs.ID, m.add.States.ID});
+    xu_names = vec({m.add.Inputs(1:m.add.nu).Name, m.add.States(1:m.add.nx).Name});
+    xu_ids = vec({m.add.Inputs(1:m.add.nu).ID, m.add.States(1:m.add.nx).ID});
     species_index = lookup(target, xu_ids);
     if species_index ~= 0
         % Extract species
@@ -232,7 +245,6 @@ for iz = 1:numel(sbml.rule)
 end
 
 assert(isempty(sbml.functionDefinition), 'KroneckerBio:SBML:functions', 'Model contains a function definition that is not surrently supported.')
-assert(~isfield(sbml, 'initialAssignment') || isempty(sbml.initialAssignment), 'KroneckerBio:SBML:initial', 'Model contains an initial assignment that is not surrently supported.')
 
 end
 

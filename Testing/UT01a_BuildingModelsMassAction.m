@@ -1,5 +1,8 @@
 function tests = UT01a_BuildingModelsMassAction()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testInitializingModel(a)

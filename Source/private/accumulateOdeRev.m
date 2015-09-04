@@ -81,13 +81,13 @@ for k = 1:(N-1)
         sim_sol = ode15sf(der, t_event_int, ic, sim_opts);
         
         % Check if integration failed when it shouldn't have
-        if isempty(events) && sim_sol.x(end) ~= t_int(2)
+        if ~isempty(events) && isempty(events) && sim_sol.x(end) ~= t_int(2)
             try evalin('caller', 'm_k = m.k; m_s = m.s; m_q = m.q; save(''odefail.mat'',''m_k'',''m_s'',''m_q'',''con'')'); end
-            error('KroneckerBio:accumulateSol:IntegrationFailure', 'Did not integrate through entire interval!');
+            error('KroneckerBio:accumulateOde:IntegrationFailure', 'Did not integrate through entire interval!');
         end
         
         % Discard all but the last event to prevent repeats
-        if isfield(sim_sol, 'ie') && numel(sim_sol.ie) > 1
+        if isfield(sim_sol.ie, 'ie') && numel(sim_sol.ie) > 1
             sim_sol.ie = sim_sol.ie(end);
             sim_sol.xe = sim_sol.xe(end);
             sim_sol.ye = sim_sol.ye(:,end);

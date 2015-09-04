@@ -61,7 +61,7 @@ default_opts.Order                     = 2;
 default_opts.Verbose                   = 0;
 default_opts.UseMEX                    = false;
 default_opts.MEXDirectory              = defaultMEXdirectory;
-default_opts.EvaluateExternalFunctions = false; % needed for calls to power() and other functions
+default_opts.EvaluateExternalFunctions = true; % needed for calls to power() and other functions
 
 opts = mergestruct(default_opts, opts);
 
@@ -122,6 +122,7 @@ m.add.nu = 0;
 m.add.nx = 0;
 m.add.nz = 0;
 m.add.nr = 0;
+m.add.ny = 0;
 
 %% Extract values
 nv = numel(m.Compartments);
@@ -222,7 +223,7 @@ y = sym(y);
 % TODO: check the unlikely case that someone is calling a function sy#x
 old_symbols = [s_syms; k_syms; u_syms; x_syms];
 new_symbols = sym(zeros(nk+ns+nx+nu,1));
-for i = 1:nk+ns+nx+nu
+for i = 1:ns+nk+nu+nx
     new_symbols(i) = sym(sprintf('sy%dx', i));
 end
 
@@ -268,7 +269,9 @@ y = fastsubs(y, substitutable_ids, substitutable_exps);
 
 %% Evaluate external functions
 if opts.EvaluateExternalFunctions
-    r = evaluate_external_functions(r, [x_strs; u_strs; k_strs]);
+    x0 = evaluate_external_functions(x0, [s_strs; x_strs; u_strs; k_strs]);
+    r = evaluate_external_functions(r, [s_strs; x_strs; u_strs; k_strs]);
+    y = evaluate_external_functions(y, [s_strs; x_strs; u_strs; k_strs]);
 end
 
 %% Process stoichiometry and rate forms/RHS's
@@ -320,6 +323,7 @@ rstr = fastchar(r);
 ystr = fastchar(y);
 
 x0hass = expression_has_variable(x0str, s_strs);
+x0hask = expression_has_variable(x0str, k_strs);
 
 rhasx = expression_has_variable(rstr, x_strs);
 rhasu = expression_has_variable(rstr, u_strs);
@@ -358,6 +362,7 @@ nonzero_map('yx') = yhasx;
 nonzero_map('yu') = yhasu;
 nonzero_map('yk') = yhask;
 nonzero_map('xs') = x0hass;
+nonzero_map('xk') = x0hask;
 
 if verbose; fprintf('\n'); end
 
@@ -414,6 +419,10 @@ if order >= 1
     dx0ds = calculate_derivative(x0, s_syms, 'x', {'s'});
     if verbose; fprintf('Done.\n'); end
 
+    % Gradient of x0 with respect to k
+    if verbose; fprintf('Calculating dx0k...'); end
+    dx0dk = calculate_derivative(x0, k_syms, 'x', {'k'});
+    if verbose; fprintf('Done.\n'); end
 else
     drdx = '';
     drdk = '';
@@ -423,6 +432,7 @@ else
     dydu = '';
     dydk = '';
     dx0ds = '';
+    dx0k = '';
 end
 
 if order >= 2
@@ -566,6 +576,17 @@ if order >= 2
     d2x0ds2 = calculate_derivative(dx0ds, s_syms, 'x', {'s','s'});
     if verbose; fprintf('Done.\n'); end
     
+    if verbose; fprintf('Calculating d2x0dk2...'); end
+    d2x0dk2 = calculate_derivative(dx0dk, k_syms, 'x', {'k','k'});
+    if verbose; fprintf('Done.\n'); end
+    
+    if verbose; fprintf('Calculating d2x0dkds...'); end
+    d2x0dkds = calculate_derivative(dx0ds, k_syms, 'x', {'s','k'});
+    if verbose; fprintf('Done.\n'); end
+    
+    if verbose; fprintf('Calculating d2x0dsdk...'); end
+    d2x0dsdk = calculate_derivative(dx0dk, s_syms, 'x', {'k','s'});
+    if verbose; fprintf('Done.\n'); end
 else
     d2rdx2  = '';
     d2rdu2  = '';
@@ -595,6 +616,9 @@ else
     d2ydxdk = '';
     d2ydudk = '';
     d2x0ds2 = '';
+    d2x0dk2 = '';
+    d2x0dkds = '';
+    d2x0dsdk = '';
 end
 
 if order >= 3
@@ -650,6 +674,7 @@ if order >= 1
     dydk     = symbolic2function(dydk, 'y', 'k');
     
     dx0ds    = symbolic2function(dx0ds, 'x', 's');
+    dx0dk    = symbolic2function(dx0dk, 'x', 'k');
 end
 
 if order >= 2
@@ -684,6 +709,9 @@ if order >= 2
     d2ydudk  = symbolic2function(d2ydudk, 'y', {'k' 'u'});
     
     d2x0ds2  = symbolic2function(d2x0ds2, 'x', {'s' 's'});
+    d2x0dk2  = symbolic2function(d2x0dk2, 'x', {'k' 'k'});
+    d2x0dkds = symbolic2function(d2x0dkds, 'x', {'s' 'k'});
+    d2x0dsdk = symbolic2function(d2x0dsdk, 'x', {'k' 's'});
 end
 
 if order >= 3
@@ -794,18 +822,22 @@ if order >= 2
     m.d2ydudk   = setfun_y(d2ydudk,false,k,ny);
 end
 
-m.x0            = x0;
+m.x0            = setfun_x0(x0,k);
 
 if order >= 1
-    m.dx0ds     = dx0ds;
+    m.dx0ds     = setfun_x0(dx0ds,k);
+    m.dx0dk     = setfun_x0(dx0dk,k);
 end
 
 if order >= 2
-    m.d2x0ds2   = d2x0ds2;
+    m.d2x0ds2   = setfun_x0(d2x0ds2,k);
+    m.d2x0dk2   = setfun_x0(d2x0dk2,k);
+    m.d2x0dkds  = setfun_x0(d2x0dkds,k);
+    m.d2x0dsdk  = setfun_x0(d2x0dsdk,k);
 end
 
 if order >= 3
-    m.d3x0ds3   = d3x0ds3;
+    m.d3x0ds3   = setfun_x0(d3x0ds3);
 end
 
 m.Ready  = true;
@@ -830,11 +862,14 @@ if verbose; fprintf('done.\n'); end
         m.k  = k;
         
         % Update function handles
+        m.x0            = setfun_x0(x0,k);
         m.f             = setfun_rf(f,k);
         m.r             = setfun_rf(r,k);
         m.y             = setfun_y(y,true,k,ny);
         
         if order >= 1
+            m.dx0ds     = setfun_x0(dx0ds,k);
+            m.dx0dk     = setfun_x0(dx0dk,k);
             m.dfdx      = setfun_rf(dfdx,k);
             m.dfdk      = setfun_rf(dfdk,k);
             m.dfdu      = setfun_rf(dfdu,k);
@@ -847,6 +882,10 @@ if verbose; fprintf('done.\n'); end
         end
         
         if order >= 2
+            m.d2x0ds2   = setfun_x0(d2x0ds2,k);
+            m.d2x0dk2   = setfun_x0(d2x0dk2,k);
+            m.d2x0dkds  = setfun_x0(d2x0dkds,k);
+            m.d2x0dsdk  = setfun_x0(d2x0dsdk,k);
             m.d2fdx2    = setfun_rf(d2fdx2,k);
             m.d2fdu2    = setfun_rf(d2fdu2,k);
             m.d2fdk2    = setfun_rf(d2fdk2,k);
@@ -958,7 +997,7 @@ if verbose; fprintf('done.\n'); end
             dsymsize = size(dsym);
             dsymsize = strtrim(cellstr(int2str(dsymsize(:))));
             if isempty(dens)
-                string_rep = ['zeros(' dsymsize{:} ')'];
+                string_rep = ['zeros(' strjoin(row(dsymsize), ',') ')'];
                 return
             else
                 string_rep = ['[],[],[],' dsymsize{1} ',' dsymsize{2}];
@@ -1222,10 +1261,10 @@ function fun = string2fun(string_rep, num, dens)
 % prevent the anonymous functions created here from saving copies of
 % the primary function workspace variables.
 
-% If the dependent variable is x0, the input argument is s. Otherwise,
+% If the dependent variable is x0, the input argument is s,k. Otherwise,
 % t,x,u,k.
 if strcmp(num,'x')
-    inputargstr = 's';
+    inputargstr = 's,k';
 else
     inputargstr = 't,x,u,k';
 end
@@ -1261,6 +1300,10 @@ function fun = setfun_y(basefun, is0order, k, ny)
     end
 end
 
+function fun = setfun_x0(basefun, k)
+fun = @(s)basefun(s,k);
+end
+
 function val = vectorize_y(y, t, x, u, k, ny)
     nt = numel(t);
     val = zeros(ny,nt);
@@ -1279,16 +1322,21 @@ function val = vectorize_y(y, t, x, u, k, ny)
 end
 
 function rOut = evaluate_external_functions(rIn, ids)
-% Evaluate symbolic functions/pull in functions defined in path
-%   Necessary for "power" and other MathML function translation
-% Initialize symbolic variables
-syms(ids{:});
-
-% Evaluate the expressions to remove function calls
-rOut = eval(rIn);
-
-% Clear the symbolic variables
-clear(ids{:})
+if ~isempty(rIn)
+    % Evaluate symbolic functions/pull in functions defined in path
+    %   Necessary for "power" and other MathML function translation
+    % Initialize symbolic variables
+    syms(ids{:});
+    
+    % Evaluate the expressions to remove function calls
+    rOut = eval(rIn);
+    
+    % Clear the symbolic variables
+    clear(ids{:})
+else
+    % eval does not preserve size if rIn is empty
+    rOut = rIn;
+end
 end
 
 function name = replace_special_chars(name)

@@ -1,5 +1,8 @@
 function tests = UT05_Sensitivity()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testEquilibrium(a)
@@ -12,7 +15,7 @@ verifySensitivity(a, m, con, tGet, opts)
 end
 
 function testDoseModel(a)
-[m, con, unused, opts] = dose_model();
+[m, con, ~, opts] = dose_model();
 tGet = 1:6;
 
 verifySensitivity(a, m, con(1), tGet, opts)
@@ -21,7 +24,7 @@ verifySensitivity(a, m, con(3), tGet, opts)
 end
 
 function testSimulateSensitivitySimple(a)
-[m, con, unused, opts] = simple_model();
+[m, con, ~, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 tGet = 1:6;
@@ -31,7 +34,7 @@ end
 
 function testSimulateSensitivitySimpleSteadyState(a)
 simpleopts.steadyState = true;
-[m, con, unused, opts] = simple_model(simpleopts);
+[m, con, ~, opts] = simple_model(simpleopts);
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 tGet = 1:6;
@@ -40,7 +43,7 @@ verifySensitivity(a, m, con, tGet, opts)
 end
 
 function testSimulateSensitivitySimpleEvent(a)
-[m, con, unused, opts] = simple_model();
+[m, con, ~, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
@@ -49,6 +52,15 @@ eve2 = eventDropsBelow(m, 1, 2);
 obs = observationEvents(6, [eve1;eve2]);
 
 verifySensitivityEvent(a, m, con, obs, opts)
+end
+
+function testSimulateSensitivitySimpleAnalytic(a)
+[m, con, ~, opts] = simple_analytic_model();
+m = m.Update((rand(m.nk,1)+0.5)/2);
+con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
+tGet = 0:10:40;
+
+verifySensitivity(a, m, con, tGet, opts)
 end
 
 function testSimulateSensitivityMichaelisMenten(a)

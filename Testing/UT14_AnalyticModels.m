@@ -13,6 +13,9 @@ end
 testfuns = cellfun(@str2func,funnames,'UniformOutput',false);
 tests = functiontests(testfuns);
 
+if nargout < 1
+    tests.run;
+end
 end
 
 %% Non-MEX functions

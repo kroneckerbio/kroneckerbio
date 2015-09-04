@@ -1,5 +1,8 @@
 function tests = UT08_Gradient()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testDoseModel(a)
@@ -77,6 +80,29 @@ end
 
 function testObjectiveGradientSimple(a)
 [m, con, obj, opts] = simple_model();
+nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
+
+% Forward
+opts.UseAdjoint = false;
+Dfwd = ObjectiveGradient(m, con, obj, opts);
+
+% Adjoint
+opts.UseAdjoint = true;
+Dadj = ObjectiveGradient(m, con, obj, opts);
+
+% Discrete
+Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
+
+a.verifyEqual(size(Dfwd), [nT,1])
+a.verifyEqual(size(Dadj), [nT,1])
+a.verifyEqual(size(Ddisc), [nT,1])
+
+a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+end
+
+function testObjectiveGradientSimpleAnalytic(a)
+[m, con, obj, opts] = simple_analytic_model();
 nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
 % Forward

@@ -392,7 +392,11 @@ x0c = constant_state_IC;
 
 m.x0 = @x0;
 m.dx0ds = @dx0ds;
+m.dx0dk = @dx0dk;
 m.d2x0ds2 = @d2x0ds2;
+m.d2x0dk2 = @d2x0dk2;
+m.d2x0dkds = @d2x0dkds;
+m.d2x0dsdk = @d2x0dsdk;
 
 %% Process inputs
 % Condense time varying inputs into u(t) function
@@ -1038,19 +1042,19 @@ m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3Use
     end
 
     function val = d2vdx2(t, x, u)
-        val = zeros(nv*nx, nx);
+        val = sparse(nv*nx, nx);
     end
 
     function val = d2vdu2(t, x, u)
-        val = zeros(nv*nu, nu);
+        val = sparse(nv*nu, nu);
     end
 
     function val = d2vdudx(t, x, u)
-        val = zeros(nv*nx, nu);
+        val = sparse(nv*nx, nu);
     end
 
     function val = d2vdxdu(t, x, u)
-        val = zeros(nv*nu, nx);
+        val = sparse(nv*nu, nx);
     end
 
     function val = y(t, x, u)
@@ -1066,55 +1070,71 @@ m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3Use
     end
 
     function val = dydk(t, x, u)
-        val = zeros(ny, nk);
+        val = sparse(ny, nk);
     end
 
     function val = d2ydx2(t, x, u)
-        val = zeros(ny*nx, nx);
+        val = sparse(ny*nx, nx);
     end
 
     function val = d2ydu2(t, x, u)
-        val = zeros(ny*nu, nu);
+        val = sparse(ny*nu, nu);
     end
 
     function val = d2ydk2(t, x, u)
-        val = zeros(ny*nk, nk);
+        val = sparse(ny*nk, nk);
     end
 
     function val = d2ydudx(t, x, u)
-        val = zeros(ny*nx, nu);
+        val = sparse(ny*nx, nu);
     end
 
     function val = d2ydxdu(t, x, u)
-        val = zeros(ny*nu, nx);
+        val = sparse(ny*nu, nx);
     end
 
     function val = d2ydkdx(t, x, u)
-        val = zeros(ny*nx, nk);
+        val = sparse(ny*nx, nk);
     end
 
     function val = d2ydxdk(t, x, u)
-        val = zeros(ny*nk, nx);
+        val = sparse(ny*nk, nx);
     end
 
     function val = d2ydkdu(t, x, u)
-        val = zeros(ny*nu, nk);
+        val = sparse(ny*nu, nk);
     end
 
     function val = d2ydudk(t, x, u)
-        val = zeros(ny*nk, nu);
+        val = sparse(ny*nk, nu);
     end
 
     function val = x0(s)
         val = dx0ds_val*s + x0c;
     end
 
-    function val = dx0ds(~)
+    function val = dx0ds(s)
         val = dx0ds_val;
     end
 
-    function val = d2x0ds2(~)
-        val = zeros(nx*ns, ns);
+    function val = dx0dk(s)
+        val = sparse(nx,nk);
+    end
+
+    function val = d2x0ds2(s)
+        val = sparse(nx*ns, ns);
+    end
+
+    function val = d2x0dk2(s)
+        val = sparse(nx*nk, nk);
+    end
+
+    function val = d2x0dkds(s)
+        val = sparse(nx*ns, nk);
+    end
+
+    function val = d2x0dsdk(s)
+        val = sparse(nx*nk, ns);
     end
 end
 

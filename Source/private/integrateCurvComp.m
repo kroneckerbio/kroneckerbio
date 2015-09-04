@@ -268,33 +268,7 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, joint)
-            % Get d and derivatives of x0 wrt d at requested time
-            d_i = d(t);
-            dx0dd_i = dx0dd(d_i);
-            d2x0dd2_i = d2x0dd2(d_i);
-            
-            % Get change in x from dose
-            deltax = x0(d_i) - x0(zeros(nd,1));
-            
-            % dxdh = dxdd *{d.d} dddh
-            dddh_i = dddh(t); % s_h
-            dxdTh = dx0dd_i * dddh_i(:,opts.UseDoseControls); % x_s * (s_h -> s_H) -> x_H
-            dxdT = [zeros(nx,nTk+nTs+nTq), dxdTh];
-            
-            % d2xdh2 = (dxdd2dd1 *{d.d} dd2dh2) *{d.d} dddh1 + dxdd *{d.d} d2ddh2dh1
-            d2dh2_i = d2ddh2(t); %sh_h
-            d2xTh2 = ...
-                reshape(...
-                        spermute132(...
-                            d2x0dd2_i*dddh_i(:,opts.UseDoseControls),...    % xd_d -> xd_H
-                        [nx nd nTh],[nx*nTh nd])...                         % -> xH_d
-                    *dddh_i(:,opts.UseDoseControls),...                     % -> xH_H
-                nx,nTh*nTh)...                                              % -> x_HH
-            +...
-                dx0dd_i * reshape(d2dh2_i(dhUseDoseControls, opts.UseDoseControls), nd,nTh*nTh); % x_s * (sh_h -> sH_H -> s_HH) -> x_HH
-            d2xdT2 = [sparse(nx*(nTk+nTs+nTq),nT); sparse(nx*nTh,nTk+nTs+nTq), reshape(d2xTh2, [nx*nTh,nTh])];
-            
-            val = [deltax; vec(dxdT); vec(d2xdT2)];
+            val = collectDoseImpact(m, con, t, 2, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
         end
         
         % Modifies dfdk to relate only to the parameters of interest

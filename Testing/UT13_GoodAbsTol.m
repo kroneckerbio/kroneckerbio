@@ -1,5 +1,8 @@
 function tests = UT13_GoodAbsTol()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testGoodAbsTolSimple(a)

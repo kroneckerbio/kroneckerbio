@@ -1,5 +1,8 @@
 function tests = UT07_Objective()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testObjectiveValueSimple(a)
@@ -29,6 +32,12 @@ sim = SimulateSystem(m, con, obs, opts);
 int = sim.int;
 t = 1;
 verifyDerivatives(a, obj, int, t)
+end
+
+function testObjectiveValueSimpleAnalytic(a)
+[m, con, obj, opts] = simple_analytic_model();
+
+G = ObjectiveValue(m, con, obj, opts);
 end
 
 function testObjectiveWeightSumOfSquaresDose(a)

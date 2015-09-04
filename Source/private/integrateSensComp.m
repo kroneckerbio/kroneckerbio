@@ -160,15 +160,7 @@ int.sol = sol;
         
         % Dosing
         function val = delta(t, joint)
-            d_i = d(t);
-            dx0dd_i = dx0dd(d_i);
-            
-            deltax = x0(d_i) - x0(zeros(nd,1));
-            
-            ddeltaxdh = dx0dd_i * dddh(t);
-            ddeltaxdT = [zeros(nx,nTk+nTs+nTq), ddeltaxdh(:,opts.UseDoseControls)];
-            
-            val = [deltax; vec(ddeltaxdT)];
+            val = collectDoseImpact(m, con, t, 1, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
         end
         
         % Modifies dfdk to relate only to the parameters of interest

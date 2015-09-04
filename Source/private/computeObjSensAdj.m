@@ -186,7 +186,9 @@ for i_con = 1:n_con
     
     % Initial conditions
     lambda = -sol.y(1:nx,end);
-    dx0ds_val = m.dx0ds(con(i_con).s);
+    dx0dk_val = m.dx0dk(s);
+    curD(1:nTk) = vec(curD(1:nTk)) + dx0dk_val(:,opts.UseParams).' * lambda;
+    dx0ds_val = m.dx0ds(s);
     curD(Tsind+1:Tsind+inTs) = vec(curD(Tsind+1:Tsind+inTs)) + dx0ds_val(:,UseSeeds_i).' * lambda;
     
     % Add to cumulative goal value
@@ -209,6 +211,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 %%%%% The system for integrating lambda and D %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructAdjointSystem()
+        dx0dk   = m.dx0dk;
         dx0dd   = m.dx0ds;
         dfdx    = m.dfdx;
         dfdu    = m.dfdu;
@@ -267,11 +270,15 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             end
             
             lambda = -joint(1:nx,end) + dGdx; % Update current lambda
-            dx0dd_i = dx0dd(d(t));
+            d_i = d(t);
+            dx0dk_i = dx0dk(d_i);
+            dx0dk_i = dx0dk_i(:,opts.UseParams);
+            dose_change_k = dx0dk_i.' * lambda;
+            dx0dd_i = dx0dd(d_i);
             dddh_i = dddh(t);
             dddh_i = dddh_i(:,UseDoseControls_i);
-            dose_change = dddh_i.' * dx0dd_i.' * lambda;
-            dGdT = dGdT + [zeros(nTk,1); zeros(inTs,1); zeros(inTq,1); dose_change];
+            dose_change_h = dddh_i.' * dx0dd_i.' * lambda;
+            dGdT = dGdT + [dose_change_k; zeros(inTs,1); zeros(inTq,1); dose_change_h];
             
             val = [dGdx; dGdT];
         end

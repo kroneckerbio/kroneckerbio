@@ -1,5 +1,5 @@
 function dos = doseConstant(m, amounts, times, receivers)
-%dosingConstant Easily create dosing functions for a series of constant
+%doseConstant Easily create dosing functions for a series of constant
 %   doses
 %
 %   dos = dosingConstant(m, amounts, times, receivers)

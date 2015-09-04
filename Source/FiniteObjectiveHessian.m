@@ -109,7 +109,7 @@ opts.RelTol = fixRelTol(opts.RelTol);
 opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Loop through conditions
-H = zeros(nT,1);
+H = zeros(nT,nT);
 
 % Initial value
 if verbose; fprintf('Initial round\n'); end

@@ -22,7 +22,7 @@ function m = addRuleAnalytic(m, name, expression, id)
 % Note: the `AddRule` function clashes with a function in the fuzzy logic
 %   toolbox
 
-if nargin < 5
+if nargin < 4
     id = [];
 end
 

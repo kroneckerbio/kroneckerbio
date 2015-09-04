@@ -1,5 +1,8 @@
 function tests = UT00_Helpers()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testinsertstruct(a)

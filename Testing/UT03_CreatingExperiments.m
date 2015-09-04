@@ -1,5 +1,8 @@
 function tests = UT03_CreatingExperiments()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testInitialValueExperimentBlank(a)

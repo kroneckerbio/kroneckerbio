@@ -1,5 +1,8 @@
 function tests = UT01b_BuildingModelsAnalytic()
 tests = functiontests(localfunctions);
+if nargout < 1
+    tests.run;
+end
 end
 
 function testInitializingModel(a)
