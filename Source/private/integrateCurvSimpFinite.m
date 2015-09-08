@@ -59,21 +59,28 @@ int.dxdT = int0.dxdT;
 int.dudT = int0.dudT;
 int.dydT = int0.dydT;
 
+
 % Change each parameter a bit and resimulate
 d2xdT2_all = zeros(nx*nT*nT,nt);
 d2udT2_all = zeros(nu*nT*nT,nt);
 d2ydT2_all = zeros(ny*nT*nT,nt);
+
+Trepmat_nxbynT = repmat(vec(T0).', nx, 1);
+Trepmat_nubynT = repmat(vec(T0).', nu, 1);
+Trepmat_nybynT = repmat(vec(T0).', ny, 1);
+
 for iT = 1:nT
     % Set baseline parameters
-    Ti = T0(iT);
+    T_i = T0(iT);
     T_up = T0;
     
     % Change current parameter by finite amount
-    if opts.Normalized
-        diff = Ti * 1e-8;
+    if opts.ImaginaryStep
+        imagfactor = 1i;
     else
-        diff = 1e-8;
+        imagfactor = 1;
     end
+    diff = imagfactor * 1e-8;
     
     % Simulate difference
     T_up(iT) = T_up(iT) + diff;
@@ -83,15 +90,23 @@ for iT = 1:nT
     % Difference
     ind_xT_start = (iT-1)*nx*nT+1;
     ind_xT_end = (iT-1)*nx*nT+nx*nT;
-    d2xdT2_all(ind_xT_start:ind_xT_end,:) = (int_up.dxdT - dxdT_all) ./ diff;
-
+    
     ind_uT_start = (iT-1)*nu*nT+1;
     ind_uT_end = (iT-1)*nu*nT+nu*nT;
-    d2udT2_all(ind_uT_start:ind_uT_end,:) = (int_up.dudT - dudT_all) ./ diff;
     
     ind_yT_start = (iT-1)*ny*nT+1;
     ind_yT_end = (iT-1)*ny*nT+ny*nT;
-    d2ydT2_all(ind_yT_start:ind_yT_end,:) = (int_up.dydT - dydT_all) ./ diff;
+    
+    if opts.ImaginaryStep
+        d2xdT2_all(ind_xT_start:ind_xT_end,:) = imag(int_up.dxdT) ./ imag(diff);
+        d2udT2_all(ind_uT_start:ind_uT_end,:) = imag(int_up.dudT) ./ imag(diff);
+        d2ydT2_all(ind_yT_start:ind_yT_end,:) = imag(int_up.dydT) ./ imag(diff);
+    else
+        d2xdT2_all(ind_xT_start:ind_xT_end,:) = (int_up.dxdT - dxdT_all) ./ diff;
+        d2udT2_all(ind_uT_start:ind_uT_end,:) = (int_up.dudT - dudT_all) ./ diff;
+        d2ydT2_all(ind_yT_start:ind_yT_end,:) = (int_up.dydT - dydT_all) ./ diff;
+    end
+    
 end
 
 int.d2xdT2 = d2xdT2_all(:,1:nt_discrete);

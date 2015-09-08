@@ -78,15 +78,15 @@ for k = 1:(N-1)
         % Start or restart integration after an event
         if isempty(events)
             [sim_x, sim_y] = ode15sf(der, t_ode, ic, sim_opts);
-            sim_sol.x = sim_x';
-            sim_sol.y = sim_y';
+            sim_sol.x = sim_x.';
+            sim_sol.y = sim_y.';
         else
             [sim_x, sim_y, sim_xe, sim_ye, sim_ie] = ode15sf(der, t_ode, ic, sim_opts);
-            sim_sol.x = sim_x';
-            sim_sol.y = sim_y';
-            sim_sol.xe = sim_xe';
-            sim_sol.ye = sim_ye';
-            sim_sol.ie = sim_ie';
+            sim_sol.x = sim_x.';
+            sim_sol.y = sim_y.';
+            sim_sol.xe = sim_xe.';
+            sim_sol.ye = sim_ye.';
+            sim_sol.ie = sim_ie.';
         end
         
         % Check if integration failed when it shouldn't have

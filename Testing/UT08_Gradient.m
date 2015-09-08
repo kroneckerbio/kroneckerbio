@@ -17,6 +17,7 @@ opts.UseAdjoint = true;
 Dadj = ObjectiveGradient(m, con(1), obj, opts);
 
 % Discrete
+opts.ImaginaryStep = true;
 Ddisc = FiniteObjectiveGradient(m, con(1), obj, opts);
 
 a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
@@ -31,6 +32,7 @@ opts.UseAdjoint = true;
 Dadj = ObjectiveGradient(m, con(2), obj, opts);
 
 % Discrete
+opts.ImaginaryStep = true;
 Ddisc = FiniteObjectiveGradient(m, con(2), obj, opts);
 
 a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
@@ -45,6 +47,7 @@ opts.UseAdjoint = true;
 Dadj = ObjectiveGradient(m, con(3), obj, opts);
 
 % Discrete
+opts.ImaginaryStep = true;
 Ddisc = FiniteObjectiveGradient(m, con(3), obj, opts);
 
 a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
@@ -68,6 +71,7 @@ opts.UseAdjoint = true;
 Dadj = ObjectiveGradient(m, con, obj, opts);
 
 % Discrete
+opts.ImaginaryStep = true;
 Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
 
 a.verifyEqual(size(Dfwd), [nT,1])
@@ -91,6 +95,7 @@ opts.UseAdjoint = true;
 Dadj = ObjectiveGradient(m, con, obj, opts);
 
 % Discrete
+opts.ImaginaryStep = true;
 Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
 
 a.verifyEqual(size(Dfwd), [nT,1])
@@ -114,6 +119,7 @@ opts.UseAdjoint = true;
 Dadj = ObjectiveGradient(m, con, obj, opts);
 
 % Discrete
+opts.ImaginaryStep = true;
 Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
 
 a.verifyEqual(size(Dfwd), [nT,1])

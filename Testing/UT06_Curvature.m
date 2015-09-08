@@ -121,6 +121,7 @@ sim1 = SimulateCurvature(m, con, max(tGet), opts);
 
 sim2 = SimulateCurvature(m, con, obsSelect, opts);
 
+opts.ImaginaryStep = true;
 sim3 = FiniteSimulateCurvature(m, con, obsSelect, opts);
 
 a.verifyEqual(size(sim2.d2xdT2), [m.nx*nT*nT, numel(tGet)])
@@ -134,6 +135,7 @@ end
 function verifyCurvatureEvent(a, m, con, obs, opts)
 sim1 = SimulateCurvature(m, con, obs, opts);
 
+opts.ImaginaryStep = true;
 sim2 = FiniteSimulateCurvature(m, con, obs, opts);
 
 a.verifyEqual(sim1.d2yedT2, sim2.d2yedT2, 'RelTol', 0.001, 'AbsTol', 1e-4)

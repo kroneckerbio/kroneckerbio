@@ -26,6 +26,15 @@ function [H, All] = FiniteObjectiveHessian(m, con, obj, opts)
 %                          the normalized hessian will be computed. The
 %                          normalized hessian is normalized with respect to
 %                          the values of the parameters. Default = true
+%           .ImaginaryStep - Scalar boolean. If set to true, use an
+%                           imaginary finite difference step. This has the
+%                           advantage of not requiring the subtraction of
+%                           two large numbers, increasing the stability of
+%                           the result, but comes at the cost of larger
+%                           computational cost from evaluating expressions
+%                           with complex numbers. If set to false (the
+%                           default), a real finite difference step is
+%                           used.
 %           .Verbose     - Print progress to command window
 %   Outputs:
 %       H = FiniteObjectiveHessian(m, con, obj, ...)
@@ -59,6 +68,8 @@ defaultOpts.Verbose        = 1;
 
 defaultOpts.RelTol         = [];
 defaultOpts.AbsTol         = [];
+
+defaultOpts.ImaginaryStep  = false;
 
 defaultOpts.UseParams        = 1:m.nk;
 defaultOpts.UseSeeds         = [];
@@ -123,11 +134,18 @@ for iT = 1:nT
     T_up = T0;
     
     % Change current parameter by finite amount
-    if opts.Normalized
-        diff = T_i * 1e-8;
+    if opts.ImaginaryStep
+        imagfactor = 1i;
     else
-        diff = 1e-8;
+        imagfactor = 1;
     end
+    if opts.Normalized
+        normfactor = T_i;
+    else
+        normfactor = 1;
+    end
+    stepsize = 1e-8;
+    diff = normfactor * imagfactor * stepsize;
     
     % Compute objective values
     T_up(iT) = T_up(iT) + diff;
@@ -135,9 +153,13 @@ for iT = 1:nT
     [unused, D_up] = computeObjGrad(m, con, obj, opts);
 
     % Compute D
-    if opts.Normalized
-        H(:,iT) = T_i * T0 .* (D_up - D) ./ diff;
+    if opts.ImaginaryStep
+        H(:,iT) = imag(D_up) ./ imag(diff);
     else
-        H(:,iT) = (D_up - D) ./ diff ;
+        H(:,iT) = (D_up - D) ./ diff;
     end
+    if opts.Normalized
+        H(:,iT) = T_i * T0 .* H(:,iT);
+    end
+    
 end

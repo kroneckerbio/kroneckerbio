@@ -89,6 +89,7 @@ sim1 = SimulateSensitivity(m, con, max(tGet), opts);
 
 sim2 = SimulateSensitivity(m, con, obsSelect, opts);
 
+opts.ImaginaryStep = true;
 sim3 = FiniteSimulateSensitivity(m, con, obsSelect, opts);
 
 a.verifyEqual(sim1.dydT(tGet,1:m.ny), sim3.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
@@ -98,6 +99,7 @@ end
 function verifySensitivityEvent(a, m, con, obs, opts)
 sim1 = SimulateSensitivity(m, con, obs, opts);
 
+opts.ImaginaryStep = true;
 sim2 = FiniteSimulateSensitivity(m, con, obs, opts);
 
 a.verifyEqual(sim1.dyedT, sim2.dyedT, 'RelTol', 0.001, 'AbsTol', 1e-4)

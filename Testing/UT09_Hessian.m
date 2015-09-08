@@ -51,6 +51,7 @@ nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.
 
 Hfwd = ObjectiveHessian(m, con, obj, opts);
 
+opts.ImaginaryStep = true;
 Hdisc = FiniteObjectiveHessian(m, con, obj, opts);
 
 a.verifyEqual(size(Hfwd), [nT,nT])
