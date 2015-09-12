@@ -184,6 +184,8 @@ if ~isempty(s_strs); [m.Seeds.ID] = deal(s_strs{:}); end
 if ~isempty(u_strs); [m.Inputs.ID] = deal(u_strs{:}); end
 [x_strs, all_existing_ids] = update_unique_ids(x_names, x_strs, all_existing_ids);
 if ~isempty(x_strs); [m.States.ID] = deal(x_strs{:}); end
+[z_strs, all_existing_ids] = update_unique_ids(z_names, z_strs, all_existing_ids);
+if ~isempty(z_strs); [m.Rules.ID] = deal(z_strs{:}); end
 [y_strs, all_existing_ids] = update_unique_ids(y_names, y_strs, all_existing_ids);
 if ~isempty(y_strs); [m.Outputs.ID] = deal(y_strs{:}); end
 
@@ -241,6 +243,7 @@ z = fastsubs(z, old_symbols, new_symbols);
 r = fastsubs(r, old_symbols, new_symbols);
 y = fastsubs(y, old_symbols, new_symbols);
 
+t_strs = {'t'};
 v_strs = fastchar(v_syms);
 k_strs = fastchar(k_syms);
 s_strs = fastchar(s_syms);
@@ -269,9 +272,9 @@ y = fastsubs(y, substitutable_ids, substitutable_exps);
 
 %% Evaluate external functions
 if opts.EvaluateExternalFunctions
-    x0 = evaluate_external_functions(x0, [s_strs; x_strs; u_strs; k_strs]);
-    r = evaluate_external_functions(r, [s_strs; x_strs; u_strs; k_strs]);
-    y = evaluate_external_functions(y, [s_strs; x_strs; u_strs; k_strs]);
+    x0 = evaluate_external_functions(x0, [t_strs; s_strs; x_strs; u_strs; k_strs]);
+    r = evaluate_external_functions(r, [t_strs; s_strs; x_strs; u_strs; k_strs]);
+    y = evaluate_external_functions(y, [t_strs; s_strs; x_strs; u_strs; k_strs]);
 end
 
 %% Process stoichiometry and rate forms/RHS's

@@ -24,9 +24,13 @@ m.vuInd  = zeros(0,1);
 m.rOrder = zeros(0,1);
 m.krInd  = zeros(0,1);
 
-m.d2x0ds2   = @(s)zeros(0,0);
-m.dx0ds     = @(s)zeros(0,0);
 m.x0        = @(s)zeros(0,1);
+m.dx0ds     = @(s)zeros(0,0);
+m.dx0dk     = @(s)zeros(0,0);
+m.d2x0ds2   = @(s)zeros(0,0);
+m.d2x0dk2   = @(s)zeros(0,0);
+m.d2x0dsdk  = @(s)zeros(0,0);
+m.d2x0dkds  = @(s)zeros(0,0);
 
 m.A1 = zeros(0,0);
 m.A2 = zeros(0,0);
