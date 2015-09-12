@@ -1,7 +1,6 @@
 function m = addStatesAsOutputs(m)
 %addStatesAsOutputs A quick and dirty helper script that adds one output
-%   for each state currently in the model which tracks the concentration of
-%   that state
+%   for each state currently in the model
 %
 %   m = addStatesAsOutputs(m)
 
