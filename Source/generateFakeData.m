@@ -43,7 +43,7 @@ if populate
     sim = SimulateSystem(m,con,obs,opts);
     
     % Extract outputs
-    measurements = vec(sim.y(lookup(outputs,1:size(sim.y,1)),:));
+    measurements = vec(sim.y(lookupmember(outputs,1:size(sim.y,1)),:));
     
     for i = 1:ny
         for j = 1:nt

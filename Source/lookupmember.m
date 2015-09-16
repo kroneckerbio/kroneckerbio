@@ -1,7 +1,7 @@
-function ind = lookup(x, d)
-%LOOKUP Map a vector onto a dictionary
+function ind = lookupmember(x, d)
+%LOOKUPMEMBER Map a vector onto a dictionary
 %
-%   I = LOOKUP(X, D)
+%   I = LOOKUPMEMBER(X, D)
 %
 %   This function compares each element in matrix X to vector D and returns
 %   the linear index in D corresponding to the location of the matching
@@ -9,9 +9,6 @@ function ind = lookup(x, d)
 %   dimensions as X. If D has multiple values that match, the index of the
 %   first is returned. If D does not have a matching value, then an index
 %   of 0 is returned.
-
-% (c) 2010 David R Hagen & Bruce Tidor
-% This work is released under the MIT license.
 
 if iscellstr(x) || iscellstr(d)
     if ischar(x)

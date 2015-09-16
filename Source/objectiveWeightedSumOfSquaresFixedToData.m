@@ -68,7 +68,7 @@ obj = pastestruct(objectiveZero, obj);
         % Evaluate the ODE solver structure
         if isempty(sol.idata)
             % The solution is already discretized
-            ind = lookup(discreteTimes, sol.x);
+            ind = lookupmember(discreteTimes, sol.x);
             x = sol.y(1:nx,ind);
             u = sol.u(:,ind);
         else
@@ -176,7 +176,7 @@ obj = pastestruct(objectiveZero, obj);
             if numel(sol.x) == numel(discreteTimes)
                 dxdT = sol.y(dxdTStart:dxdTEnd,:); % xT_t
             else
-                ind = lookup(discreteTimes, sol.x);
+                ind = lookupmember(discreteTimes, sol.x);
                 dxdT = sol.y(dxdTStart:dxdTEnd,ind); % xT_t
             end
         else
@@ -215,7 +215,7 @@ obj = pastestruct(objectiveZero, obj);
             if numel(sol.x) == numel(discreteTimes)
                 dxdT = sol.y(dxdTStart:dxdTEnd,:); % xT_t
             else
-                ind = lookup(discreteTimes, sol.x);
+                ind = lookupmember(discreteTimes, sol.x);
                 dxdT = sol.y(dxdTStart:dxdTEnd,ind); % xT_t
             end
         else
@@ -251,8 +251,8 @@ obj = pastestruct(objectiveZero, obj);
         % Evaluate the ODE solver structure
         if isempty(sol.idata)
             % The solution is already discretized
-            x = sol.y(1:nx, lookup(discreteTimes, sol.x));
-            u = sol.u(:,lookup(discreteTimes, sol.x));
+            x = sol.y(1:nx, lookupmember(discreteTimes, sol.x));
+            u = sol.u(:,lookupmember(discreteTimes, sol.x));
         else
             % The complete solution is provided
             x = deval(sol, discreteTimes, 1:nx); % x_t

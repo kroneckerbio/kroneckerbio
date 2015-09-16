@@ -93,7 +93,7 @@ m.Inputs = [m.Inputs; m.add.Inputs(1:nuNew)];
 nu = numel(m.Inputs);
 m.nu = nu;
 u_names = [existing_names; new_names];
-m.vuInd = lookup(vec({m.Inputs.Compartment}), v_names);
+m.vuInd = lookupmember(vec({m.Inputs.Compartment}), v_names);
 
 %% Place states
 nxNew = m.add.nx;
@@ -118,7 +118,7 @@ m.States = [m.States; m.add.States(1:nxNew)];
 nx = numel(m.States);
 m.nx = nx;
 x_names = [existing_names; new_names];
-m.vxInd = lookup(vec({m.States.Compartment}), v_names);
+m.vxInd = lookupmember(vec({m.States.Compartment}), v_names);
 
 %% Place outputs
 nyNew = m.add.ny;
@@ -172,13 +172,13 @@ for ir = 1:nrNew
     % Check name for each reactant
     for i_reac = 1:n_reac
         name = m.add.Reactions(ir).Reactants{i_reac};
-        assert(lookup(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
+        assert(lookupmember(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
     end
 
     % Find full name for each product
     for i_prod = 1:n_prod
         name = m.add.Reactions(ir).Products{i_prod};
-        assert(lookup(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
+        assert(lookupmember(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
     end
 end
 

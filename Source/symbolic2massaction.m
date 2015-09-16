@@ -211,10 +211,10 @@ for i = 1:nr
     vars = symvar(rate);
     
     % Get positions of rate params and species
-    kPos = lookup(vars, kSyms);
+    kPos = lookupmember(vars, kSyms);
     kPos(kPos==0) = [];
-    reac = lookup(reactants, xuSyms);
-    prod = lookup(products, xuSyms);
+    reac = lookupmember(reactants, xuSyms);
+    prod = lookupmember(products, xuSyms);
     
     % Get number of microscopic reactions in this rate (1 or 2)
     nMic = length(kPos);
@@ -228,7 +228,7 @@ for i = 1:nr
         xuMicSyms = symvar(derMic);
         
         % Ensure second order or less with species
-        xuMicPos = lookup(xuMicSyms, xuSyms);
+        xuMicPos = lookupmember(xuMicSyms, xuSyms);
         %xuPosMic = xuPosMic(xuPosMic ~= 0); % TODO: I think this line is a mistake, it simply ignores nonspecies in the rate equation, which is wrong
         nxuMic = numel(xuMicPos);
         assert(all(xuMicPos ~= 0) && nxuMic <= 2, 'KroneckerBio:symbolic2MassAction:InvalidReaction', 'Reaction rate %i does not represent a quadratic ODE', i)
@@ -312,7 +312,7 @@ for i = 1:nr
                     allv = symvar(derMic);
                     
                     % Process compartment volume
-                    vPosMic = lookup(allv, vSyms);
+                    vPosMic = lookupmember(allv, vSyms);
                     vPosMic = vPosMic(vPosMic ~= 0);
                     switch numel(vPosMic)
                         case 0
@@ -380,12 +380,12 @@ for i = 1:nr
                 allv = symvar(derMic);
                 
                 % Process compartment volume
-                vPosMic = lookup(allv, vSyms);
+                vPosMic = lookupmember(allv, vSyms);
                 vPosMic = vPosMic(vPosMic ~= 0);
                 switch numel(vPosMic)
                     case 0
                         % Compartment is baked in
-                        vPosMic = lookup(xuvNames(xuMicPos), vNames);
+                        vPosMic = lookupmember(xuvNames(xuMicPos), vNames);
                         
                         % If we are going to change the parameter it must
                         % not be used by multiple compartments

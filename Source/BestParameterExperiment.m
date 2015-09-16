@@ -279,7 +279,7 @@ while remaining_count > 0 && best_goal > opts.TerminalGoal && any(remaining_budg
     
     % Remove conditions if repeats are not allowed
     if ~opts.AllowRepeats
-        remaining_cons(logical(lookup(remaining_cons,best_set))) = [];
+        remaining_cons(logical(lookupmember(remaining_cons,best_set))) = [];
     end
     
     % Store iteration data only if it is requested

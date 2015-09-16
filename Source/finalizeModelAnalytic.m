@@ -283,11 +283,11 @@ xu_names = [x_names; u_names];
 S_entries = zeros(0,3);
 for i = 1:nr
     for j = 1:numel(m.Reactions(i).Reactants)
-        ind = lookup(m.Reactions(i).Reactants{j}, xu_names);
+        ind = lookupmember(m.Reactions(i).Reactants{j}, xu_names);
         S_entries = [S_entries; ind, i, -1];
     end
     for j = 1:numel(m.Reactions(i).Products)
-        ind = lookup(m.Reactions(i).Products{j}, xu_names);
+        ind = lookupmember(m.Reactions(i).Products{j}, xu_names);
         S_entries = [S_entries; ind, i, 1];
     end
 end
@@ -1411,7 +1411,7 @@ for i_str = 1:n
     starts = all_starts{i_str};
     ends = all_ends{i_str};
     matches = cellfun(@(str){str(2:end-1)}, all_matches{i_str}); % Strip the quotes
-    inds_matching = lookup(matches, names);
+    inds_matching = lookupmember(matches, names);
     
     assert(all(inds_matching), 'KroneckerBio:finalizeModelAnalytic:UnknownName', 'In an expression (%s) a name was not found among the names of the model', strs{i_str})
     

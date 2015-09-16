@@ -12,7 +12,7 @@ if isempty(allow_missing)
     allow_missing = true;
 end
 
-ind = lookup(names, {m.Parameters.Name});
+ind = lookupmember(names, {m.Parameters.Name});
 
 if ~allow_missing && any(vec(ind) == 0)
     error('KroneckerBio:UnknownParameterName', 'Parameter "%s" not found', names{find(~ind,1)})

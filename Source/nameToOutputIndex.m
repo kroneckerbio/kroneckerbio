@@ -12,7 +12,7 @@ if isempty(allow_missing)
     allow_missing = true;
 end
 
-ind = lookup(names, {m.Outputs.Name});
+ind = lookupmember(names, {m.Outputs.Name});
 
 if ~allow_missing && any(vec(ind) == 0)
     error('KroneckerBio:UnknownOutputName', 'Output "%s" not found', names{find(~ind,1)})

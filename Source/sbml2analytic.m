@@ -36,7 +36,7 @@ for ixu = 1:nxu
 end
 
 for ixu = row(find(non_unique_species))
-    vx_i = lookup(sbml.species(ixu).compartment, v_ids);
+    vx_i = lookupmember(sbml.species(ixu).compartment, v_ids);
     name = [sbml.compartment(vx_i).name, '_', sbml.species(ixu).name];
     proposal = name;
     index = 1;
@@ -63,7 +63,7 @@ end
 if isfield(sbml, 'initialAssignment')
     for ii = 1:numel(sbml.initialAssignment)
         i_i = sbml.initialAssignment(ii);
-        i_state = lookup(i_i.symbol, xu_ids);
+        i_state = lookupmember(i_i.symbol, xu_ids);
         
         assert(i_state ~= 0, 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
         
@@ -85,7 +85,7 @@ for iz = 1:numel(sbml.rule)
         % Normal rule
     elseif strcmp(type, 'SBML_INITIAL_RULE')
         % Copy to state initial condition
-        i_state = lookup(target, xu_ids);
+        i_state = lookupmember(target, xu_ids);
         
         assert(i_state ~= 0, 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
         
@@ -147,7 +147,7 @@ for ixu = 1:nxu
     xi = sbml.species(ixu);
     name = xi.name;
     id = xi.id;
-    compartment_index = lookup(xi.compartment, v_ids);
+    compartment_index = lookupmember(xi.compartment, v_ids);
     compartment = sbml.compartment(compartment_index).name;
     is_input = xi.boundaryCondition || xi.constant;
     
@@ -201,7 +201,7 @@ for iz = 1:numel(sbml.rule)
     formula = zi.formula;
     
     % See if it is a compartment size
-    compartment_index = lookup(target, v_ids);
+    compartment_index = lookupmember(target, v_ids);
     if compartment_index ~= 0
         sbml.add.Compartments(compartment_index).Size = formula;
         continue
@@ -210,7 +210,7 @@ for iz = 1:numel(sbml.rule)
     % See if it is a parameter value
     k_names = vec({m.add.Parameters(1:m.add.nk).Name});
     k_ids = vec({m.add.Parameters(1:m.add.nk).ID});
-    parameter_index = lookup(target, k_ids);
+    parameter_index = lookupmember(target, k_ids);
     if parameter_index ~= 0
         % Extract parameter
         name = k_names{parameter_index};
@@ -226,7 +226,7 @@ for iz = 1:numel(sbml.rule)
     % See if it is a species value
     xu_names = vec({m.add.Inputs(1:m.add.nu).Name, m.add.States(1:m.add.nx).Name});
     xu_ids = vec({m.add.Inputs(1:m.add.nu).ID, m.add.States(1:m.add.nx).ID});
-    species_index = lookup(target, xu_ids);
+    species_index = lookupmember(target, xu_ids);
     if species_index ~= 0
         % Extract species
         name = xu_names{species_index};
@@ -255,7 +255,7 @@ for i = 1:n
     assert(isempty(reactants(i).stoichiometryMath), 'KroneckerBio:SBML:StoichiometryMath', 'Use of stiochiomerty math is not supported')
 
     id = reactants(i).species;
-    name = xu_names{lookup(id, xu_ids)};
+    name = xu_names{lookupmember(id, xu_ids)};
     stoich = reactants(i).stoichiometry;
 
     reactant_names = [reactant_names, repmat({name}, 1,stoich)];

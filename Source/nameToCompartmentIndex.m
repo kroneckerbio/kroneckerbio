@@ -12,7 +12,7 @@ if isempty(allow_missing)
     allow_missing = true;
 end
 
-ind = lookup(names, {m.Compartments.Name});
+ind = lookupmember(names, {m.Compartments.Name});
 
 if ~allow_missing && any(vec(ind) == 0)
     error('KroneckerBio:UnknownCompartmentName', 'Compartment "%s" not found', names{find(~ind,1)})

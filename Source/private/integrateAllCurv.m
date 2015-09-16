@@ -53,8 +53,8 @@ else
     for i_obs = 1:n_obs
         % Evaluate all requested time points
         if numel(ints(i_obs).t) ~= numel(obs(i_obs).DiscreteTimes) % Saves time and memory if solution is large
-            % lookup returns inds_i such that ints(i_obs).t(inds_i) == obs(i_obs).DiscreteTimes
-            inds_i = lookup(obs(i_obs).DiscreteTimes, ints(i_obs).t);
+            % lookupmember returns inds_i such that ints(i_obs).t(inds_i) == obs(i_obs).DiscreteTimes
+            inds_i = lookupmember(obs(i_obs).DiscreteTimes, ints(i_obs).t);
             inds_i = inds_i(inds_i ~= 0);
             ints(i_obs).t = obs(i_obs).DiscreteTimes;
             ints(i_obs).x = ints(i_obs).x(:,inds_i);
