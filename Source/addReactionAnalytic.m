@@ -60,7 +60,10 @@ if isempty(id)
 end
 
 % Standardize IDs
-if iscell(id)
+if isempty(id)
+    id1 = '';
+    id2 = '';
+elseif iscell(id)
     if numel(id) == 1
         assert(isempty(kForward) || isempty(kReverse), 'KroneckerBio:AddReaction:id', 'One id was provided, but forward and reverse reactions both need an id.')
         id1 = id{1};
@@ -76,9 +79,6 @@ elseif ischar(id)
     assert(isempty(kForward) || isempty(kReverse), 'KroneckerBio:AddReaction:id', 'One id was provided, but forward and reverse reactions both need an id.')
     id1 = id;
     id2 = id;
-elseif isempty(id)
-    id1 = '';
-    id2 = '';
 end
 
 % Standardize reaction name
