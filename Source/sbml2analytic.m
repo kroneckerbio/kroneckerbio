@@ -4,13 +4,14 @@ m = InitializeModelAnalytic(sbml.name);
 
 %% Clean up model
 % TODO: ensure that compartment, parameters, etc have unique names
-v_ids = vec({sbml.compartment.id});
 for iv = 1:numel(sbml.compartment)
     vi = sbml.compartment(iv);
     if isempty(vi.name)
         sbml.compartment(iv).name = vi.id;
     end
 end
+v_ids = vec({sbml.compartment.id});
+v_names = vec({sbml.compartment.name});
 
 for ik = 1:numel(sbml.parameter)
     ki = sbml.parameter(ik);
@@ -18,34 +19,23 @@ for ik = 1:numel(sbml.parameter)
         sbml.parameter(ik).name = ki.id;
     end
 end
+k_ids = vec({sbml.parameter.id});
+k_names = vec({sbml.parameter.name});
 
 for ixu = 1:numel(sbml.species)
     xui = sbml.species(ixu);
     if isempty(xui.name)
         sbml.species(ixu).name = xui.id;
     end
+    compartment_index = lookupmember(xui.compartment, v_ids);
+    sbml.species(ixu).compartment_index = compartment_index;
+    sbml.species(ixu).compartment_name = sbml.compartment(compartment_index).name;
 end
-
-% Check for non-unique species names
 nxu = numel(sbml.species);
 xu_ids = vec({sbml.species.id});
 xu_names = vec({sbml.species.name});
-non_unique_species = false(nxu,1);
-for ixu = 1:nxu
-    non_unique_species(ixu) = ismember(xu_names{ixu}, xu_names([1:ixu-1, ixu+1:end]));
-end
-
-for ixu = row(find(non_unique_species))
-    vx_i = lookupmember(sbml.species(ixu).compartment, v_ids);
-    name = [sbml.compartment(vx_i).name, '_', sbml.species(ixu).name];
-    proposal = name;
-    index = 1;
-    while ismember(proposal, {sbml.species.name})
-        proposal = [name, '_', num2str(index)];
-        index = index + 1;
-    end
-    sbml.species(ixu).name = proposal;
-end
+vxu_names = vec({sbml.species.compartment_name});
+xu_full_names = strcat(vxu_names, '.', xu_names);
 
 for ir = 1:numel(sbml.reaction)
     ri = sbml.reaction(ir);
@@ -148,7 +138,7 @@ for ixu = 1:nxu
     name = xi.name;
     id = xi.id;
     compartment_index = lookupmember(xi.compartment, v_ids);
-    compartment = sbml.compartment(compartment_index).name;
+    compartment = xi.compartment_name;
     is_input = xi.boundaryCondition || xi.constant;
     
     if xi.isSetInitialAmount
@@ -168,15 +158,12 @@ for ixu = 1:nxu
     end
 end
 
-xu_names = vec({sbml.species.name});
-xu_ids = vec({sbml.species.id});
 for ir = 1:numel(sbml.reaction)
     ri = sbml.reaction(ir);
     name = ri.name;
-    id = ri.id;
     
-    reactants = expand_reactants(ri.reactant, xu_names, xu_ids);
-    products = expand_reactants(ri.product, xu_names, xu_ids);
+    reactants = expand_reactants(ri.reactant, xu_full_names, xu_ids);
+    products = expand_reactants(ri.product, xu_full_names, xu_ids);
     
     formula = ri.kineticLaw.formula;
     
@@ -190,7 +177,7 @@ for ir = 1:numel(sbml.reaction)
         m = AddParameter(m, name_ik, value, id);
     end
     
-    m = AddReaction(m, name, reactants, products, formula, [], id);
+    m = AddReaction(m, name, reactants, products, formula);
 end
 
 for iz = 1:numel(sbml.rule)
@@ -224,12 +211,12 @@ for iz = 1:numel(sbml.rule)
     end
     
     % See if it is a species value
-    xu_names = vec({m.add.Inputs(1:m.add.nu).Name, m.add.States(1:m.add.nx).Name});
+    xu_full_names = vec({m.add.Inputs(1:m.add.nu).Name, m.add.States(1:m.add.nx).Name});
     xu_ids = vec({m.add.Inputs(1:m.add.nu).ID, m.add.States(1:m.add.nx).ID});
     species_index = lookupmember(target, xu_ids);
     if species_index ~= 0
         % Extract species
-        name = xu_names{species_index};
+        name = xu_full_names{species_index};
         id = xu_ids{species_index};
         
         % Remove species
@@ -246,16 +233,30 @@ end
 
 assert(isempty(sbml.functionDefinition), 'KroneckerBio:SBML:functions', 'Model contains a function definition that is not surrently supported.')
 
+%% Test code to make formulas readable
+all_ids = vec({m.add.Compartments(1:m.add.nv).ID, m.add.Inputs(1:m.add.nu).ID, m.add.States(1:m.add.nx).ID, m.add.Parameters(1:m.add.nk).ID, m.add.Rules(1:m.add.nz).ID});
+all_names = vec([{m.add.Compartments(1:m.add.nv).Name}, strcat({m.add.Inputs(1:m.add.nu).Compartment}, '.', {m.add.Inputs(1:m.add.nu).Name}), strcat({m.add.States(1:m.add.nx).Compartment}, '.', {m.add.States(1:m.add.nx).Name}), {m.add.Parameters(1:m.add.nk).Name}, {m.add.Rules(1:m.add.nz).Name}]);
+
+for ix = 1:m.add.nx
+    m.add.States(ix).InitialValue = substituteQuotedExpressions(m.add.States(ix).InitialValue, all_ids, all_names, true);
+end
+for ir = 1:m.add.nr
+    m.add.Reactions(ir).Rate = substituteQuotedExpressions(m.add.Reactions(ir).Rate, all_ids, all_names, true);
+end
+for iz = 1:m.add.nz
+    m.add.Rules(iz).Expression = substituteQuotedExpressions(m.add.Rules(iz).Expression, all_ids, all_names, true);
 end
 
-function reactant_names = expand_reactants(reactants, xu_names, xu_ids)
+end
+
+function reactant_names = expand_reactants(reactants, xu_full_names, xu_ids)
 n = numel(reactants);
 reactant_names = cell(1,0);
 for i = 1:n
     assert(isempty(reactants(i).stoichiometryMath), 'KroneckerBio:SBML:StoichiometryMath', 'Use of stiochiomerty math is not supported')
 
     id = reactants(i).species;
-    name = xu_names{lookupmember(id, xu_ids)};
+    name = xu_full_names{lookupmember(id, xu_ids)};
     stoich = reactants(i).stoichiometry;
 
     reactant_names = [reactant_names, repmat({name}, 1,stoich)];

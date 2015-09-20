@@ -115,6 +115,12 @@ m = FinalizeModel(m, opts);
 verifyDerivatives(a, m);
 end
 
+function testSimulateSimpleAnalytic(a)
+m = simple_analytic_model();
+
+verifyDerivatives(a, m);
+end
+
 function testSimpleMassActionSimBiologyLoading(a)
 load('simple_massaction_simbio_model.mat')
 

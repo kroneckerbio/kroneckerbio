@@ -86,13 +86,12 @@ m.add.Outputs = m.add.Outputs(1:m.add.ny);
 
 %% Check for uniqueness of names and IDs
 % Blank IDs are ignored as they will be automatically generated later
-all_existing_ids = vec({m.Compartments.ID, m.Seeds.ID, m.Parameters.ID, m.Inputs.ID, m.States.ID, m.Reactions.ID, m.Rules.ID, m.Outputs.ID});
-all_existing_ids = check_unique_name_id('compartment', {m.add.Compartments().Name}, {m.add.Compartments.ID}, {m.Compartments.Name}, all_existing_ids);
+all_existing_ids = vec({m.Compartments.ID, m.Seeds.ID, m.Parameters.ID, m.Inputs.ID, m.States.ID, m.Rules.ID, m.Outputs.ID});
+all_existing_ids = check_unique_name_id('compartment', {m.add.Compartments.Name}, {m.add.Compartments.ID}, {m.Compartments.Name}, all_existing_ids);
 all_existing_ids = check_unique_name_id('seed', {m.add.Seeds.Name}, {m.add.Seeds.ID}, {m.Seeds.Name}, all_existing_ids);
 all_existing_ids = check_unique_name_id('parameter', {m.add.Parameters.Name}, {m.add.Parameters.ID}, {m.Parameters.Name}, all_existing_ids);
-all_existing_ids = check_unique_name_id('input', {m.add.Inputs.Name}, {m.add.Inputs.ID}, {m.Inputs.Name, m.States.Name}, all_existing_ids);
-all_existing_ids = check_unique_name_id('state', {m.add.States.Name}, {m.add.States.ID}, {m.Inputs.Name, m.States.Name}, all_existing_ids);
-all_existing_ids = check_unique_name_id('reaction', {}, {m.add.Reactions.ID}, {}, all_existing_ids); % Reactions don't need names
+all_existing_ids = check_unique_name_id('input', strcat({m.add.Inputs.Compartment}, '.', {m.add.Inputs.Name}), {m.add.Inputs.ID}, strcat({m.Inputs.Compartment, m.States.Compartment}, '.', {m.Inputs.Name, m.States.Name}), all_existing_ids);
+all_existing_ids = check_unique_name_id('state', strcat({m.add.States.Compartment}, '.', {m.add.States.Name}), {m.add.States.ID}, strcat({m.Inputs.Compartment, m.States.Compartment}, '.', {m.Inputs.Name, m.States.Name}), all_existing_ids);
 all_existing_ids = check_unique_name_id('rule', {m.add.Rules.Name}, {m.add.Rules.ID}, {m.Rules.Name}, all_existing_ids);
 all_existing_ids = check_unique_name_id('output', {m.add.Outputs.Name}, {m.add.Outputs.ID}, {m.Outputs.Name}, all_existing_ids);
 
@@ -149,7 +148,20 @@ s_names = vec({m.Seeds.Name});
 u_names = vec({m.Inputs.Name});
 x_names = vec({m.States.Name});
 z_names = vec({m.Rules.Name});
+r_names = vec({m.Reactions.Name});
 y_names = vec({m.Outputs.Name});
+xu_names = [x_names; u_names];
+
+u_full_names = vec(strcat({m.Inputs.Compartment}, '.', {m.Inputs.Name}));
+x_full_names = vec(strcat({m.States.Compartment}, '.', {m.States.Name}));
+xu_full_names = [x_full_names; u_full_names];
+
+unique_xu_names = false(nu+nx);
+for ixu = 1:nu+nx
+    unique_xu_names(ixu) = ~ismember(xu_names{ixu}, [xu_names(1:ixu-1); xu_names(ixu+1:end)]);
+end
+unique_x_names = unique_xu_names(1:nx);
+unique_u_names = unique_xu_names(nx+(1:nu));
 
 % Some of these will be converted to symbolics later after all default symbolics have been added
 dv = vec([m.Compartments.Dimension]);
@@ -160,11 +172,11 @@ s = vec([m.Seeds.Value]);
 k = vec([m.Parameters.Value]);
 
 vu_names = vec({m.Inputs.Compartment});
-[~, vuInd] = ismember(vu_names, v_names);
+vuInd = lookupmember(vu_names, v_names);
 u = vec([m.Inputs.DefaultValue]);
 
 vx_names = vec({m.States.Compartment});
-[~, vxInd] = ismember(vx_names, v_names);
+vxInd = lookupmember(vx_names, v_names);
 x0 = vec({m.States.InitialValue});
 
 r = vec({m.Reactions.Rate});
@@ -199,8 +211,9 @@ z_syms = sym(z_strs);
 y_syms = sym(y_strs);
 
 %% Build map of names to IDs
-all_names = [v_names; s_names; k_names; u_names; x_names; z_names; y_names];
-all_ids = [v_strs; s_strs; k_strs; u_strs; x_strs; z_strs; y_strs];
+% Only unique species names can be referred to by their unqualified names
+all_names = [v_names; s_names; k_names; u_names(unique_u_names); x_names(unique_x_names); z_names; y_names; u_full_names; x_full_names];
+all_ids = [v_strs; s_strs; k_strs; u_strs(unique_u_names); x_strs(unique_x_names); z_strs; y_strs; u_strs; x_strs];
 
 % Remove all names containing a double quote
 bad_names = cellfun(@(str)ismember('"',str), all_names);
@@ -208,11 +221,17 @@ all_names = all_names(~bad_names);
 all_ids = all_ids(~bad_names);
 
 %% Replace names with symbolics and convert to symbolics
-v = replace_names(v, all_names, all_ids);
-x0 = replace_names(x0, all_names, all_ids);
-z = replace_names(z, all_names, all_ids);
-r = replace_names(r, all_names, all_ids);
-y = replace_names(y, all_names, all_ids);
+v = substituteQuotedExpressions(v, all_names, all_ids);
+x0 = substituteQuotedExpressions(x0, all_names, all_ids);
+z = substituteQuotedExpressions(z, all_names, all_ids);
+r = substituteQuotedExpressions(r, all_names, all_ids);
+y = substituteQuotedExpressions(y, all_names, all_ids);
+
+% v = replace_names(v, all_names, all_ids);
+% x0 = replace_names(x0, all_names, all_ids);
+% z = replace_names(z, all_names, all_ids);
+% r = replace_names(r, all_names, all_ids);
+% y = replace_names(y, all_names, all_ids);
 
 v = sym(v);
 x0 = sym(x0);
@@ -279,20 +298,32 @@ end
 
 %% Process stoichiometry and rate forms/RHS's
 % Make stoichiometry matrix nSpecies x nReactions
-xu_names = [x_names; u_names];
 S_entries = zeros(0,3);
-for i = 1:nr
-    for j = 1:numel(m.Reactions(i).Reactants)
-        ind = lookupmember(m.Reactions(i).Reactants{j}, xu_names);
-        S_entries = [S_entries; ind, i, -1];
+for ir = 1:nr
+    for j = 1:numel(m.Reactions(ir).Reactants)
+        species = m.Reactions(ir).Reactants{j};
+        if ~ismember('.', species)
+            % This species is unqualified
+            ind = lookupmember(species, xu_names);
+            assert(unique_xu_names(ind), 'KroneckerBio:AmbiguousSpeciesName', 'The species (%s) in reaction #%i (%s) is ambiguous because there are several species in the model with that name', species, ir, r_names{ir})
+        else
+            ind = lookupmember(species, xu_full_names);
+        end
+        S_entries = [S_entries; ind, ir, -1];
     end
-    for j = 1:numel(m.Reactions(i).Products)
-        ind = lookupmember(m.Reactions(i).Products{j}, xu_names);
-        S_entries = [S_entries; ind, i, 1];
+    for j = 1:numel(m.Reactions(ir).Products)
+        species = m.Reactions(ir).Products{j};
+        if ~ismember('.', species)
+            % This species is unqualified
+            ind = lookupmember(species, xu_names);
+            assert(unique_xu_names(ind), 'KroneckerBio:AmbiguousSpeciesName', 'The species "%s" in reaction #%i (%s) is ambiguous because there are several species in the model with that name', species, ir, r_names{ir})
+        else
+            ind = lookupmember(species, xu_full_names);
+        end
+        S_entries = [S_entries; ind, ir, 1];
     end
 end
 Sxu = sparse(S_entries(:,1), S_entries(:,2), S_entries(:,3), nx+nu, nr);
-Su = Sxu(nx+1:end,:);
 S = Sxu(1:nx,:);
 
 % Convert stoichiometrix matrix to symbolic so that it doesn't have to be
