@@ -94,9 +94,6 @@ m = AddState(m, 'x1', 'v2');
 test = AddReaction(m, '', 'v1.x1', {}, '"v1.x1"');
 test = FinalizeModel(test); % no error
 
-test = AddReaction(m, '', 'v1.x1', {}, 'v1.x1');
-a.verifyError(@()FinalizeModel(test), 'MATLAB:UndefinedFunction') % illegal dot
-
 test = AddReaction(m, '', 'x1', {}, 'x1');
 a.verifyError(@()FinalizeModel(test), 'KroneckerBio:AmbiguousSpeciesName')
 

@@ -1,4 +1,4 @@
-function m = addCompartmentAnalytic(m, name, dimension, size, id)
+function m = addCompartmentAnalytic(m, name, dimension, size)
 %AddCompartment Add a compartment to a Model.Analytic
 %
 %   m = AddCompartment(m, name, dimension, size, id)
@@ -21,32 +21,17 @@ function m = addCompartmentAnalytic(m, name, dimension, size, id)
 %       the surface area of the membrane, or the length of the DNA. The
 %       compartment size can either be a constant or a string expression as a
 %       function of other components in the model.
-%   id: [ string {[]} ]
-%       A unique, valid variable name
-%
 %   Outputs
 %   m: [ model struct scalar ]
 %       The model with the new compartment added.
 
-% Clean up inputs
-if nargin < 5
-    id = [];
-end
-
-if isempty(id)
-    id = '';
-elseif issym(id)
-    id = char(id);
-end
-
 % Increment counter
 nv = m.add.nv + 1;
 m.add.nv = nv;
-m.add.Compartments = growCompartmentsAnalytic(m.add.Compartments, m.add.nv);
+m.add.Compartments = growCompartments(m.add.Compartments, m.add.nv);
 
 % Add item
 m.add.Compartments(nv).Name = fixCompartmentName(name);
-m.add.Compartments(nv).ID = id;
 m.add.Compartments(nv).Dimension = fixCompartmentDimension(dimension);
 m.add.Compartments(nv).Size = fixCompartmentSizeAnalytic(size, dimension);
 

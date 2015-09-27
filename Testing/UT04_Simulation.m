@@ -148,8 +148,10 @@ m = FinalizeModel(m);
 
 con = experimentInitialValue(m);
 
+opts.Verbose = false;
+
 state = warning;
 finished = onCleanup(@() warning(state));
 warning('off', 'MATLAB:ode15s:IntegrationTolNotMet')
-a.verifyError(@()SimulateSystem(m, con, 10), 'KroneckerBio:accumulateOde:IntegrationFailure');
+a.verifyError(@()SimulateSystem(m, con, 10, opts), 'KroneckerBio:accumulateOde:IntegrationFailure');
 end

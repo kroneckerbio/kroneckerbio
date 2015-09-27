@@ -1,5 +1,12 @@
 function parameters = growParameters(parameters, nk)
 
+if nargin < 2
+    nk = 0;
+    if nargin < 1
+        parameters = [];
+    end
+end
+
 % Add more room in vector if necessary
 current = numel(parameters);
 add = nk - current;

@@ -84,17 +84,6 @@ m.add.Reactions = m.add.Reactions(1:m.add.nr);
 m.add.Rules = m.add.Rules(1:m.add.nz);
 m.add.Outputs = m.add.Outputs(1:m.add.ny);
 
-%% Check for uniqueness of names and IDs
-% Blank IDs are ignored as they will be automatically generated later
-all_existing_ids = vec({m.Compartments.ID, m.Seeds.ID, m.Parameters.ID, m.Inputs.ID, m.States.ID, m.Rules.ID, m.Outputs.ID});
-all_existing_ids = check_unique_name_id('compartment', {m.add.Compartments.Name}, {m.add.Compartments.ID}, {m.Compartments.Name}, all_existing_ids);
-all_existing_ids = check_unique_name_id('seed', {m.add.Seeds.Name}, {m.add.Seeds.ID}, {m.Seeds.Name}, all_existing_ids);
-all_existing_ids = check_unique_name_id('parameter', {m.add.Parameters.Name}, {m.add.Parameters.ID}, {m.Parameters.Name}, all_existing_ids);
-all_existing_ids = check_unique_name_id('input', strcat({m.add.Inputs.Compartment}, '.', {m.add.Inputs.Name}), {m.add.Inputs.ID}, strcat({m.Inputs.Compartment, m.States.Compartment}, '.', {m.Inputs.Name, m.States.Name}), all_existing_ids);
-all_existing_ids = check_unique_name_id('state', strcat({m.add.States.Compartment}, '.', {m.add.States.Name}), {m.add.States.ID}, strcat({m.Inputs.Compartment, m.States.Compartment}, '.', {m.Inputs.Name, m.States.Name}), all_existing_ids);
-all_existing_ids = check_unique_name_id('rule', {m.add.Rules.Name}, {m.add.Rules.ID}, {m.Rules.Name}, all_existing_ids);
-all_existing_ids = check_unique_name_id('output', {m.add.Outputs.Name}, {m.add.Outputs.ID}, {m.Outputs.Name}, all_existing_ids);
-
 %% Add in m.add.* components
 m.Compartments = [m.Compartments; m.add.Compartments];
 m.Seeds = [m.Seeds; m.add.Seeds];
@@ -105,13 +94,13 @@ m.Reactions = [m.Reactions; m.add.Reactions];
 m.Rules = [m.Rules; m.add.Rules];
 m.Outputs = [m.Outputs; m.add.Outputs];
 
-m.add.Compartments = growCompartmentsAnalytic;
-m.add.Parameters = growParametersAnalytic;
-m.add.Seeds = growSeedsAnalytic;
-m.add.Inputs = growInputsAnalytic;
-m.add.States = growStatesAnalytic;
+m.add.Compartments = growCompartments;
+m.add.Parameters = growParameters;
+m.add.Seeds = growSeeds;
+m.add.Inputs = growInputs;
+m.add.States = growStates;
 m.add.Reactions = growReactionsAnalytic;
-m.add.Rules = growRulesAnalytic;
+m.add.Rules = growRules;
 m.add.Outputs = growOutputsAnalytic;
 
 m.add.nv = 0;
@@ -132,15 +121,6 @@ nx = numel(m.States);
 nr = numel(m.Reactions);
 nz = numel(m.Rules);
 ny = numel(m.Outputs);
-
-% String representations of symbolics. Some may be empty and will be assigned later
-v_strs = vec({m.Compartments.ID});
-k_strs = vec({m.Parameters.ID});
-s_strs = vec({m.Seeds.ID});
-u_strs = vec({m.Inputs.ID});
-x_strs = vec({m.States.ID});
-z_strs = vec({m.Rules.ID});
-y_strs = vec({m.Outputs.ID});
 
 v_names = vec({m.Compartments.Name});
 k_names = vec({m.Parameters.Name});
@@ -185,91 +165,57 @@ z = {m.Rules.Expression}';
 
 y = vec({m.Outputs.Expression});
 
-%% Assign missing IDs
-[v_strs, all_existing_ids] = update_unique_ids(v_names, v_strs, all_existing_ids);
-if ~isempty(v_strs); [m.Compartments.ID] = deal(v_strs{:}); end % Matlab bug will not deal to empty stucts
-[k_strs, all_existing_ids] = update_unique_ids(k_names, k_strs, all_existing_ids);
-if ~isempty(k_strs); [m.Parameters.ID] = deal(k_strs{:}); end
-[s_strs, all_existing_ids] = update_unique_ids(s_names, s_strs, all_existing_ids);
-if ~isempty(s_strs); [m.Seeds.ID] = deal(s_strs{:}); end
-[u_strs, all_existing_ids] = update_unique_ids(u_names, u_strs, all_existing_ids);
-if ~isempty(u_strs); [m.Inputs.ID] = deal(u_strs{:}); end
-[x_strs, all_existing_ids] = update_unique_ids(x_names, x_strs, all_existing_ids);
-if ~isempty(x_strs); [m.States.ID] = deal(x_strs{:}); end
-[z_strs, all_existing_ids] = update_unique_ids(z_names, z_strs, all_existing_ids);
-if ~isempty(z_strs); [m.Rules.ID] = deal(z_strs{:}); end
-[y_strs, all_existing_ids] = update_unique_ids(y_names, y_strs, all_existing_ids);
-if ~isempty(y_strs); [m.Outputs.ID] = deal(y_strs{:}); end
+%% Symbolic representations of model components
+t_syms = sym('t');
+v_syms = vec(sym(arrayfun(@(i)sprintf('v_%dx', i), 1:nv, 'UniformOutput', false)));
+s_syms = vec(sym(arrayfun(@(i)sprintf('s_%dx', i), 1:ns, 'UniformOutput', false)));
+k_syms = vec(sym(arrayfun(@(i)sprintf('k_%dx', i), 1:nk, 'UniformOutput', false)));
+u_syms = vec(sym(arrayfun(@(i)sprintf('u_%dx', i), 1:nu, 'UniformOutput', false)));
+x_syms = vec(sym(arrayfun(@(i)sprintf('x_%dx', i), 1:nx, 'UniformOutput', false)));
+z_syms = vec(sym(arrayfun(@(i)sprintf('z_%dx', i), 1:nz, 'UniformOutput', false)));
+y_syms = vec(sym(arrayfun(@(i)sprintf('y_%dx', i), 1:ny, 'UniformOutput', false)));
 
-%% Assemble symbolic representations of model components
-v_syms = sym(v_strs);
-k_syms = sym(k_strs);
-s_syms = sym(s_strs);
-u_syms = sym(u_strs);
-x_syms = sym(x_strs);
-z_syms = sym(z_strs);
-y_syms = sym(y_strs);
+t_strs = fastchar(t_syms);
+v_strs = fastchar(v_syms);
+s_strs = fastchar(s_syms);
+k_strs = fastchar(k_syms);
+u_strs = fastchar(u_syms);
+x_strs = fastchar(x_syms);
+z_strs = fastchar(z_syms);
+y_strs = fastchar(y_syms);
 
-%% Build map of names to IDs
+%% Build map of names to symbols
+% Check for uniquness of names
+% A name can be duplicated within species, but cannot otherwise be duplicated
+% Species full names cannot be duplicated, though
+assert_unique_name([v_names; s_names; k_names; unique(u_names); unique(x_names); z_names])
+assert_unique_name([u_full_names; x_full_names])
+
 % Only unique species names can be referred to by their unqualified names
+% Unique species names and full names point to the same symbols
+ambiguous_names = [u_names(~unique_u_names); x_names(~unique_x_names)];
 all_names = [v_names; s_names; k_names; u_names(unique_u_names); x_names(unique_x_names); z_names; y_names; u_full_names; x_full_names];
 all_ids = [v_strs; s_strs; k_strs; u_strs(unique_u_names); x_strs(unique_x_names); z_strs; y_strs; u_strs; x_strs];
 
-% Remove all names containing a double quote
-bad_names = cellfun(@(str)ismember('"',str), all_names);
-all_names = all_names(~bad_names);
-all_ids = all_ids(~bad_names);
-
 %% Replace names with symbolics and convert to symbolics
+% First test for ambiguous species
+assert_no_ambiguous_species(v, ambiguous_names, 'compartment');
+assert_no_ambiguous_species(x0, ambiguous_names, 'state');
+assert_no_ambiguous_species(z, ambiguous_names, 'rule');
+assert_no_ambiguous_species(r, ambiguous_names, 'reaction');
+assert_no_ambiguous_species(y, ambiguous_names, 'output');
+
 v = substituteQuotedExpressions(v, all_names, all_ids);
 x0 = substituteQuotedExpressions(x0, all_names, all_ids);
 z = substituteQuotedExpressions(z, all_names, all_ids);
 r = substituteQuotedExpressions(r, all_names, all_ids);
 y = substituteQuotedExpressions(y, all_names, all_ids);
 
-% v = replace_names(v, all_names, all_ids);
-% x0 = replace_names(x0, all_names, all_ids);
-% z = replace_names(z, all_names, all_ids);
-% r = replace_names(r, all_names, all_ids);
-% y = replace_names(y, all_names, all_ids);
-
 v = sym(v);
 x0 = sym(x0);
 z = sym(z);
 r = sym(r);
 y = sym(y);
-
-%% Standardize all symbolic names
-% Changing all the symbols to a standard format ensures that string replacement works later
-% TODO: check the unlikely case that someone is calling a function sy#x
-old_symbols = [s_syms; k_syms; u_syms; x_syms];
-new_symbols = sym(zeros(nk+ns+nx+nu,1));
-for i = 1:ns+nk+nu+nx
-    new_symbols(i) = sym(sprintf('sy%dx', i));
-end
-
-v_syms = fastsubs(v_syms, old_symbols, new_symbols);
-k_syms = fastsubs(k_syms, old_symbols, new_symbols);
-s_syms = fastsubs(s_syms, old_symbols, new_symbols);
-u_syms = fastsubs(u_syms, old_symbols, new_symbols);
-x_syms = fastsubs(x_syms, old_symbols, new_symbols);
-z_syms = fastsubs(z_syms, old_symbols, new_symbols);
-y_syms = fastsubs(y_syms, old_symbols, new_symbols);
-
-v = fastsubs(v, old_symbols, new_symbols);
-x0 = fastsubs(x0, old_symbols, new_symbols);
-z = fastsubs(z, old_symbols, new_symbols);
-r = fastsubs(r, old_symbols, new_symbols);
-y = fastsubs(y, old_symbols, new_symbols);
-
-t_strs = {'t'};
-v_strs = fastchar(v_syms);
-k_strs = fastchar(k_syms);
-s_strs = fastchar(s_syms);
-u_strs = fastchar(u_syms);
-x_strs = fastchar(x_syms);
-z_strs = fastchar(z_syms);
-y_strs = fastchar(y_syms);
 
 %% Substitute in expressions
 % Everything that is substitutable
@@ -291,9 +237,9 @@ y = fastsubs(y, substitutable_ids, substitutable_exps);
 
 %% Evaluate external functions
 if opts.EvaluateExternalFunctions
-    x0 = evaluate_external_functions(x0, [t_strs; s_strs; x_strs; u_strs; k_strs]);
-    r = evaluate_external_functions(r, [t_strs; s_strs; x_strs; u_strs; k_strs]);
-    y = evaluate_external_functions(y, [t_strs; s_strs; x_strs; u_strs; k_strs]);
+    x0 = evaluate_external_functions(x0, [t_strs; s_strs; k_strs; u_strs; x_strs]);
+    r = evaluate_external_functions(r, [t_strs; s_strs; k_strs; u_strs; x_strs]);
+    y = evaluate_external_functions(y, [t_strs; s_strs; k_strs; u_strs; x_strs]);
 end
 
 %% Process stoichiometry and rate forms/RHS's
@@ -334,22 +280,6 @@ S_sym = initializeMatrixMupad(i_S, j_S, val_S, size_S(1), size_S(2));
 
 %% Construct ODE system
 f = S_sym*r;
-
-%% Sanity checks
-% TODO: make sure initial conditions are only functions of seeds
-
-% Check original symbols for reserved MuPAD names
-old_symbols_strs = fastchar([k_syms; s_syms; x_syms; u_syms]);
-reservednames = {'pi','PI','eulergamma','EULER','catalan','CATALAN'};
-for rni = 1:length(reservednames)
-    isreservedname = strcmp(old_symbols_strs,reservednames{rni});
-    if any(isreservedname)
-        warning(['A symbolic variable in the model was named ' ...
-            reservednames{rni} ', which is a reserved variable name. ' ...
-            'This can cause undesired behavior in rate expressions. ' ...
-            'It is recommended to change the symbolic variable''s name.'])
-    end
-end
 
 %% Determine the variables in each expression
 x0str = fastchar(x0);
@@ -402,7 +332,6 @@ if verbose; fprintf('\n'); end
 
 %% Generate derivatives of desired order
 if order >= 1
-
     % Gradient of r with respect to x
     if verbose; fprintf('Calculating drdx...'); end
     drdx = calculate_derivative(r, x_syms, 'r', {'x'});
@@ -886,7 +815,7 @@ if verbose; fprintf('done.\n'); end
 %%%%% Update function %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function varargout = update(newk)
+    function varargout = update(newk) % TODO: Why is this varargout?
         % Apply changes
         k = newk;
         
@@ -1263,6 +1192,34 @@ if verbose; fprintf('done.\n'); end
     end
 end
 
+function assert_no_ambiguous_species(expressions, ambiguous_names, type)
+try
+    temp = @(input,i)transmute(input, ambiguous_names, type, i); % Matlab bug-ception
+    for i = 1:numel(expressions)
+        expressions{i} = regexp(expressions{i}, '("[^"]*"|\<[A-Za-z_][A-Za-z0-9_]*\>)(?@temp($1,i))');
+    end
+catch ME % Matlab flaw: regexp swallows user-generated exception
+   if (strcmp(ME.identifier,'MATLAB:REGEXP:EvaluationError'))
+       % Find the start of the real message
+       start = regexp(ME.message, 'The species');
+       
+       % Set the exception back to the way it is supposed to be
+       error('KroneckerBio:AmbiguousSpeciesName', ME.message(start:end))
+   end
+end
+end
+
+function transmute(input, ambiguous_names, type, i) % Matlab bug prevents this from being local to previous function
+if input(1) == '"'
+    % Quoted branch
+    index = lookupmember(input(2:end-1), ambiguous_names);
+else
+    % Identifier branch
+    index = lookupmember(input, ambiguous_names);
+end
+assert(index == 0, 'KroneckerBio:AmbiguousSpeciesName', 'The species "%s" used in %s #%i is ambiguous because there are several species in the model with that name', input, type, i)
+end
+
 function out = expression_has_variable(expr_strs, var_strs)
 % Determine which expressions have which variables. Return a logical matrix
 % n_expr by n_var with true whenever the ith expression contains the jth
@@ -1373,83 +1330,18 @@ else
 end
 end
 
-function name = replace_special_chars(name)
-name = regexprep(name, '[^a-zA-Z0-9]', '_');
-end
+function assert_unique_name(names)
+names = vec(names);
 
-function all_ids = check_unique_name_id(type, new_names, new_ids, old_names, all_ids)
-new_names = vec(new_names);
-new_ids = vec(new_ids);
-old_names = vec(old_names);
-all_ids = vec(all_ids);
-
-n_new = numel(new_names);
+n_new = numel(names);
 
 for i = 1:n_new
     % Check if item by this name already exists
-    if ~isempty(new_names)
-        name = new_names{i};
-        if any(strcmp(name, [old_names; new_names(1:i-1)]))
-            error('KroneckerBio:FinalizeModel:RepeatName', ['There is already a ' type ' with the name %s (new ' type ' #%i)'], name, i)
+    if ~isempty(names)
+        name = names{i};
+        if any(strcmp(name, names(1:i-1)))
+            error('KroneckerBio:FinalizeModel:RepeatName', 'There are multiple components with the name %s', name)
         end
-    end
-    
-    % Check if ID has already been used
-    id = new_ids{i};
-    if ~isempty(id) && any(strcmp(id, [all_ids; new_ids(1:i-1)]))
-        error('KroneckerBio:FinalizeModel:RepeatID', ['There is already a component with the id %s (new ' type ' #%i)'], id, i)
-    end
-end
-
-all_ids = [all_ids; new_ids(~strcmp('', new_ids))];
-end
-
-function [ids, all_ids] = update_unique_ids(names, ids, all_ids)
-n = numel(names);
-
-for i = 1:n
-    if isempty(ids{i})
-        % The standard ID is the name with all symbols converted to underscores
-        root_id = replace_special_chars(names{i});
-        id = root_id;
-        
-        % If the ID already exists, append a different number until it is unique
-        index = 1;
-        while ismember(id, all_ids)
-            id = [root_id '_' num2str(index)];
-            index = index + 1;
-        end
-        
-        % Apply the new ID
-        all_ids = [all_ids; {id}];
-        ids{i} = id;
-    end
-end
-end
-
-function strs = replace_names(strs, names, ids)
-% Replace all quoted names in strs with their respective IDs
-
-if ischar(strs)
-    strs = {strs};
-end
-n = numel(strs);
-
-% Find all places where there are names embedded in the string expression
-[all_starts, all_ends, all_matches] = regexp(strs, '"[^"]*"', 'start', 'end', 'match');
-
-for i_str = 1:n
-    starts = all_starts{i_str};
-    ends = all_ends{i_str};
-    matches = cellfun(@(str){str(2:end-1)}, all_matches{i_str}); % Strip the quotes
-    inds_matching = lookupmember(matches, names);
-    
-    assert(all(inds_matching), 'KroneckerBio:finalizeModelAnalytic:UnknownName', 'In an expression (%s) a name was not found among the names of the model', strs{i_str})
-    
-    n_matches = numel(matches);
-    for i_match = n_matches:-1:1
-        % Keep the string before the quote and after the quote and replace the middle with the ID
-        strs{i_str} = [strs{i_str}(1:starts(i_match)-1), ids{inds_matching(i_match)}, strs{i_str}(ends(i_match)+1:end)];
     end
 end
 end

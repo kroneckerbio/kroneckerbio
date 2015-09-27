@@ -1,5 +1,12 @@
 function outputs = growOutputs(outputs, ny)
 
+if nargin < 2
+    ny = 0;
+    if nargin < 1
+        outputs = [];
+    end
+end
+
 % Add more room in vector if necessary
 current = numel(outputs);
 add = ny - current;

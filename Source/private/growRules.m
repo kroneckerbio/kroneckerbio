@@ -1,4 +1,4 @@
-function rules = growRulesAnalytic(rules, nz)
+function rules = growRules(rules, nz)
 
 if nargin < 2
     nz = 0;

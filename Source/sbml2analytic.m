@@ -2,262 +2,213 @@ function m = sbml2analytic(sbml)
 
 m = InitializeModelAnalytic(sbml.name);
 
-%% Clean up model
-% TODO: ensure that compartment, parameters, etc have unique names
-for iv = 1:numel(sbml.compartment)
-    vi = sbml.compartment(iv);
-    if isempty(vi.name)
-        sbml.compartment(iv).name = vi.id;
-    end
-end
+%% Extract components
+nv = numel(sbml.compartment);
 v_ids = vec({sbml.compartment.id});
 v_names = vec({sbml.compartment.name});
+v_dims = vec([sbml.compartment.spatialDimensions]);
 
-for ik = 1:numel(sbml.parameter)
-    ki = sbml.parameter(ik);
-    if isempty(ki.name)
-        sbml.parameter(ik).name = ki.id;
-    end
-end
+nk = numel(sbml.parameter);
 k_ids = vec({sbml.parameter.id});
 k_names = vec({sbml.parameter.name});
 
-for ixu = 1:numel(sbml.species)
-    xui = sbml.species(ixu);
-    if isempty(xui.name)
-        sbml.species(ixu).name = xui.id;
-    end
-    compartment_index = lookupmember(xui.compartment, v_ids);
-    sbml.species(ixu).compartment_index = compartment_index;
-    sbml.species(ixu).compartment_name = sbml.compartment(compartment_index).name;
-end
 nxu = numel(sbml.species);
 xu_ids = vec({sbml.species.id});
 xu_names = vec({sbml.species.name});
-vxu_names = vec({sbml.species.compartment_name});
+vxu_ids = vec({sbml.species.compartment});
+vxu_indexes = lookupmember(vxu_ids, v_ids);
+xu_is_inputs = vec([sbml.species.boundaryCondition]) | vec([sbml.species.constant]);
+
+nz = numel(sbml.rule);
+z_ids = vec({sbml.rule.variable});
+z_names = vec({sbml.rule.name});
+z_values = vec({sbml.rule.formula});
+z_types = vec({sbml.rule.typecode});
+
+%% Deal with missing component values
+% Default to NaN, rules can override this
+v_set_size = logical(vec([sbml.compartment.isSetSize]));
+v_sizes = repmat({nan}, nv,1);
+v_sizes(v_set_size) = vec({sbml.compartment(v_set_size).size});
+
+k_set_size = logical(vec([sbml.parameter.isSetValue]));
+k_values = nan(nk,1);
+k_values(k_set_size) = vec([sbml.parameter(k_set_size).value]);
+
+% Species are super weird because they can have amounts or concentrations
+% It is not clear how to deal with this, but this converts concentrations
+% to amounts using the pre-rule-applied compartment sizes
+xu_values = repmat({nan}, nv,1);
+xu_set_amount = logical(vec([sbml.species.isSetInitialAmount]));
+xu_set_conc = logical(vec([sbml.species.isSetInitialConcentration]));
+
+xu_raw_amounts = vec([sbml.species.initialAmount]);
+xu_raw_concentrations = vec([sbml.species.initialConcentration]);
+xu_raw_compartment_sizes = vec([v_sizes{vxu_indexes}]);
+
+xu_values(xu_set_conc) = num2cell(xu_raw_concentrations(xu_set_conc) ./ xu_raw_compartment_sizes(xu_set_conc));
+xu_values(xu_set_amount) = num2cell(xu_raw_amounts(xu_set_amount));
+
+%% Extract reactions
+nr = numel(sbml.reaction);
+r_names = vec({sbml.reaction.name});
+r_reactants = arrayfun(@(ri){[vec({ri.reactant.species}), vec({ri.reactant.stoichiometry})]}, sbml.reaction);
+r_products = arrayfun(@(ri){[vec({ri.product.species}), vec({ri.product.stoichiometry})]}, sbml.reaction);
+rates = [sbml.reaction.kineticLaw];
+r_rates = vec({rates.formula});
+
+% Seperate out reaction parameters to be combined with regular parameters
+reaction_parameters = vec([rates.parameter]);
+nrk = numel(reaction_parameters);
+rk_ids = vec({reaction_parameters.id});
+rk_names = vec({reaction_parameters.name});
+
+% Do same handling of unset parameters
+rk_set_size = logical(vec([reaction_parameters.isSetValue]));
+rk_values = nan(nrk,1);
+rk_values(rk_set_size) = vec([reaction_parameters(rk_set_size).value]);
+
+%% Append reaction parameters to regular parameters
+nk = nk + nrk;
+k_ids = [k_ids; rk_ids];
+k_names = [k_names; rk_names];
+k_values = [k_values; rk_values];
+
+%% Copy ids to names if names are missing
+v_names_missing = cellfun(@isempty, v_names);
+v_names(v_names_missing) = v_ids(v_names_missing);
+
+k_names_missing = cellfun(@isempty, k_names);
+k_names(k_names_missing) = k_ids(k_names_missing);
+
+xu_names_missing = cellfun(@isempty, xu_names);
+xu_names(xu_names_missing) = xu_ids(xu_names_missing);
+
+%% Collect species compartments and full names
+vxu_names = v_names(vxu_indexes);
 xu_full_names = strcat(vxu_names, '.', xu_names);
 
-for ir = 1:numel(sbml.reaction)
-    ri = sbml.reaction(ir);
-    % Reactions are allowed to have empty names
-    
-    for ik = 1:numel(ri.kineticLaw.parameter)
-        ki = ri.kineticLaw.parameter(ik);
-        if isempty(ki.name)
-            sbml.reaction(ir).kineticLaw.parameter(ik).name = ki.id;
-        end
-    end
-end
-
-% Copy stand-alone initial conditions to states
+%% Copy stand-alone initial conditions to states
 if isfield(sbml, 'initialAssignment')
-    for ii = 1:numel(sbml.initialAssignment)
-        i_i = sbml.initialAssignment(ii);
-        i_state = lookupmember(i_i.symbol, xu_ids);
-        
-        assert(i_state ~= 0, 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
-        
-        sbml.species(i_state).isSetInitialAmount = true;
-        sbml.species(i_state).initialAmount = i_i.math;
-    end
+    initials_ids = vec({sbml.initialAssignment.symbol});
+    initials_values = vec({sbml.initialAssignment.math});
+    
+    initials_indexes = lookupmember(initials_ids, xu_ids);
+    assert(all(initials_indexes ~= 0), 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
+
+    xu_values(initials_indexes) = initials_values;
 end
 
-z_handled = false(numel(sbml.rule),1); % Stores the rules need to be deleted
-for iz = 1:numel(sbml.rule)
-    zi = sbml.rule(iz);
-    type = zi.typecode;
-    name = zi.name;
-    metaid = zi.metaid;
-    target = zi.variable;
-    formula = zi.formula;
-    
-    if strcmp(type, 'SBML_ASSIGNMENT_RULE')
-        % Normal rule
-    elseif strcmp(type, 'SBML_INITIAL_RULE')
-        % Copy to state initial condition
-        i_state = lookupmember(target, xu_ids);
-        
-        assert(i_state ~= 0, 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
-        
-        sbml.species(i_state).isSetInitialAmount = true;
-        sbml.species(i_state).initialAmount = formula;
-        
-        z_handled(iz) = true;
-    elseif strcmp(type, 'SBML_RATE_RULE')
-        % Append as a reaction with a single product
-        product = struct;
-        product.species = target;
-        product.stoichiometry = 1;
-        
-        kinetic_law = struct;
-        kinetic_law.formula = formula;
+%% Process rules
+z_handled = false(nz,1);
 
-        rate = struct;
-        rate.metaid = metaid;
-        rate.name = name;
-        rate.product = product;
-        rate.kineticLaw = kinetic_law;
-        
-        sbml.reaction = insertstruct(sbml.reaction, rate, numel(sbml.reaction)+1,1);
+% Copy all initial assignment rules to initial conditions of states
+z_is_initial = strcmp('SBML_INITIAL_RULE', z_types);
+xu_getting_replaced = lookupmember(z_ids(z_is_initial), xu_ids);
+assert(all(xu_getting_replaced ~= 0), 'KroneckerBio:SBML:UnsupportedInitialAssignment', 'Only species can be targets of initial assignment rules')
+xu_values(xu_getting_replaced) = z_values(z_is_initial);
+z_handled(z_is_initial) = true;
 
-        z_handled(iz) = true;
-    else
-        error('KroneckerBio:SBML:UnsupportedRuleType', 'Unsupported rule type %s', type)
-    end
+% Append rate rules are reactions
+z_is_rate = strcmp('SBML_RATE_RULE', z_types);
+r_names = [r_names; z_names(z_is_rate)];
+r_reactants = [r_reactants; repmat({cell(0,2)}, nnz(z_is_rate),1)];
+r_products = [r_products; cellfun(@(id){{id,1}}, z_ids(z_is_rate))];
+r_rates = [r_rates; z_values(z_is_rate)];
+z_handled(z_is_rate) = true;
+
+% Assume that all rules left are assignment rules
+
+% Compartment assignments get copied into compartment size
+[z_is_compartment, v_getting_replaced] = ismember(z_ids, v_ids);
+v_getting_replaced(v_getting_replaced == 0) = [];
+v_sizes(v_getting_replaced) = z_values(z_is_compartment);
+z_handled(z_is_compartment) = true;
+
+% Parameter assignments delete the parameter
+[z_is_parameter, k_handled] = ismember(z_ids, k_ids);
+k_handled(k_handled == 0) = [];
+z_names(z_is_parameter) = k_names(k_handled);
+
+% Species assignments delete the species
+[z_is_species, xu_handled] = ismember(z_ids, xu_ids);
+xu_handled(xu_handled == 0) = [];
+z_names(z_is_species) = xu_names(xu_handled);
+
+% Purge handled objects
+nz = nz - nnz(z_handled);
+z_ids(z_handled) = [];
+z_names(z_handled) = [];
+z_values(z_handled) = [];
+
+nk = nk - nnz(k_handled);
+k_ids(k_handled) = [];
+k_names(k_handled) = [];
+k_values(k_handled) = [];
+
+nxu = nxu - nnz(xu_handled);
+xu_ids(xu_handled) = [];
+xu_names(xu_handled) = [];
+vxu_indexes(xu_handled) = [];
+vxu_names(xu_handled) = [];
+xu_full_names(xu_handled) = [];
+xu_is_inputs(xu_handled) = [];
+xu_values(xu_handled) = [];
+
+%% Replace all IDs with names
+all_ids = vec([v_ids; xu_ids; k_ids; z_ids]);
+all_names = vec([v_names; xu_full_names; k_names; z_names]);
+
+v_is_expression = cellfun(@ischar, v_sizes);
+xu_is_expression = cellfun(@ischar, xu_values);
+r_is_expression =  cellfun(@ischar, r_rates);
+
+v_sizes(v_is_expression) =  substituteQuotedExpressions(v_sizes(v_is_expression), all_ids, all_names, true);
+xu_values(xu_is_expression) = substituteQuotedExpressions(xu_values(xu_is_expression), all_ids, all_names, true);
+r_rates(r_is_expression) = substituteQuotedExpressions(r_rates(r_is_expression), all_ids, all_names, true);
+z_values = substituteQuotedExpressions(z_values, all_ids, all_names, true);
+
+r_reactants = cellfun(@(ri){[xu_full_names(lookupmember(ri(:,1),xu_ids)), ri(:,2)]}, r_reactants);
+r_products = cellfun(@(ri){[xu_full_names(lookupmember(ri(:,1),xu_ids)), ri(:,2)]}, r_products);
+
+%% Add components to analytic model
+for iv = 1:nv
+    m = AddCompartment(m, v_names{iv}, v_dims(iv), v_sizes{iv});
 end
 
-sbml.rule(z_handled) = [];
-
-%% Extract model
-for iv = 1:numel(sbml.compartment)
-    vi = sbml.compartment(iv);
-    name = vi.name;
-    id = vi.id;
-    dim = vi.spatialDimensions;
-    if vi.isSetSize
-        size = vi.size;
-    else
-        % Had better be set by a rule
-        size = NaN;
-    end
-    
-    m = AddCompartment(m, name, dim, size, id);
-end
-
-for ik = 1:numel(sbml.parameter)
-    ki = sbml.parameter(ik);
-    name = ki.name;
-    id = ki.id;
-    value = ki.value;
-    
-    m = AddParameter(m, name, value, id);
+for ik = 1:nk
+    m = AddParameter(m, k_names{ik}, k_values(ik));
 end
 
 for ixu = 1:nxu
-    xi = sbml.species(ixu);
-    name = xi.name;
-    id = xi.id;
-    compartment_index = lookupmember(xi.compartment, v_ids);
-    compartment = xi.compartment_name;
-    is_input = xi.boundaryCondition || xi.constant;
-    
-    if xi.isSetInitialAmount
-        value = xi.initialAmount;
-    elseif xi.isSetInitialConcentration
-        % TODO: determine if this is supposed to happen before or after initial assignments of compartment size
-        value = xi.initialConcentration / sbml.compartment(compartment_index).size;
+    if xu_is_inputs(ixu)
+        m = AddInput(m, xu_names{ixu}, vxu_names{ixu}, xu_values{ixu});
     else
-        % Had better be set by a rule
-        value = NaN;
-    end
-    
-    if is_input
-        m = AddInput(m, name, compartment, value, id);
-    else
-        m = AddState(m, name, compartment, value, id);
+        m = AddState(m, xu_names{ixu}, vxu_names{ixu}, xu_values{ixu});
     end
 end
 
 for ir = 1:numel(sbml.reaction)
-    ri = sbml.reaction(ir);
-    name = ri.name;
+    reactants_i = expand_reactants(r_reactants{ir});
+    products_i = expand_reactants(r_products{ir});
     
-    reactants = expand_reactants(ri.reactant, xu_full_names, xu_ids);
-    products = expand_reactants(ri.product, xu_full_names, xu_ids);
-    
-    formula = ri.kineticLaw.formula;
-    
-    % Add parameters confined to reaction
-    for ik = 1:numel(ri.kineticLaw.parameter)
-        ki = ri.kineticLaw.parameter(ik);
-        name_ik = ki.name;
-        id = ki.id;
-        value = ki.value;
-        
-        m = AddParameter(m, name_ik, value, id);
-    end
-    
-    m = AddReaction(m, name, reactants, products, formula);
+    m = AddReaction(m, r_names{ir}, reactants_i, products_i, r_rates{ir});
 end
 
-for iz = 1:numel(sbml.rule)
-    % Only repeated assignment rules are left
-    
-    zi = sbml.rule(iz);
-    target = zi.variable;
-    formula = zi.formula;
-    
-    % See if it is a compartment size
-    compartment_index = lookupmember(target, v_ids);
-    if compartment_index ~= 0
-        sbml.add.Compartments(compartment_index).Size = formula;
-        continue
-    end
-    
-    % See if it is a parameter value
-    k_names = vec({m.add.Parameters(1:m.add.nk).Name});
-    k_ids = vec({m.add.Parameters(1:m.add.nk).ID});
-    parameter_index = lookupmember(target, k_ids);
-    if parameter_index ~= 0
-        % Extract parameter
-        name = k_names{parameter_index};
-        id = k_ids{parameter_index};
-        
-        % Remove parameter
-        m = RemoveParameter(m, name);
-        
-        m = AddRule(m, name, formula, id);
-        continue
-    end
-    
-    % See if it is a species value
-    xu_full_names = vec({m.add.Inputs(1:m.add.nu).Name, m.add.States(1:m.add.nx).Name});
-    xu_ids = vec({m.add.Inputs(1:m.add.nu).ID, m.add.States(1:m.add.nx).ID});
-    species_index = lookupmember(target, xu_ids);
-    if species_index ~= 0
-        % Extract species
-        name = xu_full_names{species_index};
-        id = xu_ids{species_index};
-        
-        % Remove species
-        if species_index <= m.add.nu
-            m = RemoveInput(m, name);
-        else
-            m = RemoveState(m, name);
-        end
-        
-        m = AddRule(m, name, formula, id);
-        continue
-    end
+for iz = 1:nz
+    m = AddRule(m, z_names{iz}, z_values{iz});
 end
 
 assert(isempty(sbml.functionDefinition), 'KroneckerBio:SBML:functions', 'Model contains a function definition that is not surrently supported.')
 
-%% Test code to make formulas readable
-all_ids = vec({m.add.Compartments(1:m.add.nv).ID, m.add.Inputs(1:m.add.nu).ID, m.add.States(1:m.add.nx).ID, m.add.Parameters(1:m.add.nk).ID, m.add.Rules(1:m.add.nz).ID});
-all_names = vec([{m.add.Compartments(1:m.add.nv).Name}, strcat({m.add.Inputs(1:m.add.nu).Compartment}, '.', {m.add.Inputs(1:m.add.nu).Name}), strcat({m.add.States(1:m.add.nx).Compartment}, '.', {m.add.States(1:m.add.nx).Name}), {m.add.Parameters(1:m.add.nk).Name}, {m.add.Rules(1:m.add.nz).Name}]);
-
-for ix = 1:m.add.nx
-    m.add.States(ix).InitialValue = substituteQuotedExpressions(m.add.States(ix).InitialValue, all_ids, all_names, true);
-end
-for ir = 1:m.add.nr
-    m.add.Reactions(ir).Rate = substituteQuotedExpressions(m.add.Reactions(ir).Rate, all_ids, all_names, true);
-end
-for iz = 1:m.add.nz
-    m.add.Rules(iz).Expression = substituteQuotedExpressions(m.add.Rules(iz).Expression, all_ids, all_names, true);
 end
 
-end
-
-function reactant_names = expand_reactants(reactants, xu_full_names, xu_ids)
-n = numel(reactants);
+function reactant_names = expand_reactants(reactants)
+n = size(reactants,1);
 reactant_names = cell(1,0);
 for i = 1:n
-    assert(isempty(reactants(i).stoichiometryMath), 'KroneckerBio:SBML:StoichiometryMath', 'Use of stiochiomerty math is not supported')
-
-    id = reactants(i).species;
-    name = xu_full_names{lookupmember(id, xu_ids)};
-    stoich = reactants(i).stoichiometry;
+    name = reactants{i,1};
+    stoich = reactants{i,2};
 
     reactant_names = [reactant_names, repmat({name}, 1,stoich)];
 end
