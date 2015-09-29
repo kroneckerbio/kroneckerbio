@@ -8,6 +8,6 @@ ind_add = strcmp(name, {m.add.Seeds.Name});
 % Remove all mention of this seed
 m.Seeds(ind_main,:) = [];
 m.add.Seeds(ind_add,:) = [];
-m.add.nk = m.add.nk - nnz(ind_add);
+m.add.ns = m.add.ns - nnz(ind_add);
 
 m.Ready = false;

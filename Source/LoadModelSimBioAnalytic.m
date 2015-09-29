@@ -24,6 +24,7 @@ opts_.UseNames = false;
 opts = mergestruct(opts_, opts);
 
 %% Convert model
+
 symbolic = simbio2symbolic(simbio, opts);
 
 assert(isValidSymbolicModel(symbolic), 'LoadModelSbmlAnalytic:InvalidSymbolicModel', 'Symbolic model intermediate failed validation check')
