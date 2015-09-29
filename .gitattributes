@@ -3,10 +3,13 @@
 # General
 *.txt  text
 *.md   text
+*.html text
 *.xml  text
+*.c    text
 
 # Matlab
-*.m    text
-*.mu   text
-*.mat  binary
-*.mex* binary
+*.m      text
+*.mu     text
+*.mat    binary
+*.mex*   binary
+*.sbproj binary

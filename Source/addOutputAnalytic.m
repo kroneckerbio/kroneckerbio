@@ -1,7 +1,7 @@
-function m = addOutputAnalytic(m, name, expression, id)
+function m = addOutputAnalytic(m, name, expression)
 %AddOutput Add an output to a Model.Analytic
 %
-%   m = AddOutput(m, name, expression, id, opts)
+%   m = AddOutput(m, name, expression)
 %
 %   Outputs are linear combinations of species. In Kronecker, they take
 %   advantage of species naming schemes by being defined by regular
@@ -21,8 +21,6 @@ function m = addOutputAnalytic(m, name, expression, id)
 %   expression: [ string {name} ]
 %       Mathematical expression for the output. If blank, expression is set to
 %       the state represented by the name, if possible.
-%   id: [ string {[]} ]
-%       A unique, valid variable name
 %
 %   Outputs
 %   m: [ model struct scalar ]
@@ -40,11 +38,6 @@ end
 if isempty(expression)
     expression = name;
 end
-if isempty(id)
-    id = '';
-elseif issym(id)
-    id = char(id);
-end
 
 % Increment counter
 ny = m.add.ny + 1;
@@ -53,7 +46,6 @@ m.add.Outputs = growOutputsAnalytic(m.add.Outputs, ny);
 
 % Add item
 m.add.Outputs(ny).Name = fixOutputName(name);
-m.add.Outputs(ny).ID = id;
 m.add.Outputs(ny).Expression = fixOutputAnalytic(expression);
 
 m.Ready = false;

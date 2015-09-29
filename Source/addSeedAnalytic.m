@@ -1,4 +1,4 @@
-function m = addSeedAnalytic(m, name, value, id)
+function m = addSeedAnalytic(m, name, value)
 %AddSeed Add a seed parameter to a Model.Analytic
 %
 %   m = AddSeed(m, name, value)
@@ -14,31 +14,18 @@ function m = addSeedAnalytic(m, name, value, id)
 %       refer to it.
 %   value: [ nonnegative scalar ]
 %       The numeric value of the parameter
-%   id: [ string {[]} ]
-%       A unique, valid variable name
 %
 %   Outputs
 %   m: [ model struct scalar ]
 %       The model with the new parameter added
 
-% Generate new ID if not supplied
-if nargin < 4
-    id = [];
-end
-if isempty(id)
-    id = '';
-elseif issym(id)
-    id = char(id);
-end
-
 % Increment counter
 ns = m.add.ns + 1;
 m.add.ns = ns;
-m.add.Seeds = growSeedsAnalytic(m.add.Seeds, ns);
+m.add.Seeds = growSeeds(m.add.Seeds, ns);
 
 % Add item
 m.add.Seeds(ns).Name = fixParameterName(name);
-m.add.Seeds(ns).ID = id;
 m.add.Seeds(ns).Value = fixParameterValue(value);
 
 m.Ready = false;

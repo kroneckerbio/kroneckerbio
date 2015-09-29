@@ -1,5 +1,12 @@
 function states = growStates(states, nx)
 
+if nargin < 2
+    nx = 0;
+    if nargin < 1
+        states = [];
+    end
+end
+
 % Add more room in vector if necessary
 current = numel(states);
 add = nx - current;

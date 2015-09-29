@@ -1,7 +1,7 @@
 function expr = fixRateExpressionAnalytic(expr)
 
 if isempty(expr) || (isnumeric(expr) && isscalar(expr) && expr == 0)
-    expr = [];
+    expr = '';
 elseif ischar(expr)
     % pass
 else

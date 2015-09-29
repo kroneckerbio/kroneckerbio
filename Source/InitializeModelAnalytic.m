@@ -16,22 +16,22 @@ end
 m.Type = 'Model.Analytic';
 m.Name = fixModelName(name);
 
-m.Compartments = growCompartmentsAnalytic;
-m.Parameters   = growParametersAnalytic;
-m.Seeds        = growSeedsAnalytic;
-m.Inputs       = growInputsAnalytic;
-m.States       = growStatesAnalytic;
+m.Compartments = growCompartments;
+m.Parameters   = growParameters;
+m.Seeds        = growSeeds;
+m.Inputs       = growInputs;
+m.States       = growStates;
 m.Reactions    = growReactionsAnalytic;
 m.Outputs      = growOutputsAnalytic;
-m.Rules        = growRulesAnalytic;
+m.Rules        = growRules;
 
 m = initializeModelBase(m);
 
-m.add.Compartments = growCompartmentsAnalytic;
-m.add.Parameters   = growParametersAnalytic;
-m.add.Seeds        = growSeedsAnalytic;
-m.add.Inputs       = growInputsAnalytic;
-m.add.States       = growStatesAnalytic;
+m.add.Compartments = growCompartments;
+m.add.Parameters   = growParameters;
+m.add.Seeds        = growSeeds;
+m.add.Inputs       = growInputs;
+m.add.States       = growStates;
 m.add.Reactions    = growReactionsAnalytic;
 m.add.Outputs      = growOutputsAnalytic;
-m.add.Rules        = growRulesAnalytic;
+m.add.Rules        = growRules;

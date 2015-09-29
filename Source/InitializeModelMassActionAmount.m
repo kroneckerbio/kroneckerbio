@@ -327,7 +327,7 @@ m.Inputs       = emptyInputs(0);
 m.States       = emptyStates(0);
 m.Reactions    = emptyReactions(0);
 m.Outputs      = emptyOutputs(0);
-m.Rules        = growRulesAnalytic;
+m.Rules        = growRules();
 
 m = initializeModelBase(m);
 
@@ -338,4 +338,4 @@ m.add.Inputs       = growInputs([], 0);
 m.add.States       = growStates([], 0);
 m.add.Reactions    = growReactions([], 0);
 m.add.Outputs      = growOutputs([], 0);
-m.add.Rules        = growRulesAnalytic;
+m.add.Rules        = growRules();

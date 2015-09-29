@@ -1,4 +1,4 @@
-function m = addInputAnalytic(m, name, compartment, default, id)
+function m = addInputAnalytic(m, name, compartment, default)
 %AddInput Add an input species to a Model.Analytic
 %
 %   m = AddInput(m, name, compartment, default)
@@ -13,19 +13,15 @@ function m = addInputAnalytic(m, name, compartment, default, id)
 %       The name of the compartment to which it will be added.
 %   default: [ nonnegative scalar {0} ]
 %       The default value for this input.
-%   id: [ string {[]} ]
-%       A unique, valid variable name
 %
 %   Outputs
 %   m: [ model struct scalar ]
 %       The model with the new input added.
-if nargin < 5
-    id = [];
-    if nargin < 4
-        default = [];
-        if nargin < 3
-            compartment = [];
-        end
+
+if nargin < 4
+    default = [];
+    if nargin < 3
+        compartment = [];
     end
 end
 
@@ -43,20 +39,14 @@ end
 if isempty(default)
     default = 0;
 end
-if isempty(id)
-    id = '';
-elseif issym(id)
-    id = char(id);
-end
 
 % Increment counter
 nu = m.add.nu + 1;
 m.add.nu = nu;
-m.add.Inputs = growInputsAnalytic(m.add.Inputs, nu);
+m.add.Inputs = growInputs(m.add.Inputs, nu);
 
 % Add item
 m.add.Inputs(nu).Name = fixSpeciesName(name);
-m.add.Inputs(nu).ID = id;
 m.add.Inputs(nu).Compartment = fixCompartmentName(compartment);
 m.add.Inputs(nu).DefaultValue = fixInputDefaultValue(default);
 

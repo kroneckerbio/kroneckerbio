@@ -1,22 +1,14 @@
-function m = addReactionAnalytic(m, name, reactants, products, kForward, kReverse, id)
+function m = addReactionAnalytic(m, name, reactants, products, forward, reverse, compartment)
 %AddReaction Add a reaction to a Model.Analytic
 %
-%   m = AddReaction(m, name, reactants, products, kForward, kReverse, id)
+%   m = AddReaction(m, name, reactants, products, kForward, kReverse, compartment)
 %
-%   A reaction is a conversion of one or two reactant species into one or
-%   two product species associated with a rate expression. The
-%   reverse reaction may or may not be specified at the same time. Each
-%   reactant and product must be a single species in a single compartment
-%   (e.g. cytoplasm.glucose).
-%
-%   Since most reactions happen in a single compartment, Kronecker does not
-%   make you type out the compartment for every species. You can specify a
-%   compartment in which to search for species without prepended
-%   compartments and which appear in multiple compartments. A species that
-%   appears in only 1 compartment will ignore the default compartment and be
-%   attached to the containing compartment. If the species is not found in the
-%   specified compartment or the default compartment (1st compartment in the
-%   model if not specified), an error is thrown.
+%   A reaction is a conversion of zero or more reactant species into zero
+%   or more product species associated with a rate expression. The reverse
+%   reaction may or may not be specified at the same time. Each reactant
+%   and product must be a single species in a single compartment (e.g.
+%   cytoplasm.glucose). An optional reaction compartment may be supplied to
+%   disambiguate species without a specified compartment.
 %
 %   The species and parameters must be added with the AddState, AddInput,
 %   and AddParameter functions. They can be added in any order as long as
@@ -31,16 +23,25 @@ function m = addReactionAnalytic(m, name, reactants, products, kForward, kRevers
 %       only one name is provided, it will be identical for the forward and
 %       reverse reactions.
 %   reactants: [ cell array of strings | string | empty ]
-%       This is a species full name in the model or just a species name
-%       that can accept a string in compartment as its compartment.
-%   products: [ string ]
-%       Like reactants
+%       A list of species names consumed by this reaction. Must be a
+%       species full name or a name that is unique among species in the
+%       model, unless a reaction compartment is supplied.
+%   products: [ cell array of strings | string | empty ]
+%       A list of species names produced by this reaction. Like reactants.
 %   kForward: [ string ]
 %       Expression for forward reaction rate
-%   kReverse: [ string {''} ]
+%   kReverse: [ string | empty {''} ]
 %       Expression for reverse reaction rate
-%   id: [ string {[]} | 1 x 2 cell vector of strings ]
-%       A unique, valid variable name for the forward and reverse reactions
+%   compartment: [ string | empty {''} ]
+%       A compartment name.
+%       If empty, then each species referred to in the reactants, products,
+%       forward, and reverse must unambiguously refer to a single species
+%       in the model, either because it is unique or because it is a
+%       species full name.
+%       If supplied, then each species in the reactants and products that
+%       does not have a compartment will be disambiguated with this
+%       compartment. The reactants and products that are disambiguated will
+%       also be disambiguated in forward and reverse expressions.
 %
 %   Outputs
 %   m: [ model struct scalar ]
@@ -48,95 +49,83 @@ function m = addReactionAnalytic(m, name, reactants, products, kForward, kRevers
 
 % Clean-up
 if nargin < 7
-    id = [];
+    compartment = [];
     if nargin < 6
-        kReverse = [];
+        reverse = [];
     end
 end
 
 % Set defaults
-if isempty(id)
-    id = '';
-end
-
-% Standardize IDs
-if iscell(id)
-    if numel(id) == 1
-        assert(isempty(kForward) || isempty(kReverse), 'KroneckerBio:AddReaction:id', 'One id was provided, but forward and reverse reactions both need an id.')
-        id1 = id{1};
-        id2 = id{1};
-    elseif numel(id) >= 2
-        id1 = id{1};
-        id2 = id{2};
-    else
-        id1 = [];
-        id2 = [];
-    end
-elseif ischar(id)
-    assert(isempty(kForward) || isempty(kReverse), 'KroneckerBio:AddReaction:id', 'One id was provided, but forward and reverse reactions both need an id.')
-    id1 = id;
-    id2 = id;
-elseif isempty(id)
-    id1 = '';
-    id2 = '';
+if isempty(compartment)
+    compartment = '';
 end
 
 % Standardize reaction name
-[name1, name2] = fixReactionName(name, kForward, kReverse);
+[name1, name2] = fixReactionName(name, forward, reverse);
 
 % Standardize species names into compartment.species
 reactants = fixReactionSpecies(reactants);
 products =  fixReactionSpecies(products);
 
 % Standardize reaction rate expressions
-kForward    = fixRateExpressionAnalytic(kForward);
-kReverse    = fixRateExpressionAnalytic(kReverse);
+forward = fixRateExpressionAnalytic(forward);
+reverse = fixRateExpressionAnalytic(reverse);
+
+% Standardize compartment name
+compartment = fixCompartmentName(compartment);
+
+% Incorporate reaction compartment
+if ~isempty(compartment)
+    all_species = [reactants, products];
+    
+    unqualified = false(size(all_species));
+    unambiguous_species = all_species;
+    for i = 1:numel(unambiguous_species)
+        if ~ismember('.', all_species{i})
+            % It is unqualified
+            unqualified(i) = true;
+            unambiguous_species{i} = [compartment '.' all_species{i}];
+        end
+    end
+    
+    % Update reactants and products
+    reactants = unambiguous_species(1:numel(reactants));
+    products = unambiguous_species(numel(reactants)+(1:numel(products)));
+    
+    % Rename in expressions
+    forward = substituteQuotedExpressions(forward, all_species(unqualified), unambiguous_species(unqualified), true);
+    reverse = substituteQuotedExpressions(reverse, all_species(unqualified), unambiguous_species(unqualified), true);
+end
 
 % Add separate reactions for forward and reverse (if applicable)
-% Don't add reaction if rate is 0
-if ~isempty(kForward)
+if ~isempty(forward)
     nr = m.add.nr + 1;
     m.add.nr = nr;
     m.add.Reactions = growReactionsAnalytic(m.add.Reactions, nr);
     
     m.add.Reactions(nr).Name = name1;
     
-    if isempty(id1)
-        id1 = '';
-    elseif issym(id1)
-        id1 = char(id1);
-    end
-    
-    m.add.Reactions(nr).ID = id1;
-    
     m.add.Reactions(nr).Reactants = reactants;
     
     m.add.Reactions(nr).Products = products;
     
-    m.add.Reactions(nr).Rate = kForward;
+    m.add.Reactions(nr).Rate = forward;
     
     m.Ready = false;
 end
 
-if ~isempty(kReverse)
+if ~isempty(reverse)
     nr = m.add.nr + 1;
     m.add.nr = nr;
     m.add.Reactions = growReactionsAnalytic(m.add.Reactions, nr);
     
     m.add.Reactions(nr).Name = name2;
     
-    if isempty(id2)
-        id2 = '';
-    elseif issym(id2)
-        id2 = char(id2);
-    end
-    m.add.Reactions(nr).ID = id2;
-    
     m.add.Reactions(nr).Reactants = products;
     
     m.add.Reactions(nr).Products = reactants;
     
-    m.add.Reactions(nr).Rate = kReverse;
+    m.add.Reactions(nr).Rate = reverse;
     
     m.Ready = false;
 end

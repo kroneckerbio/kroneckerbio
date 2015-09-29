@@ -44,6 +44,18 @@ m = InitializeModelAnalytic();
 a.verifyError(@()AddCompartment(m, 'test4', 4, 1), 'KroneckerBio:Compartment:Dimension');
 end
 
+function testStoichiometriyMatrixInRightOrder(a)
+m = InitializeModelAnalytic();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddState(m, 'x1', 'v1', 2);
+m = AddInput(m, 'u1', 'v1', 3);
+m = AddParameter(m, 'k1', 4);
+m = AddReaction(m, '', 'x1', 'u1', 'x1*k1');
+m = FinalizeModel(m);
+
+a.verifyEqual(m.f(0, 5, 3), -5*4)
+end
+
 function [m, x0, u0] = model_with_some_species()
 m = InitializeModelAnalytic();
 m = AddCompartment(m, 'v1', 3, 1);
@@ -70,6 +82,33 @@ function testAddReactionRev(a)
 m = AddReaction(m, 'test', {'x1', 'x2'}, 'x3', '', 'k2*x3');
 m = FinalizeModel(m);
 a.verifyEqual(m.f(0,x0,u0), [15;15;-15;0])
+end
+
+function testDuplicateCompartments(a)
+m = InitializeModelAnalytic();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddCompartment(m, 'v2', 3, 1);
+m = AddState(m, 'x1', 'v1');
+m = AddState(m, 'x1', 'v2');
+
+test = AddReaction(m, '', 'v1.x1', {}, '"v1.x1"');
+test = FinalizeModel(test); % no error
+
+test = AddReaction(m, '', 'x1', {}, 'x1');
+a.verifyError(@()FinalizeModel(test), 'KroneckerBio:AmbiguousSpeciesName')
+
+test = AddReaction(m, '', 'x1', {}, '"v1.x1"');
+a.verifyError(@()FinalizeModel(test), 'KroneckerBio:AmbiguousSpeciesName')
+
+test = AddReaction(m, '', 'x1', {}, 'x1', '', 'v1');
+test = FinalizeModel(test); % no error
+
+test = AddReaction(m, '', 'x1', {}, 'x1', '', 'v1');
+test = FinalizeModel(test); % no error
+
+test = AddReaction(m, '', 'x1', {}, '"v1.x1"', '', 'v1');
+test = FinalizeModel(test); % no error
+
 end
 
 function testsymbolic2PseudoKroneckerMM(a)

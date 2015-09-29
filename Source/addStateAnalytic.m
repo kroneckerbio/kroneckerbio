@@ -1,4 +1,4 @@
-function m = addStateAnalytic(m, name, compartment, seed, id)
+function m = addStateAnalytic(m, name, compartment, seed)
 %AddState Add a state species to a KroneckerBio model. If the state's initial
 %condition depends on a seed, the seed must already be added to the model.
 %
@@ -24,13 +24,10 @@ function m = addStateAnalytic(m, name, compartment, seed, id)
 %
 
 % Clean up inputs
-if nargin < 5
-    id = [];
-    if nargin < 4
-        seed = [];
-        if nargin < 3
-            compartment = [];
-        end
+if nargin < 4
+    seed = [];
+    if nargin < 3
+        compartment = [];
     end
 end
 
@@ -48,11 +45,6 @@ end
 if isempty(seed)
     seed = 0;
 end
-if isempty(id)
-    id = '';
-elseif issym(id)
-    id = char(id);
-end
 
 % Clean up initial condition
 if ischar(seed)
@@ -66,11 +58,10 @@ end
 % Increment counter
 nx = m.add.nx + 1;
 m.add.nx = nx;
-m.add.States = growStatesAnalytic(m.add.States, nx);
+m.add.States = growStates(m.add.States, nx);
 
 % Add item
 m.add.States(nx).Name = fixSpeciesName(name);
-m.add.States(nx).ID = id;
 m.add.States(nx).Compartment = fixCompartmentName(compartment);
 m.add.States(nx).InitialValue = seed;
 

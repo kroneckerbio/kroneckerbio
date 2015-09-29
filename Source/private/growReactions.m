@@ -1,5 +1,12 @@
 function reactions = growReactions(reactions, nr)
 
+if nargin < 2
+    nr = 0;
+    if nargin < 1
+        reactions = [];
+    end
+end
+
 % Add more room in vector if necessary
 current = numel(reactions);
 add = nr - current;
