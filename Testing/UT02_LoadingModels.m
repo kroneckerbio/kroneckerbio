@@ -16,34 +16,6 @@ a.verifyEqual(m.Name, 'Simple')
 verifyDerivatives(a, m);
 end
 
-%% Symbolic model intermediate checking
-function testSBML2Symbolic(a)
-sbml = TranslateSBML('enzyme-catalysis-basic.xml');
-symbolic = sbml2symbolic(sbml);
-a.verifyEqual(symbolic.Name, 'enzyme-catalysis-basic');
-a.verifyEqual(symbolic.nv, 1);
-a.verifyEqual(symbolic.nx, 4);
-a.verifyEqual(symbolic.nu, 0);
-a.verifyEqual(symbolic.ns, 4);
-a.verifyEqual(symbolic.nk, 3);
-a.verifyEqual(symbolic.nr, 2);
-a.verifyEqual(symbolic.nz, 0);
-a.assertTrue(isValidSymbolicModel(symbolic));
-end
-
-function testMassaction2symbolic(a)
-m = LoadModelMassAction('Simple.txt');
-symbolic = massaction2symbolic(m);
-a.verifyEqual(symbolic.nv, 4);
-a.verifyEqual(symbolic.nx, 10);
-a.verifyEqual(symbolic.nu, 2);
-a.verifyEqual(symbolic.ns, 3);
-a.verifyEqual(symbolic.nk, 10);
-a.verifyEqual(symbolic.nr, 12); % separates forward and reverse rxns
-a.verifyEqual(symbolic.nz, 0);
-a.assertTrue(isValidSymbolicModel(symbolic));
-end
-
 %% More comprehensive advanced model loading
 function testBasicSBMLLoading(a)
 opts = [];

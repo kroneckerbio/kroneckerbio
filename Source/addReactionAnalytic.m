@@ -55,47 +55,18 @@ if nargin < 7
     end
 end
 
-% Set defaults
 if isempty(compartment)
     compartment = '';
 end
 
 % Standardize reaction name
-[name1, name2] = fixReactionName(name, forward, reverse);
+[name1, name2] = fixReactionName(name);
 
-% Standardize species names into compartment.species
+% Standardize reactions and products
 reactants = fixReactionSpecies(reactants);
-products =  fixReactionSpecies(products);
+products  = fixReactionSpecies(products);
 
-% Standardize reaction rate expressions
-forward = fixRateExpressionAnalytic(forward);
-reverse = fixRateExpressionAnalytic(reverse);
-
-% Standardize compartment name
-compartment = fixCompartmentName(compartment);
-
-% Incorporate reaction compartment
-if ~isempty(compartment)
-    all_species = [reactants, products];
-    
-    unqualified = false(size(all_species));
-    unambiguous_species = all_species;
-    for i = 1:numel(unambiguous_species)
-        if ~ismember('.', all_species{i})
-            % It is unqualified
-            unqualified(i) = true;
-            unambiguous_species{i} = [compartment '.' all_species{i}];
-        end
-    end
-    
-    % Update reactants and products
-    reactants = unambiguous_species(1:numel(reactants));
-    products = unambiguous_species(numel(reactants)+(1:numel(products)));
-    
-    % Rename in expressions
-    forward = substituteQuotedExpressions(forward, all_species(unqualified), unambiguous_species(unqualified), true);
-    reverse = substituteQuotedExpressions(reverse, all_species(unqualified), unambiguous_species(unqualified), true);
-end
+% Standardize reaction rate expressions - do nothing - just paste in
 
 % Add separate reactions for forward and reverse (if applicable)
 if ~isempty(forward)
@@ -110,6 +81,8 @@ if ~isempty(forward)
     m.add.Reactions(nr).Products = products;
     
     m.add.Reactions(nr).Rate = forward;
+    
+    m.add.Reactions(nr).Compartment = compartment;
     
     m.Ready = false;
 end
@@ -126,6 +99,8 @@ if ~isempty(reverse)
     m.add.Reactions(nr).Products = reactants;
     
     m.add.Reactions(nr).Rate = reverse;
+    
+    m.add.Reactions(nr).Compartment = compartment;
     
     m.Ready = false;
 end

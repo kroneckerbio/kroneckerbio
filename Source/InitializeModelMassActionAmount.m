@@ -320,22 +320,22 @@ end
 m.Type = 'Model.MassActionAmount';
 m.Name = fixModelName(name);
 
-m.Compartments = emptyCompartments(0);
-m.Parameters   = emptyParameters(0);
-m.Seeds        = emptySeeds(0);
-m.Inputs       = emptyInputs(0);
-m.States       = emptyStates(0);
-m.Reactions    = emptyReactions(0);
-m.Outputs      = emptyOutputs(0);
-m.Rules        = growRules();
+m.Compartments = growCompartments;
+m.Parameters   = growParameters;
+m.Seeds        = growSeeds;
+m.Inputs       = growInputs;
+m.States       = growStates;
+m.Reactions    = growReactions;
+m.Outputs      = growOutputs;
+m.Rules        = growRules;
 
 m = initializeModelBase(m);
 
-m.add.Compartments = growCompartments([], 0);
-m.add.Parameters   = growParameters([], 0);
-m.add.Seeds        = growSeeds([], 0);
-m.add.Inputs       = growInputs([], 0);
-m.add.States       = growStates([], 0);
-m.add.Reactions    = growReactions([], 0);
-m.add.Outputs      = growOutputs([], 0);
-m.add.Rules        = growRules();
+m.add.Compartments = growCompartments;
+m.add.Parameters   = growParameters;
+m.add.Seeds        = growSeeds;
+m.add.Inputs       = growInputs;
+m.add.States       = growStates;
+m.add.Reactions    = growReactions;
+m.add.Outputs      = growOutputs;
+m.add.Rules        = growRules;

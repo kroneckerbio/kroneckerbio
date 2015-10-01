@@ -26,176 +26,50 @@ function m = finalizeModelMassActionAmount(m)
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-%% Work-up
-assert(nargin >= 1, 'KroneckerBio:FinalizeModel:TooFewInputs', 'FinalizeModel requires at least 1 input argument')
-assert(isscalar(m), 'KroneckerBio:FinalizeModel:MoreThanOneModel', 'The model structure must be scalar')
-
-%% Place compartments
-nvNew = m.add.nv;
-
-% Check if item by this name already exists
-for iv = 1:nvNew
-    name = m.add.Compartments(iv).Name;
-    
-    if any(strcmp(name, [{m.Compartments.Name}, {m.add.Compartments(1:iv-1).Name}]))
-        error('KroneckerBio:FinalizeModel:RepeatCompartment', 'There is already a compartment with the name %s (new compartment #%i)', name, iv)
-    end
-end
-
-% Append new items
-m.Compartments = [m.Compartments; m.add.Compartments(1:nvNew)];
-
-% Update count
+%% Extract model components
 nv = numel(m.Compartments);
-m.nv = nv;
-v_names = vec({m.Compartments.Name});
-
-%% Place seeds
-nsNew = m.add.ns;
-
-% Check if item by this name already exists
-for is = 1:nsNew
-    name = m.add.Seeds(is).Name;
-    
-    if any(strcmp(name, [{m.Seeds.Name}, {m.add.Seeds(1:is-1).Name}]))
-        error('KroneckerBio:FinalizeModel:RepeatSeed', 'There is already a seed with the name %s (new seed #%i)', name, is)
-    end
-end
-
-% Append new items
-m.Seeds = [m.Seeds; m.add.Seeds(1:nsNew)];
-
-% Update count
-ns = numel(m.Seeds);
-m.ns = ns;
-s_names = {m.Seeds.Name};
-
-%% Place inputs
-nuNew = m.add.nu;
-
-% Assemble full names of states
-existing_names = vec({m.Inputs.Name});
-new_names = vec({m.add.Inputs(1:nuNew).Name});
-
-% Check if a state by this name already exists
-for iu = 1:nuNew
-    name = m.add.Inputs(iu).Name;
-    
-    if any(strcmp(name, [existing_names; new_names(1:iu-1)]))
-        error('KroneckerBio:FinalizeModel:RepeatSpecies', 'There is already an species with the name %s (new input #%i)', name, iu)
-    end
-end
-
-% Append new items
-m.Inputs = [m.Inputs; m.add.Inputs(1:nuNew)];
-
-% Update count
-nu = numel(m.Inputs);
-m.nu = nu;
-u_names = [existing_names; new_names];
-m.vuInd = lookupmember(vec({m.Inputs.Compartment}), v_names);
-
-%% Place states
-nxNew = m.add.nx;
-
-% Assemble full names of states
-existing_names = vec({m.States.Name});
-new_names = vec({m.add.States(1:nxNew).Name});
-
-% Check if a state by this name already exists
-for ix = 1:nxNew
-    name = m.add.States(ix).Name;
-    
-    if any(strcmp(name, [u_names; existing_names; new_names(1:ix-1)]))
-        error('KroneckerBio:FinalizeModel:RepeatSpecies', 'There is already a species with the name %s (new state #%i)', name, ix)
-    end
-end
-
-% Append new item
-m.States = [m.States; m.add.States(1:nxNew)];
-
-% Update count
-nx = numel(m.States);
-m.nx = nx;
-x_names = [existing_names; new_names];
-m.vxInd = lookupmember(vec({m.States.Compartment}), v_names);
-
-%% Place outputs
-nyNew = m.add.ny;
-
-% Check if item by this name already exists
-for iy = 1:nyNew
-    name = m.add.Outputs(iy).Name;
-    
-    if any(strcmp(name, [{m.Outputs.Name}, {m.add.Outputs(1:iy-1).Name}]))
-        error('KroneckerBio:FinalizeModel:RepeatOutput', 'There is already an output with the name %s (new output #%i)', name, iy)
-    end
-end
-
-% Append new items
-m.Outputs = [m.Outputs; m.add.Outputs(1:nyNew)];
-
-% Update count
-ny = numel(m.Outputs);
-m.ny = ny;
-
-%% Place parameters
-nkNew = m.add.nk;
-
-% Check if item by this name already exists
-for ik = 1:nkNew
-    name = m.add.Parameters(ik).Name;
-    
-    if any(strcmp(name, [{m.Parameters.Name}, {m.add.Parameters(1:ik-1).Name}]))
-        error('KroneckerBio:FinalizeModel:RepeatParameter', 'There is already a parameter with the name %s (new parameter #%i)', name, ik)
-    end
-end
-
-% Append new items
-m.Parameters = [m.Parameters; m.add.Parameters(1:nkNew)];
-
-% Update count
 nk = numel(m.Parameters);
-m.nk = nk;
-k_names = vec({m.Parameters.Name});
+ns = numel(m.Seeds);
+nu = numel(m.Inputs);
+nx = numel(m.States);
+nr = numel(m.Reactions);
+nz = numel(m.Rules);
+ny = numel(m.Outputs);
+nxu = nx + nu;
 
-%% Place reactions
+v_names = vec({m.Compartments.Name});
+k_names = vec({m.Parameters.Name});
+s_names = vec({m.Seeds.Name});
+u_names = vec({m.Inputs.Name});
+x_names = vec({m.States.Name});
+z_names = vec({m.Rules.Name});
+r_names = vec({m.Reactions.Name});
+y_names = vec({m.Outputs.Name});
 xu_names = [x_names; u_names];
 
-nrNew = m.add.nr; % Number of reaction specifications
+% Make list of all compartment.species in model
+u_full_names = vec(strcat({m.Inputs.Compartment}, '.', {m.Inputs.Name}));
+x_full_names = vec(strcat({m.States.Compartment}, '.', {m.States.Name}));
+xu_full_names = [x_full_names; u_full_names];
 
-% Loop over added reaction specifications
-for ir = 1:nrNew
-    n_reac = numel(m.add.Reactions(ir).Reactants);
-    n_prod = numel(m.add.Reactions(ir).Products);
-    
-    % Check name for each reactant
-    for i_reac = 1:n_reac
-        name = m.add.Reactions(ir).Reactants{i_reac};
-        assert(lookupmember(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
-    end
-
-    % Find full name for each product
-    for i_prod = 1:n_prod
-        name = m.add.Reactions(ir).Products{i_prod};
-        assert(lookupmember(name, xu_names) ~= 0, 'KroneckerBio:FinalizeModel:ReactantNotFound', 'Reaction %s (#%i) has reactant %s (#%i), which was not found as a species', m.add.Reactions(ir).Name, ir, name, i_reac)
-    end
+% Make logical vector of which species names are unique
+unique_xu_names = false(nu+nx,1);
+for ixu = 1:nu+nx
+    unique_xu_names(ixu) = ~ismember(xu_names{ixu}, [xu_names(1:ixu-1); xu_names(ixu+1:end)]);
 end
+unique_x_names = unique_xu_names(1:nx);
+unique_u_names = unique_xu_names(nx+(1:nu));
 
-% Append new items
-m.Reactions = [m.Reactions; m.add.Reactions(1:nrNew)];
-
-% Update count
-nr = numel(m.Reactions);
-m.nr = nr;
-r_names = vec({m.Reactions.Name});
-
-%% Place rules (placeholder, not implemented)
-% pass
+%% Warn on detected rules
+% Rules aren't currently supported in massaction models
+if nz > 0
+    warning('KroneckerBio:FinalizeModel:MassActionRule', 'Rules not supported in massaction models. Ignoring.')
+end
 
 %% Warn on repeated reactions
 % It is necessary to sort the reactants and products first so that
 % reactions which are merely permutations of the names can be detected
+% Note: if only reactions were objects with an overloaded equals function...
 sorted_reactions = cell(nr,1);
 for ir = 1:nr
     sorted_reactions{ir} = {sort(m.Reactions(ir).Reactants), sort(m.Reactions(ir).Products), m.Reactions(ir).Parameter, m.Reactions(ir).Name};
@@ -210,7 +84,7 @@ for ir = 1:nr
                 strcmp(sorted_reactions{ir}{3}{1}, sorted_reactions{jr}{3}{1}) && ...
                 sorted_reactions{ir}{3}{2} == sorted_reactions{jr}{3}{2} && ...
                 strcmp(sorted_reactions{ir}{4}, sorted_reactions{jr}{4})
-            warning('KroneckerBio:FinalizeModel:IdenticalReactions', 'Reaction %s (#%i) is identical to reaction %s (#%i)', r_names{ir}, ir, r_names{jr}, jr)
+            warning('KroneckerBio:FinalizeModel:RepeatReactions', 'Reaction %s (#%i) is identical to reaction %s (#%i)', r_names{ir}, ir, r_names{jr}, jr)
         end
     end
 end
@@ -254,7 +128,7 @@ for iv = 1:nv
         nExpr = size(m.Compartments(iv).Size,1);
         for iExpr = 1:nExpr
             % Find states that match the expression
-            match = find(~cellfun(@isempty, regexp(x_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            match = find(~cellfun(@isempty, regexp(x_full_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
             nAdd = numel(match);
             nB1Entries = nB1Entries + nAdd;
             
@@ -272,7 +146,7 @@ for iv = 1:nv
             B1Values(nB1Entries-nAdd+1:nB1Entries) = m.Compartments(iv).Size{iExpr,2};
             
             % Find inputs that match the expression
-            match = find(~cellfun(@isempty, regexp(u_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            match = find(~cellfun(@isempty, regexp(u_full_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
             nAdd = numel(match);
             nB2Entries = nB2Entries + nAdd;
             
@@ -366,7 +240,7 @@ for ix = 1:nx
     % Add seed entries
     for i = 1:size(seed_value,1)
         seed_index = find(strcmp(seed_value{i,1}, s_names));
-        assert(numel(seed_index) == 1, 'KroneckerBio:FinalizeModel:InvalidSeedName', ['Species ' x_names{ix} ' has an invalid seed ' seed_value{i,1}])
+        assert(numel(seed_index) == 1, 'KroneckerBio:FinalizeModel:InvalidSeedName', ['Species ' x_full_names{ix} ' has an invalid seed ' seed_value{i,1}])
         
         ndx0dsEntries = ndx0dsEntries + 1;
         
@@ -419,7 +293,7 @@ for iy = 1:ny
     nExpr = size(m.Outputs(iy).Expressions,1);
     for iExpr = 1:nExpr
         % Find states that match the expression
-        match = find(~cellfun(@isempty, regexp(x_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
+        match = find(~cellfun(@isempty, regexp(x_full_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
         nAdd = numel(match);
         nC1Entries = nC1Entries + nAdd;
         
@@ -437,7 +311,7 @@ for iy = 1:ny
         C1Values(nC1Entries-nAdd+1:nC1Entries) = m.Outputs(iy).Expressions{iExpr,2};
         
         % Find inputs that match the expression
-        match = find(~cellfun(@isempty, regexp(u_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
+        match = find(~cellfun(@isempty, regexp(u_full_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
         nAdd = numel(match);
         nC2Entries = nC2Entries + nAdd;
         
@@ -557,14 +431,14 @@ for ir = 1:nr
         else
             reactantsExist(i_reac) = true;
             reactantsAreStates(i_reac) = true;
-            temp = find(strcmp(m.Reactions(ir).Reactants(i_reac), x_names), 1);
+            temp = find(strcmp(m.Reactions(ir).Reactants(i_reac), x_full_names), 1);
             if ~isempty(temp)
                 % Store index to state species
                 reactants(i_reac) = temp;
                 reactantsAreStates(i_reac) = true;
             else
                 % Store index to input species
-                reactants(i_reac) = find(strcmp(m.Reactions(ir).Reactants(i_reac), u_names), 1);
+                reactants(i_reac) = find(strcmp(m.Reactions(ir).Reactants(i_reac), u_full_names), 1);
                 reactantsAreStates(i_reac) = false;
             end
         end
@@ -573,7 +447,7 @@ for ir = 1:nr
     m.rOrder(ir) = nnz(reactantsExist); % Store order
     
     for i_prod = 1:n_prod
-        temp = find(strcmp(m.Reactions(ir).Products{i_prod}, x_names), 1);
+        temp = find(strcmp(m.Reactions(ir).Products{i_prod}, x_full_names), 1);
         if ~isempty(temp)
             % Store index to product only if it is a state
             products(i_prod) = temp;
@@ -987,10 +861,10 @@ m.D6 = reshape(m.dD6dk * kRand, nr,nu);
 m.d  = m.dddk * kRand;
 
 % Determine used columns of bimolecular matrices
-[unused, D2UsedColumns] = find(m.D2);
-[unused, D3UsedColumns] = find(m.D3);
-[unused, D4UsedColumns] = find(m.D4);
-[unused, D5UsedColumns] = find(m.D5);
+[~, D2UsedColumns] = find(m.D2);
+[~, D3UsedColumns] = find(m.D3);
+[~, D4UsedColumns] = find(m.D4);
+[~, D5UsedColumns] = find(m.D5);
 
 D2UsedColumns = vec(unique(D2UsedColumns)); % vec compensates for Matlab bug when nr = 1
 D3UsedColumns = vec(unique(D3UsedColumns));
@@ -1002,23 +876,6 @@ D5UsedColumns = vec(unique(D5UsedColumns));
 [D3UsedSpecies2, D3UsedSpecies1] = ind2sub([nx,nu], D3UsedColumns);
 [D4UsedSpecies2, D4UsedSpecies1] = ind2sub([nu,nx], D4UsedColumns);
 [D5UsedSpecies2, D5UsedSpecies1] = ind2sub([nu,nu], D5UsedColumns);
-
-%% Empty out added items
-m.add.nv  = 0;
-m.add.nu  = 0;
-m.add.ns  = 0;
-m.add.nx  = 0;
-m.add.ny  = 0;
-m.add.nk  = 0;
-m.add.nr  = 0;
-
-m.add.Compartments = growCompartments([], 0);
-m.add.Inputs       = growInputs([], 0);
-m.add.Seeds        = growSeeds([], 0);
-m.add.States       = growStates([], 0);
-m.add.Outputs      = growOutputs([], 0);
-m.add.Parameters   = growParameters([], 0);
-m.add.Reactions    = growReactions([], 0);
 
 %% Final build of model
 m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2);

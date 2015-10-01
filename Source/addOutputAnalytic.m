@@ -1,4 +1,4 @@
-function m = addOutputAnalytic(m, name, expression)
+function m = addOutputAnalytic(m, name, expression, compartment)
 %AddOutput Add an output to a Model.Analytic
 %
 %   m = AddOutput(m, name, expression)
@@ -21,6 +21,16 @@ function m = addOutputAnalytic(m, name, expression)
 %   expression: [ string {name} ]
 %       Mathematical expression for the output. If blank, expression is set to
 %       the state represented by the name, if possible.
+%   compartment: [ string | empty {''} ]
+%       A compartment name.
+%       If empty, then each species referred to in the reactants, products,
+%       forward, and reverse must unambiguously refer to a single species
+%       in the model, either because it is unique or because it is a
+%       species full name.
+%       If supplied, then each species in the reactants and products that
+%       does not have a compartment will be disambiguated with this
+%       compartment. The reactants and products that are disambiguated will
+%       also be disambiguated in forward and reverse expressions.
 %
 %   Outputs
 %   m: [ model struct scalar ]
@@ -28,7 +38,7 @@ function m = addOutputAnalytic(m, name, expression)
 
 % Clean up inputs
 if nargin < 4
-    id = [];
+    compartment = [];
     if nargin < 3
         expression = [];
     end
@@ -37,6 +47,9 @@ end
 % Set defaults
 if isempty(expression)
     expression = name;
+end
+if isempty(compartment)
+    compartment = '';
 end
 
 % Increment counter
@@ -47,5 +60,6 @@ m.add.Outputs = growOutputsAnalytic(m.add.Outputs, ny);
 % Add item
 m.add.Outputs(ny).Name = fixOutputName(name);
 m.add.Outputs(ny).Expression = fixOutputAnalytic(expression);
+m.add.Outputs(ny).Compartment = compartment;
 
 m.Ready = false;

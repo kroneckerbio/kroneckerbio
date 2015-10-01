@@ -1,4 +1,4 @@
-function m = addOutputMassActionAmount(m, name, expressions)
+function m = addOutputMassActionAmount(m, name, expressions, compartment)
 %AddOutput Add an output to a KroneckerBio model
 %
 %   m = AddOutput(m, name, expressions)
@@ -26,6 +26,16 @@ function m = addOutputMassActionAmount(m, name, expressions)
 %       default scalar is 1. If just a scalar is given or a scalar is
 %       paired with an empty string, then that is assumed to be a
 %       constitutive amount added to the output value.
+%   compartment: [ string | empty {''} ]
+%       A compartment name.
+%       If empty, then each species referred to in the reactants, products,
+%       forward, and reverse must unambiguously refer to a single species
+%       in the model, either because it is unique or because it is a
+%       species full name.
+%       If supplied, then each species in the reactants and products that
+%       does not have a compartment will be disambiguated with this
+%       compartment. The reactants and products that are disambiguated will
+%       also be disambiguated in forward and reverse expressions.
 %
 %   Outputs
 %   m: [ model struct scalar ]
@@ -33,6 +43,15 @@ function m = addOutputMassActionAmount(m, name, expressions)
 
 % (c) 2013 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
+
+% Clean-up
+if nargin < 4
+    compartment = [];
+end
+
+if isempty(compartment)
+    compartment = '';
+end
 
 % Increment counter
 ny = m.add.ny + 1;
@@ -42,5 +61,6 @@ m.add.Outputs = growOutputs(m.add.Outputs, ny);
 % Add item
 m.add.Outputs(ny).Name = fixOutputName(name);
 m.add.Outputs(ny).Expressions = fixOutputExpressions(expressions);
+m.add.Outputs(ny).Compartment = compartment;
 
 m.Ready = false;

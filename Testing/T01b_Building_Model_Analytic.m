@@ -10,6 +10,7 @@ m = AddSeed(m, 's1', 5);
 m = AddSeed(m, 's2', 3);
 m = AddSeed(m, 's3:s4', 4);
 
+m = AddState(m, 'x0', 'v1', 1);
 m = AddState(m, 'x0', 'v2', '2*s1 + 1.5^("s3:s4")');
 m = AddState(m, 'x1', 'v1');
 m = AddState(m, 'x2', 'v1', 10);
@@ -37,8 +38,11 @@ m = AddReaction(m, 'r00', {'x1','u1'}, {'x2','x3','x4'}, 'k1*x5');
 
 m = AddReaction(m, 'r00', 'x1', {'x3', 'x4'}, 'k1');
 m = AddReaction(m, 'r01', 'x1', {'x3', 'x4'}, 'k1 + k2');
-m = AddReaction(m, 'r02', 'x1', {'x3', 'x4'}, 'k1*x0/(k2^2 + u2^2)');
-m = AddReaction(m, 'r03', 'x1', {'x3', 'x4'}, 'exp(k1 + 1.4*u3)');
+m = AddReaction(m, 'r02', 'x1', {'x3', 'x4'}, 'k1/(k2^2 + x1^2)');
+m = AddReaction(m, 'r03', 'x1', {'x3', 'x4'}, 'k1*x0/(k2^2 + u2^2)', '', 'v1');
+m = AddReaction(m, 'r04', 'x1', {'x3', 'x4'}, 'k1*"v1.x0"/(k2^2 + u2^2)');
+m = AddReaction(m, 'r05', 'x1', {'x3', 'x4'}, 'k1*"v1.x0"/(k2^2 + u2^2)', '', 'v1');
+m = AddReaction(m, 'r06', 'x1', {'x3', 'x4'}, 'exp(k1 + 1.4*u3)');
 m = AddReaction(m, 'r1', {}, {}, 'k1');
 m = AddReaction(m, 'r2', {}, 'x3', 'k1');
 m = AddReaction(m, 'r3', {}, {'x3', 'x4'}, 'k1');
@@ -81,11 +85,11 @@ m = AddReaction(m, 'r34', 'u2', {'u3', 'x4'}, 'k1');
 m = AddReaction(m, 'r35', 'u2', {'u3', 'u4'}, 'k1');
 m = AddReaction(m, 'r36', 'u2', 'u3', 'k1');
 
-% Add identical reaction - TODO: make this warn and ignore
+% Add identical reaction - TODO: make this warn and ignore in analytic models
 m = AddReaction(m, 'r22', {'x1', 'u2'}, {'x4', 'u3'}, 'k1');
 
-m = AddRuleAnalytic(m, 'z1', 'k4', '1.5*k2 + 2.6*k3', 'repeated assignment');
-m = AddRuleAnalytic(m, 'z2', 'x2', '1.7*k2 + 2.8*k3', 'initial assignment'); % fixes to existing expression values when making model
+% m = addRuleAnalytic(m, 'z1', 'k4', '1.5*k2 + 2.6*k3', 'repeated assignment');
+% m = addRuleAnalytic(m, 'z2', 'x2', '1.7*k2 + 2.8*k3', 'initial assignment'); % fixes to existing expression values when making model
 
 opts = [];
 opts.Verbose = 2;

@@ -1,4 +1,4 @@
-function m = addReactionMassActionAmount(m, name, reactants, products, kForward, kReverse)
+function m = addReactionMassActionAmount(m, name, reactants, products, kForward, kReverse, compartment)
 %AddReaction Add a reaction to a KroneckerBio model
 %
 %   m = AddReaction(m, name, reactants, products, kForward, kReverse)
@@ -34,6 +34,16 @@ function m = addReactionMassActionAmount(m, name, reactants, products, kForward,
 %       the kinetic parameter and the scaling factor is assumed to be 1.
 %   kReverse: [ string | cell vector | empty {''} ]
 %       Like kForward.
+%   compartment: [ string | empty {''} ]
+%       A compartment name.
+%       If empty, then each species referred to in the reactants, products,
+%       forward, and reverse must unambiguously refer to a single species
+%       in the model, either because it is unique or because it is a
+%       species full name.
+%       If supplied, then each species in the reactants and products that
+%       does not have a compartment will be disambiguated with this
+%       compartment. The reactants and products that are disambiguated will
+%       also be disambiguated in forward and reverse expressions.
 %
 %   Outputs
 %   m: [ model struct scalar ]
@@ -43,18 +53,29 @@ function m = addReactionMassActionAmount(m, name, reactants, products, kForward,
 % This work is released under the MIT license.
 
 % Clean-up
-if nargin < 6
-    kReverse = [];
+if nargin < 7
+    compartment = [];
+    if nargin < 6
+        kReverse = [];
+    end
 end
 
-% Standardize names
-[name1, name2] = fixReactionName(name, kForward, kReverse);
-reactants = fixReactionSpecies(reactants);
-products = fixReactionSpecies(products);
-kForward = fixReactionParameter(kForward);
-kReverse = fixReactionParameter(kReverse);
+if isempty(compartment)
+    compartment = '';
+end
 
-% Increment counter
+% Standardize reaction name
+[name1, name2] = fixReactionName(name);
+
+% Standardize reactions and products
+reactants = fixReactionSpecies(reactants);
+products  = fixReactionSpecies(products);
+
+% Standardize reaction rate parameters
+kForward  = fixReactionParameter(kForward);
+kReverse  = fixReactionParameter(kReverse);
+
+% Add separate reactions for forward and reverse (if applicable)
 if ~isempty(kForward{1})
     nr = m.add.nr + 1;
     m.add.nr = nr;
@@ -67,6 +88,8 @@ if ~isempty(kForward{1})
     m.add.Reactions(nr).Products = products;
     
     m.add.Reactions(nr).Parameter = kForward;
+    
+    m.add.Reactions(nr).Compartment = compartment;
     
     m.Ready = false;
 end
@@ -83,6 +106,8 @@ if ~isempty(kReverse{1})
     m.add.Reactions(nr).Products = reactants;
     
     m.add.Reactions(nr).Parameter = kReverse;
+    
+    m.add.Reactions(nr).Compartment = compartment;
     
     m.Ready = false;
 end
