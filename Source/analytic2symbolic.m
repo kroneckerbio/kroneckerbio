@@ -3,11 +3,10 @@ function symbolic = analytic2symbolic(m, opts)
 %   m [ Model.Analytic struct ]
 %   opts [ options struct ]
 %       Options struct allowing the following fields:
-%       .Verbose
-%       .Finalized [ {true} | false ]
-%           Whether to only use model components from a finalized model. True
-%           means m.* components are used. False means m.* and m.add.*
-%           components are used.
+%       .Verbose [ nonnegative integer ]
+%           The level of debug information verbosity, with higher values giving
+%           more output.
+%
 % Outputs:
 %   symbolic [ Model.Symbolic struct ]
 
@@ -22,29 +21,6 @@ opts_.Finalized = false;
 opts = mergestruct(opts_, opts);
 
 verbose = logical(opts.Verbose);
-
-%% Copy m.add.* fields in non-finalized models
-if ~opts.Finalized
-    if verbose; fprintf('Copying nonfinalized componenets...'); end
-    m.Compartments = combineComponents(m.Compartments, m.add.Compartments, opts.Verbose);
-    m.Parameters = combineComponents(m.Parameters, m.add.Parameters, opts.Verbose);
-    m.Seeds = combineComponents(m.Seeds, m.add.Seeds, opts.Verbose);
-    m.States = combineComponents(m.States, m.add.States, opts.Verbose);
-    m.Inputs = combineComponents(m.Inputs, m.add.Inputs, opts.Verbose);
-    m.Reactions = combineComponents(m.Reactions, m.add.Reactions, opts.Verbose);
-    m.Outputs = combineComponents(m.Outputs, m.add.Outputs, opts.Verbose);
-    m.Rules = combineComponents(m.Rules, m.add.Rules, opts.Verbose);
-    m.nv = length(m.Compartments);
-    m.nk = length(m.Parameters);
-    m.ns = length(m.Seeds);
-    m.nx = length(m.States);
-    m.nu = length(m.Inputs);
-    m.nr = length(m.Reactions);
-    m.ny = length(m.Outputs);
-    m.nz = length(m.Rules);
-    if verbose; fprintf('done.\n'); end
-end
-
 
 %% Extract model components
 if verbose; fprintf('Extracting model components...'); end

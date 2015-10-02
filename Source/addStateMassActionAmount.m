@@ -1,4 +1,4 @@
-function m = addStateMassActionAmount(m, name, compartment, seed)
+function m = addStateMassActionAmount(m, name, compartment, ic)
 %AddState Add a state species to a KroneckerBio model
 %
 %   m = AddState(m, name, compartment, seed)
@@ -11,7 +11,7 @@ function m = addStateMassActionAmount(m, name, compartment, seed)
 %       refer to it.
 %   compartment: [ string ]
 %       The name of the compartment to which it will be added
-%   seed: [ string | nonnegative scalar | cell vector of strings
+%   ic: [ string | nonnegative scalar | cell vector of strings
 %           | cell matrix {0} ]
 %       This is the name of the seed that will control the initial value of
 %       this state. If it is an empty string, then no seed will control it,
@@ -23,26 +23,22 @@ function m = addStateMassActionAmount(m, name, compartment, seed)
 %   m: [ model struct scalar ]
 %       The model with the new state added.
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 % Clean-up inputs
 if nargin < 4
-    seed = [];
-end
-
-if isempty(seed)
-    seed = '';
+    ic = [];
 end
 
 % Increment counter
-nx = m.add.nx + 1;
-m.add.nx = nx;
-m.add.States = growStates(m.add.States, nx);
+nx = m.nx + 1;
+m.nx = nx;
+m.States = growStates(m.States, nx);
 
 % Add item
-m.add.States(nx).Name = fixSpeciesName(name);
-m.add.States(nx).Compartment = fixCompartmentName(compartment);
-m.add.States(nx).InitialValue = fixStateSeed(seed);
+m.States(nx).Name         = fixSpeciesName(name);
+m.States(nx).Compartment  = fixCompartmentName(compartment);
+m.States(nx).InitialValue = fixStateICMassAction(ic);
 
 m.Ready = false;

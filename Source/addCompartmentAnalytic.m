@@ -26,13 +26,13 @@ function m = addCompartmentAnalytic(m, name, dimension, size)
 %       The model with the new compartment added.
 
 % Increment counter
-nv = m.add.nv + 1;
-m.add.nv = nv;
-m.add.Compartments = growCompartments(m.add.Compartments, m.add.nv);
+nv = m.nv + 1;
+m.nv = nv;
+m.Compartments = growCompartments(m.Compartments, nv);
 
 % Add item
-m.add.Compartments(nv).Name = fixCompartmentName(name);
-m.add.Compartments(nv).Dimension = fixCompartmentDimension(dimension);
-m.add.Compartments(nv).Size = fixCompartmentSizeAnalytic(size, dimension);
+m.Compartments(nv).Name      = fixCompartmentName(name);
+m.Compartments(nv).Dimension = fixCompartmentDimension(dimension);
+m.Compartments(nv).Size      = fixCompartmentSizeAnalytic(size, dimension);
 
 m.Ready = false;

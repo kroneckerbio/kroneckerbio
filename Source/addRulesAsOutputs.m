@@ -7,9 +7,7 @@ function m = addRulesAsOutputs(m)
 % (c) 2015 David R Hagen
 % This work is released under the MIT license.
 
-all_rules = [m.Rules; m.add.Rules(1:m.add.nz)];
-
-full_names = vec({all_rules.Name});
+full_names = vec({m.Rules(1:m.nz).Name});
 
 if is(m, 'Model.MassActionAmount')
     error('NotImplemented')

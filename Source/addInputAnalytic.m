@@ -9,7 +9,7 @@ function m = addInputAnalytic(m, name, compartment, default)
 %   name: [ string ]
 %       A name for the input. This is the name by which reactions will
 %       refer to it.
-%   compartment: [ string {1st compartment in model} ]
+%   compartment: [ string ]
 %       The name of the compartment to which it will be added.
 %   default: [ nonnegative scalar {0} ]
 %       The default value for this input.
@@ -20,34 +20,20 @@ function m = addInputAnalytic(m, name, compartment, default)
 
 if nargin < 4
     default = [];
-    if nargin < 3
-        compartment = [];
-    end
 end
 
-% Get compartment names in model
-vNames = [{m.Compartments.Name}; {m.add.Compartments.Name}];
-vNames = unique(vNames(~cellfun('isempty',vNames)));
-if isempty(vNames)
-    error('addInputAnalytic: model has no compartments for state to reside in')
-end
-
-% Set defaults
-if isempty(compartment)
-    compartment = vNames{1};
-end
 if isempty(default)
     default = 0;
 end
 
 % Increment counter
-nu = m.add.nu + 1;
-m.add.nu = nu;
-m.add.Inputs = growInputs(m.add.Inputs, nu);
+nu = m.nu + 1;
+m.nu = nu;
+m.Inputs = growInputs(m.Inputs, nu);
 
 % Add item
-m.add.Inputs(nu).Name = fixSpeciesName(name);
-m.add.Inputs(nu).Compartment = fixCompartmentName(compartment);
-m.add.Inputs(nu).DefaultValue = fixInputDefaultValue(default);
+m.Inputs(nu).Name         = fixSpeciesName(name);
+m.Inputs(nu).Compartment  = fixCompartmentName(compartment);
+m.Inputs(nu).DefaultValue = fixInputDefaultValue(default);
 
 m.Ready = false;

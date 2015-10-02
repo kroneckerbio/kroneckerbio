@@ -41,25 +41,15 @@ else
     error('KroneckerBio:AddOutput:m', 'm must be a model')
 end
 
-%% Trim m.add.* components to only those actually added
-m.add.Compartments = m.add.Compartments(1:m.add.nv);
-m.add.Seeds        = m.add.Seeds(1:m.add.ns);
-m.add.Parameters   = m.add.Parameters(1:m.add.nk);
-m.add.Inputs       = m.add.Inputs(1:m.add.nu);
-m.add.States       = m.add.States(1:m.add.nx);
-m.add.Reactions    = m.add.Reactions(1:m.add.nr);
-m.add.Rules        = m.add.Rules(1:m.add.nz);
-m.add.Outputs      = m.add.Outputs(1:m.add.ny);
-
-%% Add in m.add.* components
-m.Compartments = [m.Compartments; m.add.Compartments];
-m.Seeds        = [m.Seeds; m.add.Seeds];
-m.Parameters   = [m.Parameters; m.add.Parameters];
-m.Inputs       = [m.Inputs; m.add.Inputs];
-m.States       = [m.States; m.add.States];
-m.Reactions    = [m.Reactions; m.add.Reactions];
-m.Rules        = [m.Rules; m.add.Rules];
-m.Outputs      = [m.Outputs; m.add.Outputs];
+%% Trim m.* components to only those actually added
+m.Compartments = m.Compartments(1:m.nv);
+m.Seeds        = m.Seeds(1:m.ns);
+m.Parameters   = m.Parameters(1:m.nk);
+m.Inputs       = m.Inputs(1:m.nu);
+m.States       = m.States(1:m.nx);
+m.Reactions    = m.Reactions(1:m.nr);
+m.Rules        = m.Rules(1:m.nz);
+m.Outputs      = m.Outputs(1:m.ny);
 
 nv = numel(m.Compartments);
 nk = numel(m.Parameters);
@@ -70,34 +60,6 @@ nr = numel(m.Reactions);
 nz = numel(m.Rules);
 ny = numel(m.Outputs);
 nxu = nx + nu;
-
-m.nv = nv;
-m.nk = nk;
-m.ns = ns;
-m.nu = nu;
-m.nx = nx;
-m.nr = nr;
-m.nz = nz;
-m.ny = ny;
-
-%% Reset m.add.*
-m.add.Compartments = growCompartments;
-m.add.Parameters   = growParameters;
-m.add.Seeds        = growSeeds;
-m.add.Inputs       = growInputs;
-m.add.States       = growStates;
-m.add.Reactions    = growReactions_();
-m.add.Rules        = growRules;
-m.add.Outputs      = growOutputs_();
-
-m.add.nv = 0;
-m.add.nk = 0;
-m.add.ns = 0;
-m.add.nu = 0;
-m.add.nx = 0;
-m.add.nz = 0;
-m.add.nr = 0;
-m.add.ny = 0;
 
 %% Extract names
 v_names = vec({m.Compartments.Name});

@@ -159,8 +159,8 @@ assert_unique_name([u_full_names; x_full_names])
 % Only unique species names can be referred to by their unqualified names
 % Unique species names and full names point to the same symbols
 ambiguous_names = [u_names(~unique_u_names); x_names(~unique_x_names)];
-all_names = [v_names; s_names; k_names; u_names(unique_u_names); x_names(unique_x_names); z_names; y_names; u_full_names; x_full_names];
-all_ids = [v_strs; s_strs; k_strs; u_strs(unique_u_names); x_strs(unique_x_names); z_strs; y_strs; u_strs; x_strs];
+all_names = [v_names; s_names; k_names; u_names(unique_u_names); x_names(unique_x_names); z_names; u_full_names; x_full_names];
+all_ids = [v_strs; s_strs; k_strs; u_strs(unique_u_names); x_strs(unique_x_names); z_strs; u_strs; x_strs];
 
 %% Replace names with symbolics and convert to symbolics
 % First test for ambiguous species
@@ -170,17 +170,17 @@ assert_no_ambiguous_species(z, ambiguous_names, 'rule');
 assert_no_ambiguous_species(r, ambiguous_names, 'reaction');
 assert_no_ambiguous_species(y, ambiguous_names, 'output');
 
-v = substituteQuotedExpressions(v, all_names, all_ids);
+v  = substituteQuotedExpressions(v, all_names, all_ids);
 x0 = substituteQuotedExpressions(x0, all_names, all_ids);
-z = substituteQuotedExpressions(z, all_names, all_ids);
-r = substituteQuotedExpressions(r, all_names, all_ids);
-y = substituteQuotedExpressions(y, all_names, all_ids);
+z  = substituteQuotedExpressions(z, all_names, all_ids);
+r  = substituteQuotedExpressions(r, all_names, all_ids);
+y  = substituteQuotedExpressions(y, all_names, all_ids);
 
-v = sym(v);
+v  = sym(v);
 x0 = sym(x0);
-z = sym(z);
-r = sym(r);
-y = sym(y);
+z  = sym(z);
+r  = sym(r);
+y  = sym(y);
 
 %% Substitute in expressions
 % Everything that is substitutable

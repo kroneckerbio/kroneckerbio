@@ -179,17 +179,18 @@ m = AddState(m, 'x2', 'v1', 3);
 %% Forms of empty species lists
 emptySpeciesForms = {[], {}, '', cell(1,0)};
 nForms = length(emptySpeciesForms);
+nr = m.nr;
 
 % Empty reactants
 for i = 1:nForms
     m = AddReaction(m, 'r1', emptySpeciesForms{i}, 'x2', 'k1');
-    a.verifyEqual(m.add.Reactions(i).Reactants, cell(1,0))
+    a.verifyEqual(m.Reactions(nr+i).Reactants, cell(1,0))
 end
 
 % Empty products
 for i = 1:nForms
     m = AddReaction(m, 'r1', 'x1', emptySpeciesForms{i}, 'k1');
-    a.verifyEqual(m.add.Reactions(nForms+i).Products, cell(1,0))
+    a.verifyEqual(m.Reactions(nr+nForms+i).Products, cell(1,0))
 end
 
 %% Forms of some empty species lists that should error
@@ -205,4 +206,51 @@ end
 for i = 1:nForms
     a.verifyError(@()AddReaction(m, 'r1', 'x1', emptySpeciesForms{i}, 'k1'), 'KroneckerBio:fixReactionSpecies:InvalidBlankName');
 end
+end
+
+function testRemoveComponent(a)
+m = InitializeModelMassActionAmount();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddParameter(m, 'k1', 4);
+m = AddSeed(m, 's1', 1);
+m = AddState(m, 'x1', 'v1', 1);
+m = AddInput(m, 'u1', 'v1', 1);
+m = AddOutput(m, 'y1', 'x1');
+m = AddReaction(m, 'r1', 'x1', {}, 'k1');
+m = FinalizeModel(m);
+
+test = RemoveCompartment(m, 'v1');
+a.verifyEqual(test.nv, 0);
+a.verifyEqual(length(test.Compartments), 0);
+a.verifyError(@()RemoveCompartment(m, 'v2'), 'KroneckerBio:RemoveCompartment:CompartmentNotFound');
+
+test = RemoveParameter(m, 'k1');
+a.verifyEqual(test.nk, 0);
+a.verifyEqual(length(test.Parameters), 0);
+a.verifyError(@()RemoveParameter(m, 'k2'), 'KroneckerBio:RemoveParameter:ParameterNotFound');
+
+test = RemoveSeed(m, 's1');
+a.verifyEqual(test.ns, 0);
+a.verifyEqual(length(test.Seeds), 0);
+a.verifyError(@()RemoveSeed(m, 's2'), 'KroneckerBio:RemoveSeed:SeedNotFound');
+
+test = RemoveState(m, 'x1');
+a.verifyEqual(test.nx, 0);
+a.verifyEqual(length(test.States), 0);
+a.verifyError(@()RemoveState(m, 'x2'), 'KroneckerBio:RemoveState:StateNotFound');
+
+test = RemoveInput(m, 'u1');
+a.verifyEqual(test.nu, 0);
+a.verifyEqual(length(test.Inputs), 0);
+a.verifyError(@()RemoveInput(m, 'u2'), 'KroneckerBio:RemoveInput:InputNotFound');
+
+test = RemoveOutput(m, 'y1');
+a.verifyEqual(test.ny, 0);
+a.verifyEqual(length(test.Outputs), 0);
+a.verifyError(@()RemoveOutput(m, 'y2'), 'KroneckerBio:RemoveOutput:OutputNotFound');
+
+test = RemoveReaction(m, 'r1');
+a.verifyEqual(test.nr, 0);
+a.verifyEqual(length(test.Reactions), 0);
+a.verifyError(@()RemoveReaction(m, 'r2'), 'KroneckerBio:RemoveReaction:ReactionNotFound');
 end

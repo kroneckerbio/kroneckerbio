@@ -296,11 +296,6 @@ function m = InitializeModelMassActionAmount(name)
 %           set to false. The model may contain inconsistent or out-of-date
 %           information until FinalizeModel is called, which refreshes the
 %           structure of the model.
-%       .add [ struct scalar ]
-%           Functions that add components to the model put them here until
-%           FinalizeModel is called. Storing them here and processing them
-%           all at once at the end is faster than lengthing each struct
-%           vector one element a time.
 %       .Update [ handle @(k,x0,q) return struct scalar ]
 %           This function handle allows the parameter values of the model
 %           to be changed without having to rebuild the model. Each vector
@@ -330,12 +325,3 @@ m.Outputs      = growOutputs;
 m.Rules        = growRules;
 
 m = initializeModelBase(m);
-
-m.add.Compartments = growCompartments;
-m.add.Parameters   = growParameters;
-m.add.Seeds        = growSeeds;
-m.add.Inputs       = growInputs;
-m.add.States       = growStates;
-m.add.Reactions    = growReactions;
-m.add.Outputs      = growOutputs;
-m.add.Rules        = growRules;

@@ -19,7 +19,7 @@ function m = AddRule(m, varargin)
 % This work is released under the MIT license.
 
 if is(m, 'Model.MassActionAmount')
-    m = addRuleMassActionAmount(m, varargin{:});
+    error('KroneckerBio:AddRule:MassActionAmount', 'Rules are not implemented for massaction models')
 elseif is(m, 'Model.MassActionConcentration')
     m = addRuleMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')

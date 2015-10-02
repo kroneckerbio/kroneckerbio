@@ -14,12 +14,12 @@ function m = addRuleAnalytic(m, name, expression)
 %       The model with the new rule added
 
 % Increment counter
-nz = m.add.nz + 1;
-m.add.nz = nz;
-m.add.Rules = growRules(m.add.Rules, m.add.nz);
+nz = m.nz + 1;
+m.nz = nz;
+m.Rules = growRules(m.Rules, m.nz);
 
 % Add item
-m.add.Rules(nz).Name = name;
-m.add.Rules(nz).Expression = fixRuleExpression(expression);
+m.Rules(nz).Name       = name;
+m.Rules(nz).Expression = fixRuleExpression(expression);
 
 m.Ready = false;

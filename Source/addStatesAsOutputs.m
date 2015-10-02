@@ -7,12 +7,10 @@ function m = addStatesAsOutputs(m)
 % (c) 2015 David R Hagen
 % This work is released under the MIT license.
 
-all_states = [m.States; m.add.States(1:m.add.nx)];
-
-full_names = vec({all_states.Name});
+full_names = vec(strcat({m.States(1:m.nx).Compartment}, '.', {m.States(1:m.nx).Name}));
 
 if is(m, 'Model.MassActionAmount')
-    full_names_regex = strcat('^', full_names, '$');
+    full_names_regex = strcat('^', full_names, '$'); 
     
     for i = 1:numel(full_names)
         m = AddOutput(m, full_names{i}, full_names_regex{i});

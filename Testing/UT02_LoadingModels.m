@@ -41,9 +41,9 @@ m = AddOutput(m, 'product', '"S#P"');
 m = AddOutput(m, 'modified_product', '1.5*"S#P"');
 m = AddOutput(m, 'random_y', '"E:S" + sqrt("S")');
 
-a.verifyEqual(m.add.ny, 4);
-a.verifyEqual(m.add.Outputs(1).Name, 'complex');
-a.verifyEqual(m.add.Outputs(1).Expression, '"E:S"');
+a.verifyEqual(m.ny, 4);
+a.verifyEqual(m.Outputs(1).Name, 'complex');
+a.verifyEqual(m.Outputs(1).Expression, '"E:S"');
 
 m = FinalizeModel(m);
 

@@ -10,12 +10,11 @@ function fullName = fixSpeciesFullName(species, compartment, m)
 %       Compartment to search in if species doesn't contain one
 %   m [ Model.Analytic struct ]
 %       Model to search for species and compartments in
+%
 % Outputs:
 %   fullName [ string | [] ]
 %       Full species name in 'compartment.species' form if a species string is
 %       entered or empty scalar double [] if no species is entered
-% Note: make sure m.* and m.add.* are consistent - i.e., components only appear
-% in 1 place when this is called.
 
 %% Ignore if empty
 if isempty(species) || (ischar(species) && strcmp(species, ''))
@@ -24,9 +23,9 @@ if isempty(species) || (ischar(species) && strcmp(species, ''))
 end
 
 %% Get all species and compartments
-xuNames = [{m.States.Name}, {m.add.States.Name}, {m.Inputs.Name}, {m.add.Inputs.Name}];
+xuNames = [{m.States.Name}, {m.Inputs.Name}];
 xuNames = xuNames(~cellfun('isempty',xuNames));
-xuCompartments = [{m.States.Compartment}, {m.add.States.Compartment}, {m.Inputs.Compartment}, {m.add.Inputs.Compartment}];
+xuCompartments = [{m.States.Compartment}, {m.Inputs.Compartment}];
 xuCompartments = xuCompartments(~cellfun('isempty',xuCompartments));
 
 %% If name is already a full name, ignore compartment argument, check validity and return as is
@@ -53,7 +52,7 @@ end
 
 % Get default (1st) compartment if not supplied
 if isempty(compartment)
-    vNames = [{m.Compartments.Name}, {m.add.Compartments.Name}];
+    vNames = {m.Compartments.Name};
     vNames = unique(vNames(~cellfun('isempty',vNames)));
     if isempty(vNames)
         error('fixReactionSpeciesAnalytic: model has no compartments for state to reside in')

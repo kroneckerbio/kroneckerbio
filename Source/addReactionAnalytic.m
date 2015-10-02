@@ -60,7 +60,7 @@ if isempty(compartment)
 end
 
 % Standardize reaction name
-[name1, name2] = fixReactionName(name);
+[nameForward, nameReverse] = fixReactionName(name);
 
 % Standardize reactions and products
 reactants = fixReactionSpecies(reactants);
@@ -70,37 +70,29 @@ products  = fixReactionSpecies(products);
 
 % Add separate reactions for forward and reverse (if applicable)
 if ~isempty(forward)
-    nr = m.add.nr + 1;
-    m.add.nr = nr;
-    m.add.Reactions = growReactionsAnalytic(m.add.Reactions, nr);
+    nr = m.nr + 1;
+    m.nr = nr;
+    m.Reactions = growReactionsAnalytic(m.Reactions, nr);
     
-    m.add.Reactions(nr).Name = name1;
-    
-    m.add.Reactions(nr).Reactants = reactants;
-    
-    m.add.Reactions(nr).Products = products;
-    
-    m.add.Reactions(nr).Rate = forward;
-    
-    m.add.Reactions(nr).Compartment = compartment;
+    m.Reactions(nr).Name        = nameForward;
+    m.Reactions(nr).Reactants   = reactants;
+    m.Reactions(nr).Products    = products;
+    m.Reactions(nr).Rate        = forward;
+    m.Reactions(nr).Compartment = compartment;
     
     m.Ready = false;
 end
 
 if ~isempty(reverse)
-    nr = m.add.nr + 1;
-    m.add.nr = nr;
-    m.add.Reactions = growReactionsAnalytic(m.add.Reactions, nr);
+    nr = m.nr + 1;
+    m.nr = nr;
+    m.Reactions = growReactionsAnalytic(m.Reactions, nr);
     
-    m.add.Reactions(nr).Name = name2;
-    
-    m.add.Reactions(nr).Reactants = products;
-    
-    m.add.Reactions(nr).Products = reactants;
-    
-    m.add.Reactions(nr).Rate = reverse;
-    
-    m.add.Reactions(nr).Compartment = compartment;
+    m.Reactions(nr).Name        = nameReverse;
+    m.Reactions(nr).Reactants   = products;
+    m.Reactions(nr).Products    = reactants;
+    m.Reactions(nr).Rate        = reverse;
+    m.Reactions(nr).Compartment = compartment;
     
     m.Ready = false;
 end

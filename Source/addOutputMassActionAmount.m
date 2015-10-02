@@ -54,13 +54,13 @@ if isempty(compartment)
 end
 
 % Increment counter
-ny = m.add.ny + 1;
-m.add.ny = ny;
-m.add.Outputs = growOutputs(m.add.Outputs, ny);
+ny = m.ny + 1;
+m.ny = ny;
+m.Outputs = growOutputs(m.Outputs, ny);
 
 % Add item
-m.add.Outputs(ny).Name = fixOutputName(name);
-m.add.Outputs(ny).Expressions = fixOutputExpressions(expressions);
-m.add.Outputs(ny).Compartment = compartment;
+m.Outputs(ny).Name        = fixOutputName(name);
+m.Outputs(ny).Expressions = fixOutputExpressions(expressions);
+m.Outputs(ny).Compartment = compartment;
 
 m.Ready = false;
