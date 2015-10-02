@@ -10,9 +10,6 @@ function m = FinalizeModel(m, varargin)
 %   Model.MassActionAmount
 %       help finalizeModelMassActionAmount
 %
-%   Model.MassActionConcentration
-%       help finalizeModelMassActionConcentration
-%
 %   Model.Analytic
 %       help finalizeModelAnalytic
 
@@ -26,10 +23,6 @@ assert(isscalar(m), 'KroneckerBio:FinalizeModel:MoreThanOneModel', 'The model st
 %% Common finalization
 % Model-specific common finalization modifications
 if is(m, 'Model.MassActionAmount')
-    growReactions_ = @growReactions;
-    growOutputs_ = @growOutputs;
-    rateName = 'Parameter';
-elseif is(m, 'Model.MassActionConcentration')
     growReactions_ = @growReactions;
     growOutputs_ = @growOutputs;
     rateName = 'Parameter';
@@ -252,8 +245,6 @@ end
 %% Type-specific finalization
 if is(m, 'Model.MassActionAmount')
     m = finalizeModelMassActionAmount(m, varargin{:});
-elseif is(m, 'Model.MassActionConcentration')
-    m = finalizeModelMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = finalizeModelAnalytic(m, varargin{:});
 else

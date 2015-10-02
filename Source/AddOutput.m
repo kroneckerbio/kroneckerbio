@@ -9,9 +9,6 @@ function m = AddOutput(m, varargin)
 %   Model.MassActionAmount
 %       help addOutputMassActionAmount
 %
-%   Model.MassActionConcentration
-%       help addOutputMassActionConcentration
-%
 %   Model.Analytic
 %       help addOutputAnalytic
 
@@ -20,8 +17,6 @@ function m = AddOutput(m, varargin)
 
 if is(m, 'Model.MassActionAmount')
     m = addOutputMassActionAmount(m, varargin{:});
-elseif is(m, 'Model.MassActionConcentration')
-    m = addOutputMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = addOutputAnalytic(m, varargin{:});
 else

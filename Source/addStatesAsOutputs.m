@@ -15,8 +15,6 @@ if is(m, 'Model.MassActionAmount')
     for i = 1:numel(full_names)
         m = AddOutput(m, full_names{i}, full_names_regex{i});
     end
-elseif is(m, 'Model.MassActionConcentration')
-    error('NotImplemented')
 elseif is(m, 'Model.Analytic')
     full_names_expression = strcat('"', full_names, '"');
 

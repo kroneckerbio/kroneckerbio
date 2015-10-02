@@ -10,9 +10,7 @@ function m = addRulesAsOutputs(m)
 full_names = vec({m.Rules(1:m.nz).Name});
 
 if is(m, 'Model.MassActionAmount')
-    error('NotImplemented')
-elseif is(m, 'Model.MassActionConcentration')
-    error('NotImplemented')
+    error('KroneckerBio:AddRule:MassActionAmount', 'Rules are not implemented for massaction models')
 elseif is(m, 'Model.Analytic')
     full_names_expression = strcat('"', full_names, '"');
 

@@ -9,9 +9,6 @@ function m = AddRule(m, varargin)
 %   Model.MassActionAmount
 %       help addRuleMassActionAmount
 %
-%   Model.MassActionConcentration
-%       help addRuleMassActionConcentration
-%
 %   Model.Analytic
 %       help addRuleAnalytic
 
@@ -20,8 +17,6 @@ function m = AddRule(m, varargin)
 
 if is(m, 'Model.MassActionAmount')
     error('KroneckerBio:AddRule:MassActionAmount', 'Rules are not implemented for massaction models')
-elseif is(m, 'Model.MassActionConcentration')
-    m = addRuleMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = addRuleAnalytic(m, varargin{:});
 else
