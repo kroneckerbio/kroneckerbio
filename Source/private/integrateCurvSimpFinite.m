@@ -59,19 +59,13 @@ int.dxdT = int0.dxdT;
 int.dudT = int0.dudT;
 int.dydT = int0.dydT;
 
-
 % Change each parameter a bit and resimulate
 d2xdT2_all = zeros(nx*nT*nT,nt);
 d2udT2_all = zeros(nu*nT*nT,nt);
 d2ydT2_all = zeros(ny*nT*nT,nt);
 
-Trepmat_nxbynT = repmat(vec(T0).', nx, 1);
-Trepmat_nubynT = repmat(vec(T0).', nu, 1);
-Trepmat_nybynT = repmat(vec(T0).', ny, 1);
-
 for iT = 1:nT
     % Set baseline parameters
-    T_i = T0(iT);
     T_up = T0;
     
     % Change current parameter by finite amount
