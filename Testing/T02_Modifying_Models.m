@@ -1,39 +1,38 @@
-%% Initialize Model
+% After model finalization, components can be removed and additional components
+%   can be added.
+% Remember to finalized the modified model.
+
+%% Build initial model
 m = InitializeModelMassActionAmount('Testing');
 
-%% Add Compartments
-% All different dimensions
 m = AddCompartment(m, 'v1', 3, 1);
-m = AddCompartment(m, 'v2', 2, 1);
+m = AddCompartment(m, 'v2', 3, 1);
 
-%% Add States
-m = AddState(m, 'x1', 'v1');
-m = AddState(m, 'x2', 'v1', 10);
+m = AddState(m, 'x1', 'v1', 1);
+m = AddState(m, 'x2', 'v1', 0);
+m = AddState(m, 'x2', 'v2', 0);
 
-%% Add Inputs
 m = AddInput(m, 'u1', 'v1', 1);
-m = AddInput(m, 'u2', 'v1', 2);
-m = AddInput(m, 'u3', 'v1', 3);
 
-%% Add Outputs
-m = AddOutput(m, 'y1', 'x1');
-m = AddOutput(m, 'y2', {'x', 2});
-m = AddOutput(m, 'y3', {'u', 3});
-m = AddOutput(m, 'y4', {'^..$', 4});
-m = AddOutput(m, 'y5', 5);
+m = AddOutput(m, 'y1', 'x2'); % Note that 'x2' is treated as a regex, and matches both states named x2
 
-%% Add Parameters
 m = AddParameter(m, 'k1', 1);
 m = AddParameter(m, 'k2', 2);
-m = AddParameter(m, 'k3', 3);
 
-%% Add Reactions
-m = AddReaction(m, 'r7', 'x1', {}, 'k1');
-m = AddReaction(m, 'r8', 'x1', 'x2', 'k1');
-m = AddReaction(m, 'r9', 'x1', {'x1', 'x2'}, 'k1');
-m = AddReaction(m, 'r10', 'x1', {'u3', 'x2'}, 'k1');
-m = AddReaction(m, 'r11', 'x1', {'u3', 'u1'}, 'k1');
-m = AddReaction(m, 'r12', 'x1', 'u3', 'k1');
+m = AddReaction(m, 'r1', {'u1', 'x1'}, {'x2'}, 'k1', '', 'v1');
+m = AddReaction(m, 'r2', {'v1.x2'}, {'v2.x2'}, 'k2');
 
-%% Finalize Model
+% Finialize initial model
+m = FinalizeModel(m);
+
+%% Modify model
+m = RemoveCompartment(m, 'v2');
+
+m = RemoveState(m, 'v2.x2');
+
+m = RemoveParameter(m, 'k2');
+
+m = RemoveReaction(m, 'r2');
+
+% Finialize modified model
 m = FinalizeModel(m);
