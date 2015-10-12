@@ -23,6 +23,12 @@ verifySensitivity(a, m, con(2), tGet, opts)
 verifySensitivity(a, m, con(3), tGet, opts)
 end
 
+function testHigherOrderDose(a)
+[m, con, ~, opts] = higher_order_dose_model();
+tGet = 0:10;
+verifySensitivity(a, m, con, tGet, opts)
+end
+
 function testSimulateSensitivitySimple(a)
 [m, con, ~, opts] = simple_model();
 tGet = 1:6;
@@ -72,30 +78,23 @@ end
 
 function verifySensitivity(a, m, con, tGet, opts)
 opts.ImaginaryStep = true;
-
-opts.Normalized = false;
 obsSelect = observationSelect(tGet);
 
+opts.Normalized = false;
 sim1 = SimulateSensitivity(m, con, max(tGet), opts);
-
 sim2 = SimulateSensitivity(m, con, obsSelect, opts);
-
 sim3 = FiniteSimulateSensitivity(m, con, obsSelect, opts);
 
 a.verifyEqual(sim1.dydT(tGet,1:m.ny), sim3.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 a.verifyEqual(sim2.dydT, sim3.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 
 opts.Normalized = true;
-obsSelect = observationSelect(tGet);
+sim4 = SimulateSensitivity(m, con, max(tGet), opts);
+sim5 = SimulateSensitivity(m, con, obsSelect, opts);
+sim6 = FiniteSimulateSensitivity(m, con, obsSelect, opts);
 
-sim1 = SimulateSensitivity(m, con, max(tGet), opts);
-
-sim2 = SimulateSensitivity(m, con, obsSelect, opts);
-
-sim3 = FiniteSimulateSensitivity(m, con, obsSelect, opts);
-
-a.verifyEqual(sim1.dydT(tGet,1:m.ny), sim3.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
-a.verifyEqual(sim2.dydT, sim3.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(sim4.dydT(tGet,1:m.ny), sim6.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(sim5.dydT, sim6.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end
 
 function verifySensitivityEvent(a, m, con, obs, opts)
@@ -103,15 +102,13 @@ opts.ImaginaryStep = true;
 
 opts.Normalized = false;
 sim1 = SimulateSensitivity(m, con, obs, opts);
-
 sim2 = FiniteSimulateSensitivity(m, con, obs, opts);
 
 a.verifyEqual(sim1.dyedT, sim2.dyedT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 
 opts.Normalized = true;
-sim1 = SimulateSensitivity(m, con, obs, opts);
+sim3 = SimulateSensitivity(m, con, obs, opts);
+sim4 = FiniteSimulateSensitivity(m, con, obs, opts);
 
-sim2 = FiniteSimulateSensitivity(m, con, obs, opts);
-
-a.verifyEqual(sim1.dyedT, sim2.dyedT, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(sim3.dyedT, sim4.dyedT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end

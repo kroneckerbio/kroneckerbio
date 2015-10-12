@@ -141,17 +141,18 @@ for iT = 1:nT
     T_up = T0;
     
     % Change current parameter by finite amount
-    if opts.ImaginaryStep
-        imagfactor = 1i;
-    else
-        imagfactor = 1;
-    end
+    step_size = 1e-8;
     if opts.Normalized
-        normfactor = T_i;
+        norm_factor = T_i;
     else
-        normfactor = 1;
+        norm_factor = 1;
     end
-    diff = normfactor * imagfactor * 1e-8;
+    if opts.ImaginaryStep
+        imag_factor = 1i;
+    else
+        imag_factor = 1;
+    end
+    diff = step_size * norm_factor * imag_factor;
     
     % Compute objective values
     T_up(iT) = T_up(iT) + diff;
@@ -160,12 +161,8 @@ for iT = 1:nT
 
     % Compute D
     if opts.ImaginaryStep
-        D(iT) = imag(G_up) / imag(diff);
+        D(iT) = imag(G_up) ./ step_size;
     else
-        D(iT) = (G_up - G) / diff;
+        D(iT) = (G_up - G) ./ step_size;
     end
-    if opts.Normalized
-        D(iT) = T_i * D(iT);
-    end
-    
 end

@@ -110,12 +110,4 @@ opts.RelTol = fixRelTol(opts.RelTol);
 opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Run main calculation
-[unused, D] = computeObjGrad(m, con, obj, opts);
-
-%% Normalization
-if opts.Normalized
-    T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-    
-    % Normalize
-    D = D .* T;
-end
+[~, D] = computeObjGrad(m, con, obj, opts);

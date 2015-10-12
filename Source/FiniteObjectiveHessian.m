@@ -124,7 +124,7 @@ H = zeros(nT,nT);
 
 % Initial value
 if verbose; fprintf('Initial round\n'); end
-[unused, D] = computeObjGrad(m, con, obj, opts);
+[~, D] = computeObjGrad(m, con, obj, opts);
 
 for iT = 1:nT
     if verbose; fprintf('Step %d of %d\n', iT, nT); end
@@ -134,32 +134,28 @@ for iT = 1:nT
     T_up = T0;
     
     % Change current parameter by finite amount
-    if opts.ImaginaryStep
-        imagfactor = 1i;
-    else
-        imagfactor = 1;
-    end
+    step_size = 1e-8;
     if opts.Normalized
-        normfactor = T_i;
+        norm_factor = T_i;
     else
-        normfactor = 1;
+        norm_factor = 1;
     end
-    stepsize = 1e-8;
-    diff = normfactor * imagfactor * stepsize;
+    if opts.ImaginaryStep
+        imag_factor = 1i;
+    else
+        imag_factor = 1;
+    end
+    diff = step_size * norm_factor * imag_factor;
     
     % Compute objective values
     T_up(iT) = T_up(iT) + diff;
     [m, con] = updateAll(m, con, T_up, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-    [unused, D_up] = computeObjGrad(m, con, obj, opts);
+    [~, D_up] = computeObjGrad(m, con, obj, opts);
 
     % Compute D
     if opts.ImaginaryStep
-        H(:,iT) = imag(D_up) ./ imag(diff);
+        H(:,iT) = imag(D_up) ./ step_size;
     else
-        H(:,iT) = (D_up - D) ./ diff;
+        H(:,iT) = (D_up - D) ./ step_size;
     end
-    if opts.Normalized
-        H(:,iT) = T_i * T0 .* H(:,iT);
-    end
-    
 end

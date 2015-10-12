@@ -77,6 +77,7 @@ defaultOpts.AbsTol           = [];
 
 defaultOpts.ImaginaryStep    = false;
 
+defaultOpts.Normalized       = true;
 defaultOpts.UseParams        = 1:m.nk;
 defaultOpts.UseSeeds         = [];
 defaultOpts.UseInputControls = [];
