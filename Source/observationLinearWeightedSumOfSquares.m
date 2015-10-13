@@ -143,7 +143,7 @@ obj = pastestruct(objectiveZero(), obj);
     end
 
     function val = dGdy(t, int)
-        % dGdy = 2 * sigma^-1 * dsigmady + 2 * (sigma - (y-yhat)*dsigmady) * sigma^-2
+        % dGdy = 2 * sigma^-1 * dsigmady + 2 * (y-yhat) * (sigma - (y-yhat)*dsigmady) * sigma^-3
         ny = int.ny;
         
         % Find all data points that have a time that matches t
@@ -178,7 +178,9 @@ obj = pastestruct(objectiveZero(), obj);
     end
 
     function val = d2Gdy2(t, int)
-        % d2Gdy2 = -2 * sigma^-2 * dsigmady + 2 * sigma^-1 * d2sigmady2 + 2 * ((sigma - (y-yhat)*dsigmady) * sigma^-3 * (1 - 3*(y-yhat)*sigma^-1) - (y-yhat)^2 * d2sigmady2)
+        % d2Gdy2dy1 = 2 * sigma^-2 - 4*e*sigma^-3*dsigmady1 - 4*e*sigma^-3*dsigmady2 
+        %             + (6*e^2*sigma^-4 - 2*sigma^-2)*dsigmady1*dsigmady2 
+        %             + (2*sigma^-1 - 2*e^2*sigma^-3)*d2sigmady1dy2
         ny = int.ny;
 
         % Find all data points that have a time that matches t
@@ -205,8 +207,9 @@ obj = pastestruct(objectiveZero(), obj);
             
             % Curvature value
             e = ybar_t - measurements_t;
-            d2Gdybar2 = -2 ./ sigma_t.^2 .* dsigmady_t + 2 ./ sigma_t .* d2sigmady2_t + ...
-                2 .* ((sigma_t - e .* dsigmady_t) ./ sigma_t.^3 .* (1 - 3 .* e ./ sigma_t) - e.^2 .* d2sigmady2_t);
+            d2Gdybar2 = 2 ./ sigma_t.^2 - 8 .* e ./ sigma_t.^3 .* dsigmady_t + ...
+                (6 .* e.^2 ./ sigma_t.^4 - 2 ./ sigma_t.^2) .* dsigmady_t.^2 + ...
+                (2 ./ sigma_t - 2 .* e.^2 ./ sigma_t.^3) .* d2sigmady2_t;
             val = accumarray(outputlist_t, d2Gdybar2, [ny,1]); % y_ % sum the entries associated with the same output
             val = spdiags(val, 0, ny, ny); % y_y
         else
@@ -249,25 +252,6 @@ obj = pastestruct(objectiveZero(), obj);
         
         % Fisher information matrix
         val = dydT.' * (V \ dydT);
-        val = symmat(val);
-    end
-
-%% Normalized Fisher information matrix
-    function val = Fn(sol)
-        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseInputControls); sol.h(sol.UseDoseControls)];
-        nT = numel(T);
-
-        % Evaluate solution
-        [dydT, sigma] = evaluate_grad(sol);
-        
-        % Assemble variance matrix
-        V = spdiags(sigma.^2,0,n,n);
-
-        % Construct normalized sensitivities
-        dydT_normalized = dydT * spdiags(T,0,nT,nT); % T along the diagonal
-
-        % Normalized Fisher information matrix
-        val = dydT_normalized.' * (V \ dydT_normalized);
         val = symmat(val);
     end
 end

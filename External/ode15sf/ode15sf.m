@@ -804,9 +804,9 @@ while ~done
     end
     if nonNegative && (err <= rtol) && any(ynew(idxNonNegative)<0)
       if normcontrol
-        errNN = norm( max(0,-ynew(idxNonNegative)) ) * invwt;
+        errNN = norm( max(0,-real(ynew(idxNonNegative))) ) * invwt; % Added real() around ynew to fix complex number case
       else
-        errNN = norm( max(0,-ynew(idxNonNegative)) ./ thresholdNonNegative, inf);
+        errNN = norm( max(0,-real(ynew(idxNonNegative)) ) ./ thresholdNonNegative, inf); % Added real() around ynew to fix complex number case
       end
       if errNN > rtol
         err = errNN;
@@ -896,7 +896,7 @@ while ~done
   
   NNreset_dif = false;
   if nonNegative && any(ynew(idxNonNegative) < 0)
-    NNidx = idxNonNegative(ynew(idxNonNegative) < 0); % logical indexing
+    NNidx = idxNonNegative(real(ynew(idxNonNegative)) < 0); % logical indexing, added real() around ynew to deal with complex case
     ynew(NNidx) = 0;
     if normcontrol
       normynew = norm(ynew);

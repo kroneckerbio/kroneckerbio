@@ -140,27 +140,16 @@ obj = pastestruct(objectiveZero, obj);
         nTk = nnz(sol.UseParams);
         VTbark = Vkbar(sol.UseParams,sol.UseParams);
 
+        if int.Normalized
+            Tbark = kbar(sol.UseParams);
+            VTbark = spdiags(Tbark.^(-1),0,nTk,nTk) * VTbark * spdiags(Tbark.^(-1),0,nTk,nTk);
+        end
+        
         % This objective only provides information on the first nTk parameters
-        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
+        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseInputControls); sol.h(sol.UseDoseControls)];
         nT = numel(T);
         val = zeros(nT,nT);
         
         val(1:nTk,1:nTk) = infoinv(VTbark);
-    end
-
-    function val = Fn(sol)
-        nTk = nnz(sol.UseParams);
-        Tbark = kbar(sol.UseParams);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
-        
-        % Normalize
-        VlogTbark = spdiags(Tbark.^(-1),0,nTk,nTk) * VTbark * spdiags(Tbark.^(-1),0,nTk,nTk);
-
-        % This objective only provides information on the first nTk parameters
-        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
-        nT = numel(T);
-        val = zeros(nT,nT);
-        
-        val(1:nTk,1:nTk) = infoinv(VlogTbark);
     end
 end

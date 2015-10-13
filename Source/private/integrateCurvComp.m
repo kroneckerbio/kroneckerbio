@@ -13,13 +13,25 @@ nTq = sum(opts.UseInputControls);
 nTh = sum(opts.UseDoseControls);
 nT  = nTk + nTs + nTq + nTh;
 
-dkdT = sparse(find(opts.UseParams), 1:nTk, 1, nk, nT);
-dkfitdT = dkdT(opts.UseParams,:);
-
 dxdTStart = nx+1;
 dxdTEnd   = nx+nx*nT;
 d2xdT2Start = nx+nx*nT+1;
 d2xdT2End   = nx+nx*nT+nx*nT*nT;
+normalized = opts.Normalized;
+T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls});
+T_stack_x = vec(repmat(row(T), nx,1));
+T_stack_u = vec(repmat(row(T), nu,1));
+T_stack_y = vec(repmat(row(T), ny,1));
+TT_stack_x = vec(repmat(row(T), nx*nT,1)) .* vec(repmat(row(T), nx,nT));
+TT_stack_u = vec(repmat(row(T), nu*nT,1)) .* vec(repmat(row(T), nu,nT));
+TT_stack_y = vec(repmat(row(T), ny*nT,1)) .* vec(repmat(row(T), ny,nT));
+
+dkdT = sparse(find(opts.UseParams), 1:nTk, 1, nk, nT);
+if normalized
+    dkdT_maybe_normalized = bsxfun(@times, dkdT, row(T));
+else
+    dkdT_maybe_normalized = dkdT;
+end
 
 uqUseInputControls = linearslicer([nu,nq], true(nu,1), opts.UseInputControls);
 
@@ -157,6 +169,17 @@ for it = 1:nte
     int.d2yedT2(:,it) = vec(d2yedT2);
 end
 
+if normalized
+    % Normalize events
+    int.dxedT = bsxfun(@times, int.dxedT, T_stack_x);
+    int.duedT = bsxfun(@times, int.duedT, T_stack_u);
+    int.dyedT = bsxfun(@times, int.dyedT, T_stack_y);
+    
+    int.d2xedT2 = bsxfun(@times, int.d2xedT2, TT_stack_x);
+    int.d2uedT2 = bsxfun(@times, int.d2uedT2, TT_stack_u);
+    int.d2yedT2 = bsxfun(@times, int.d2yedT2, TT_stack_y);
+end
+
 int.sol = sol;
 
 % End of function
@@ -187,15 +210,6 @@ int.sol = sol;
         d2fdk2  = m.d2fdk2;
         d2fdudk = m.d2fdudk;
         d2fdkdx = m.d2fdkdx;
-        d       = con.d;
-        dddh    = con.dddh;
-        d2ddh2  = con.d2ddh2;
-        x0      = m.x0;
-        dx0dd   = m.dx0ds;
-        d2x0dd2 = m.d2x0ds2;
-        
-        nd      = ns;
-        
         
         der = @derivative;
         jac = @jacobian;
@@ -297,7 +311,7 @@ int.sol = sol;
             
             val = [val(fkUseParams,opts.UseParams),                  sparse(nx*nTk, nTs), d2fdqdk, sparse(nx*nTk,nTh);
                    sparse(nx*nTs, nTk+nTs+nTq+nTh);
-                   spermute132(d2fdqdk, [nx,nTk,nTq], [nx*nTq,nTk]), sparse(nx*nTq, nTs), d2fdq2,  sparse(nx*nTh,nTh);
+                   spermute132(d2fdqdk, [nx,nTk,nTq], [nx*nTq,nTk]), sparse(nx*nTq, nTs), d2fdq2,  sparse(nx*nTq,nTh);
                    sparse(nx*nTh, nTk+nTs+nTq+nTh)];
                % fT_T
         end
@@ -324,7 +338,10 @@ int.sol = sol;
     end
 
     function val = evaluate_state_sensitivity(sol, t)
-        val = devals(sol, t, dxdTStart:dxdTEnd);
+        val = devals(sol, t, dxdTStart:dxdTEnd); % xT_t
+        if normalized
+            val = bsxfun(@times, val, T_stack_x);
+        end
     end
 
     function val = evaluate_input_sensitivity(t)
@@ -334,7 +351,12 @@ int.sol = sol;
         for i = 1:nt
             dudq_i = dudq(t(i)); % u_q
             dudq_i = dudq_i(:,opts.UseInputControls); % u_Q
-            val(:,i) = vec([sparse(nu,nTk+nTs), reshape(dudq_i, nu,nTq), sparse(nu,nTh)]); % u_Q -> u_T -> uT_
+            dudT = [sparse(nu,nTk+nTs), reshape(dudq_i, nu,nTq), sparse(nu,nTh)]; % u_Q -> u_T
+            val(:,i) = vec(dudT); % u_Q -> u_T -> uT_
+        end
+        
+        if normalized
+            val = bsxfun(@times, val, T_stack_u);
         end
     end
 
@@ -345,14 +367,20 @@ int.sol = sol;
         for i = 1:nt
             x_i = deval(sol, t(i), 1:nx); % x_
             u_i =  u(t(i)); % u_
-            dxdT_i = reshape(deval(sol, t(i), dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
+            dxdT_i = reshape(evaluate_state_sensitivity(sol,t(i)), nx,nT); % xT_ -> x_T
             dudT_i = reshape(evaluate_input_sensitivity(t(i)), nu,nT); % uT_ -> u_T
-            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i + dydk(t(i), x_i, u_i) * dkdT); % y_x * x_T + y_u * u_T + y_k * k_T -> y_T -> yT_
+            % This does not need to be normalized because the components already are
+            dydT = dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i + dydk(t(i), x_i, u_i) * dkdT_maybe_normalized; % y_x * x_T + y_u * u_T * y_k * k_T -> y_T
+            val(:,i) = vec(dydT); % y_T -> yT_
         end
     end
 
     function val = evaluate_state_curvature(sol, t)
         val = devals(sol, t, d2xdT2Start:d2xdT2End);
+        
+        if normalized
+            val = bsxfun(@times, val, TT_stack_x);
+        end
     end
 
     function val = evaluate_input_curvature(t)
@@ -368,6 +396,10 @@ int.sol = sol;
             d2udT2_i = reshape(d2udT2_i, nu,nT*nT); % uT_T -> u_TT
             val(:,i) = vec(d2udT2_i);
         end
+        
+        if normalized
+            val = bsxfun(@times, val, TT_stack_u);
+        end
     end
 
     function val = evaluate_output_curvature(sol, t)
@@ -380,9 +412,9 @@ int.sol = sol;
             dydx_i = dydx(t(i), x_i, u_i); % y_x
             dydu_i = dydu(t(i), x_i, u_i); % y_u
             dydk_i = dydk(t(i), x_i, u_i); % y_k
-            dxdT_i = reshape(deval(sol, t(i), dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
+            dxdT_i = reshape(evaluate_state_sensitivity(sol, t(i)), nx,nT); % xT_ -> x_T
             dudT_i = reshape(evaluate_input_sensitivity(t(i)), nu,nT); % uT_ -> u_T
-            d2xdT2_i = reshape(deval(sol, t(i), d2xdT2Start:d2xdT2End), nx,nT*nT); % xT_T -> x_TT
+            d2xdT2_i = reshape(evaluate_state_curvature(sol, t(i)), nx,nT*nT); % xT_T -> x_TT
             d2udT2_i = reshape(evaluate_input_curvature(t(i)), nu,nT*nT);
             d2ydx2_i = d2ydx2(t(i), x_i, u_i); % yx_x
             d2ydu2_i = d2ydu2(t(i), x_i, u_i); % yx_x
@@ -394,19 +426,20 @@ int.sol = sol;
             temp1 = reshape(spermute132(temp1, [ny,nx,nT], [ny*nT,nx]) * dxdT_i, ny,nT*nT); % (yx_T -> yT_x) * x_T -> yT_T -> y_TT
             temp2 = d2ydu2_i * dudT_i; % yu_u * u_T -> yu_T
             temp2 = reshape(spermute132(temp2, [ny,nu,nT], [ny*nT,nu]) * dudT_i, ny,nT*nT); % (yu_T -> yT_u) * u_T -> yT_T -> y_TT
-            temp3 = d2ydk2_i * dkdT; % yk_k * k_T -> yk_T
-            temp3 = reshape(spermute132(temp3, [ny,nk,nT], [ny*nT,nk]) * dkdT, ny,nT*nT); % (yk_T -> yT_k) * k_T -> yT_T -> y_TT
+            temp3 = d2ydk2_i * dkdT_maybe_normalized; % yk_k * k_T -> yk_T
+            temp3 = reshape(spermute132(temp3, [ny,nk,nT], [ny*nT,nk]) * dkdT_maybe_normalized, ny,nT*nT); % (yk_T -> yT_k) * k_T -> yT_T -> y_TT
             temp4 = d2ydudx_i * dudT_i; % yx_u * u_T -> yx_T
             temp4 = spermute132(temp4, [ny,nx,nT], [ny*nT,nx]) * dxdT_i; % (yx_T -> yT_x) * x_T -> yT_T
             temp4 = reshape(temp4 + spermute132(temp4, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
-            temp5 = d2ydkdx_i * dkdT; % yx_k * k_T -> yx_T
+            temp5 = d2ydkdx_i * dkdT_maybe_normalized; % yx_k * k_T -> yx_T
             temp5 = spermute132(temp5, [ny,nx,nT], [ny*nT,nx]) * dxdT_i; % (yx_T -> yT_x) * x_T -> yT_T
             temp5 = reshape(temp5 + spermute132(temp5, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
-            temp6 = d2ydkdu_i * dkdT; % yu_k * k_T -> yu_T
+            temp6 = d2ydkdu_i * dkdT_maybe_normalized; % yu_k * k_T -> yu_T
             temp6 = spermute132(temp6, [ny,nu,nT], [ny*nT,nu]) * dudT_i; % (yu_T -> yT_u) * u_T -> yT_T
             temp6 = reshape(temp6 + spermute132(temp6, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
             
             % Note d2kdT2 is zero, so dydk_i * d2kdT2 term is zero
+            % Also, this doesn't have to be normalized either
             d2ydT2 = dydx_i * d2xdT2_i + dydu_i * d2udT2_i + temp1 + temp2 + temp3 + temp4 + temp5 + temp6;
             val(:,i) = vec(d2ydT2);
         end

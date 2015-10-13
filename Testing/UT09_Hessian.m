@@ -5,10 +5,14 @@ if nargout < 1
 end
 end
 
+function testHigherOrderDose(a)
+[m, con, obj, opts] = higher_order_dose_model();
+
+verifyHessian(a, m, con, obj, opts)
+end
+
 function testObjectiveHessianSimple(a)
 [m, con, obj, opts] = simple_model();
-m = m.Update(rand(m.nk,1)+1);
-con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
 verifyHessian(a, m, con, obj, opts)
 end
@@ -24,37 +28,38 @@ end
 function testObjectiveHessianSimpleSteadyState(a)
 simpleopts.steadyState = true;
 [m, con, obj, opts] = simple_model(simpleopts);
-m = m.Update(rand(m.nk,1)+1);
-con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
 verifyHessian(a, m, con, obj, opts)
 end
 
 function testObjectiveHessianMichaelisMenten(a)
 [m, con, obj, opts] = michaelis_menten_model();
-m = m.Update(rand(m.nk,1)+1);
-con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
 verifyHessian(a, m, con, obj, opts)
 end
 
 function testObjectiveHessianSimpleAnalytic(a)
 [m, con, obj, opts] = simple_analytic_model();
-%m = m.Update((rand(m.nk,1)+0.5)./2);
-%con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 
 verifyHessian(a, m, con, obj, opts)
 end
 
 function verifyHessian(a, m, con, obj, opts)
+opts.ImaginaryStep = true;
 nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
+opts.Normalized = false;
 Hfwd = ObjectiveHessian(m, con, obj, opts);
-
 Hdisc = FiniteObjectiveHessian(m, con, obj, opts);
 
 a.verifyEqual(size(Hfwd), [nT,nT])
 a.verifyEqual(size(Hdisc), [nT,nT])
+
+a.verifyEqual(Hfwd, Hdisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
+
+opts.Normalized = true;
+Hfwd = ObjectiveHessian(m, con, obj, opts);
+Hdisc = FiniteObjectiveHessian(m, con, obj, opts);
 
 a.verifyEqual(Hfwd, Hdisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end

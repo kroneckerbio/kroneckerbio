@@ -45,6 +45,13 @@ function D = FiniteObjectiveGradient(m, con, obj, opts)
 %                 nonegative scalar {1e-9} ]
 %           Absolute tolerance of the integration. If a cell vector is
 %           provided, a different AbsTol will be used for each experiment.
+%       .ImaginaryStep [ logical scalar {false} ]
+%           If set to true, use an imaginary finite difference step. This
+%           has the advantage of not requiring the subtraction of two large
+%           numbers, increasing the stability of the result, but comes at
+%           the cost of larger computational cost from evaluating
+%           expressions with complex numbers. If set to false (the
+%           default), a real finite difference step is used.
 %       .Verbose [ nonnegative integer scalar {1} ]
 %           Bigger number displays more progress information
 %
@@ -69,6 +76,8 @@ defaultOpts.Verbose          = 1;
 
 defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
+
+defaultOpts.ImaginaryStep    = false;
 
 defaultOpts.UseParams        = nan;
 defaultOpts.UseSeeds         = nan;
@@ -132,11 +141,18 @@ for iT = 1:nT
     T_up = T0;
     
     % Change current parameter by finite amount
+    step_size = 1e-8;
     if opts.Normalized
-        diff = T_i * 1e-8;
+        norm_factor = T_i;
     else
-        diff = 1e-8;
+        norm_factor = 1;
     end
+    if opts.ImaginaryStep
+        imag_factor = 1i;
+    else
+        imag_factor = 1;
+    end
+    diff = step_size * norm_factor * imag_factor;
     
     % Compute objective values
     T_up(iT) = T_up(iT) + diff;
@@ -144,9 +160,9 @@ for iT = 1:nT
     G_up = computeObj(m, con, obj, opts);
 
     % Compute D
-    if opts.Normalized
-        D(iT) = T_i * (G_up - G) / diff;
+    if opts.ImaginaryStep
+        D(iT) = imag(G_up) ./ step_size;
     else
-        D(iT) = (G_up - G) / diff ;
+        D(iT) = (G_up - G) ./ step_size;
     end
 end

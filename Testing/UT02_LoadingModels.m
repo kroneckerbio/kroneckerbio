@@ -96,6 +96,19 @@ m = simple_analytic_model();
 verifyDerivatives(a, m);
 end
 
+function testHigherOrderDose(a)
+m = higher_order_dose_model();
+verifyDerivatives(a, m);
+
+a.verifyEqual(m.x0([4;5]), [16;28;4;20;6])
+a.verifyEqual(m.dx0ds([4;5]), sparse([8,0;7,0;0,0;5,4;0,0]))
+a.verifyEqual(m.dx0dk([4;5]), sparse([0,0,0;0,0,4;4,0,0;0,0,0;3,2,0]))
+a.verifyEqual(m.d2x0ds2([4;5]), sparse([1,9,4], [1,1,2], [2,1,1], 10, 2))
+a.verifyEqual(m.d2x0dk2([4;5]), sparse([3,10,5], [1,1,2], [2,1,1], 15, 3))
+a.verifyEqual(m.d2x0dkds([4;5]), sparse([2],[3],[1],10,3))
+a.verifyEqual(m.d2x0dsdk([4;5]), sparse([12],[1],[1],15,2))
+end
+
 function testSimpleMassActionSBMLLoading(a)
 warning('off', 'symbolic2massaction:repeatedSpeciesNames'); % suppress warning for repeated species C
 m = LoadModelSbmlMassAction('simple_massaction.xml');

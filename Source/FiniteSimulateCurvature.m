@@ -72,8 +72,9 @@ defaultOpts.Verbose          = 1;
 defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
-defaultOpts.Normalized       = true;
+defaultOpts.ImaginaryStep    = false;
 
+defaultOpts.Normalized       = true;
 defaultOpts.UseParams        = nan;
 defaultOpts.UseSeeds         = nan;
 defaultOpts.UseInputControls = nan;

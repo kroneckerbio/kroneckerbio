@@ -11,6 +11,11 @@ nT  = nTk + nTs + nTq + nTh;
 
 dxdTStart = nx+1;
 dxdTEnd   = nx+nx*nT;
+normalized = opts.Normalized;
+T = real(collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls}));
+T_stack_x = vec(repmat(row(T), nx,1));
+T_stack_u = vec(repmat(row(T), nu,1));
+T_stack_y = vec(repmat(row(T), ny,1));
 
 y = m.y;
 u = con.u;
@@ -20,6 +25,11 @@ dydu = m.dydu;
 dydk = m.dydk;
 
 dkdT = sparse(find(opts.UseParams),1:nTk,1,m.nk,nT);
+if normalized
+    dkdT_maybe_normalized = bsxfun(@times, dkdT, row(T));
+else
+    dkdT_maybe_normalized = dkdT;
+end
 
 % Construct system
 [der, jac, del] = constructSystem();
@@ -63,6 +73,7 @@ int.dydu = m.dydu;
 int.dydk = m.dydk;
 
 int.nT = nT;
+int.Normalized = opts.Normalized;
 int.UseParams = opts.UseParams;
 int.UseSeeds = opts.UseSeeds;
 int.UseInputControls = opts.UseInputControls;
@@ -100,6 +111,13 @@ for it = 1:nte
     int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i + dyedk_i * dkdT); % y_x * x_T + y_u * u_T * y_k * k_T -> y_T -> yT_
 end
 
+if normalized
+    % Normalize events
+    int.dxedT = bsxfun(@times, int.dxedT, T_stack_x);
+    int.duedT = bsxfun(@times, int.duedT, T_stack_u);
+    int.dyedT = bsxfun(@times, int.dyedT, T_stack_y);
+end
+
 int.sol = sol;
 
 % End of function
@@ -120,11 +138,6 @@ int.sol = sol;
         d2fdudx = m.d2fdudx;
         d2fdTdx = @d2fdTdxSub;
         dudq    = con.dudq;
-        d       = con.d;
-        dddh    = con.dddh;
-        dx0dd   = m.dx0ds;
-        x0      = m.x0;
-        nd      = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -187,7 +200,11 @@ int.sol = sol;
     end
 
     function val = evaluate_state_sensitivity(sol, t)
-        val = devals(sol, t, dxdTStart:dxdTEnd);
+        val = devals(sol, t, dxdTStart:dxdTEnd); % xT_t
+        
+        if normalized
+            val = bsxfun(@times, val, T_stack_x);
+        end
     end
 
     function val = evaluate_input_sensitivity(t)
@@ -197,7 +214,12 @@ int.sol = sol;
         for i = 1:nt
             dudq_i = dudq(t(i)); % u_q
             dudq_i = dudq_i(:,opts.UseInputControls); % u_Q
-            val(:,i) = vec([sparse(nu,nTk+nTs), reshape(dudq_i, nu,nTq), sparse(nu,nTh)]); % u_Q -> u_T -> uT_
+            dudT = [sparse(nu,nTk+nTs), reshape(dudq_i, nu,nTq), sparse(nu,nTh)]; % u_Q -> u_T
+            val(:,i) = vec(dudT); % u_Q -> u_T -> uT_
+        end
+        
+        if normalized
+            val = bsxfun(@times, val, T_stack_u);
         end
     end
 
@@ -208,9 +230,11 @@ int.sol = sol;
         for i = 1:nt
             x_i = deval(sol, t(i), 1:nx); % x_
             u_i =  u(t(i)); % u_
-            dxdT_i = reshape(deval(sol, t(i), dxdTStart:dxdTEnd), nx,nT); % xT_ -> x_T
+            dxdT_i = reshape(evaluate_state_sensitivity(sol,t(i)), nx,nT); % xT_ -> x_T
             dudT_i = reshape(evaluate_input_sensitivity(t(i)), nu,nT); % uT_ -> u_T
-            val(:,i) = vec(dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i + dydk(t(i), x_i, u_i) * dkdT); % y_x * x_T + y_u * u_T * y_k * k_T -> y_T -> yT_
+            % This does not need to be normalized because the components already are
+            dydT = dydx(t(i), x_i, u_i) * dxdT_i + dydu(t(i), x_i, u_i) * dudT_i + dydk(t(i), x_i, u_i) * dkdT_maybe_normalized; % y_x * x_T + y_u * u_T * y_k * k_T -> y_T
+            val(:,i) = vec(dydT); % y_T -> yT_
         end
     end
 end
