@@ -175,27 +175,15 @@ for i_con = 1:n_con
     % Sum all FIMs as computed by each objective function
     Fi = zeros(inT,inT);
     Allout = cell(n_obj,1);
-    if opts.Normalized
-        % Loop through each objective function in the current row
-        for i_obj = 1:n_obj
-            Fij = obj(i_obj,i_con).Fn(ints(i_obj));
-            Fi = Fi + Fij;
-            
-            % Store FIM if requested
-            if provide_all
-                Allout{i_obj} = Fij;
-            end
-        end
-    else%~opts.Normalized
-        % Loop through each objective function in the current row
-        for i_obj = 1:n_obj
-            Fij = obj(i_obj,experimentZero([nCon,nTop])).F(ints(i_obj));
-            Fi = Fi + Fij;
-            
-            % Store FIM if requested
-            if provide_all
-                Allout{i_obj} = Fij;
-            end
+    
+    % Loop through each objective function in the current row
+    for i_obj = 1:n_obj
+        Fij = obj(i_obj,i_con).F(ints(i_obj));
+        Fi = Fi + Fij;
+        
+        % Store FIM if requested
+        if provide_all
+            Allout{i_obj} = Fij;
         end
     end
     

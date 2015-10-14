@@ -12,6 +12,11 @@ nT  = nTk + nTs + nTq + nTh;
 
 dxdTStart = nx+1;
 dxdTEnd   = nx+nx*nT;
+normalized = opts.Normalized;
+T = real(collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls}));
+T_stack_x = vec(repmat(row(T), nx,1));
+T_stack_u = vec(repmat(row(T), nu,1));
+T_stack_y = vec(repmat(row(T), ny,1));
 
 y = m.y;
 u = con.u;
@@ -65,6 +70,7 @@ int.dydx = m.dydx;
 int.dydu = m.dydu;
 
 int.nT = nT;
+int.Normalized = opts.Normalized;
 int.UseParams = opts.UseParams;
 int.UseSeeds = opts.UseSeeds;
 int.UseInputControls = opts.UseInputControls;
@@ -91,6 +97,13 @@ for it = 1:nt
     int.dydT(:,it) = vec(dydx_i * dxdT_i + dydu_i * dudT_i + dydk_i * dkdT); % y_x * x_T + y_u * u_T + y_k * k_T -> y_T -> yT_
 end
 
+if normalized
+    % Normalize sensitivities
+    int.dxdT = bsxfun(@times, int.dxdT, T_stack_x);
+    int.dudT = bsxfun(@times, int.dudT, T_stack_u);
+    int.dydT = bsxfun(@times, int.dydT, T_stack_y);
+end
+
 nte = numel(sol.ie);
 int.ie = sol.ie;
 int.te = sol.xe;
@@ -114,6 +127,13 @@ for it = 1:nte
     int.dyedT(:,it) = vec(dyedx_i * dxedT_i + dyedu_i * duedT_i + dyedk_i * dkdT); % y_x * x_T + y_u * u_T + y_k * k_T -> y_T -> yT_
 end
 
+if normalized
+    % Normalize events
+    int.dxedT = bsxfun(@times, int.dxedT, T_stack_x);
+    int.duedT = bsxfun(@times, int.duedT, T_stack_u);
+    int.dyedT = bsxfun(@times, int.dyedT, T_stack_y);
+end
+
 int.sol = sol;
 
 % End of function
@@ -134,11 +154,6 @@ int.sol = sol;
         d2fdudx = m.d2fdudx;
         d2fdTdx = @d2fdTdxSub;
         dudq    = con.dudq;
-        d       = con.d;
-        dddh    = con.dddh;
-        dx0dd   = m.dx0ds;
-        x0      = m.x0;
-        nd      = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -175,15 +190,6 @@ int.sol = sol;
         % Dosing
         function val = delta(t, joint)
             val = collectDoseImpact(m, con, t, 1, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-%             d_i = d(t);
-%             dx0dd_i = dx0dd(d_i);
-%             
-%             deltax = x0(d_i) - x0(zeros(nd,1));
-%             
-%             ddeltaxdh = dx0dd_i * dddh(t);
-%             ddeltaxdT = [zeros(nx,nTk+nTs+nTq), ddeltaxdh(:,opts.UseDoseControls)];
-%             
-%             val = [deltax; vec(ddeltaxdT)];
         end
         
         % Modifies dfdk to relate only to the parameters of interest

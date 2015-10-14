@@ -102,27 +102,17 @@ obj = pastestruct(objectiveZero, obj);
 %% Fisher information
     function val = F(dxdTSol)
         VTbark = Vkbar(sol.UseParams,sol.UseParams);
-        FTbark = infoinv(VTbark);
 
+        if int.Normalized
+            Tbark = kbar(sol.UseParams);
+            VTbark = spdiags(Tbark.^(-1),0,nTk,nTk) * VTbark * spdiags(Tbark.^(-1),0,nTk,nTk);
+        end
+        
         % This objective only provides information on the first nTk parameters
-        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
+        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseInputControls); sol.h(sol.UseDoseControls)];
         nT = numel(T);
         val = zeros(nT,nT);
         
-        val(1:nTk,1:nTk) = FTbark;
-    end
-
-    function val = Fn(dxdTSol)
-        Tbark = kbar(sol.UseParams);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
-        FTbark = infoinv(VTbark);
-
-        % This objective only provides information on the first nTk parameters
-        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseControls)];
-        nT = numel(T);
-        val = zeros(nT,nT);
-        
-        % Normalize
-        val(1:nTk,1:nTk) = diag(Tbark.^(-1)) * FTbark * diag(Tbark.^(-1));
+        val(1:nTk,1:nTk) = infoinv(VTbark);
     end
 end

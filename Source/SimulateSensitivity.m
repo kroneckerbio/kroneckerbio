@@ -85,6 +85,7 @@ defaultOpts.Verbose          = 1;
 defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
+defaultOpts.Normalized       = true;
 defaultOpts.UseParams        = 1:m.nk;
 defaultOpts.UseSeeds         = [];
 defaultOpts.UseInputControls = [];

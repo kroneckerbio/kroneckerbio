@@ -26,6 +26,15 @@ function [H, All] = FiniteObjectiveHessian(m, con, obj, opts)
 %                          the normalized hessian will be computed. The
 %                          normalized hessian is normalized with respect to
 %                          the values of the parameters. Default = true
+%           .ImaginaryStep - Scalar boolean. If set to true, use an
+%                           imaginary finite difference step. This has the
+%                           advantage of not requiring the subtraction of
+%                           two large numbers, increasing the stability of
+%                           the result, but comes at the cost of larger
+%                           computational cost from evaluating expressions
+%                           with complex numbers. If set to false (the
+%                           default), a real finite difference step is
+%                           used.
 %           .Verbose     - Print progress to command window
 %   Outputs:
 %       H = FiniteObjectiveHessian(m, con, obj, ...)
@@ -59,6 +68,8 @@ defaultOpts.Verbose        = 1;
 
 defaultOpts.RelTol         = [];
 defaultOpts.AbsTol         = [];
+
+defaultOpts.ImaginaryStep  = false;
 
 defaultOpts.UseParams        = 1:m.nk;
 defaultOpts.UseSeeds         = [];
@@ -113,7 +124,7 @@ H = zeros(nT,nT);
 
 % Initial value
 if verbose; fprintf('Initial round\n'); end
-[unused, D] = computeObjGrad(m, con, obj, opts);
+[~, D] = computeObjGrad(m, con, obj, opts);
 
 for iT = 1:nT
     if verbose; fprintf('Step %d of %d\n', iT, nT); end
@@ -123,21 +134,28 @@ for iT = 1:nT
     T_up = T0;
     
     % Change current parameter by finite amount
+    step_size = 1e-8;
     if opts.Normalized
-        diff = T_i * 1e-8;
+        norm_factor = T_i;
     else
-        diff = 1e-8;
+        norm_factor = 1;
     end
+    if opts.ImaginaryStep
+        imag_factor = 1i;
+    else
+        imag_factor = 1;
+    end
+    diff = step_size * norm_factor * imag_factor;
     
     % Compute objective values
     T_up(iT) = T_up(iT) + diff;
     [m, con] = updateAll(m, con, T_up, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-    [unused, D_up] = computeObjGrad(m, con, obj, opts);
+    [~, D_up] = computeObjGrad(m, con, obj, opts);
 
     % Compute D
-    if opts.Normalized
-        H(:,iT) = T_i * T0 .* (D_up - D) ./ diff;
+    if opts.ImaginaryStep
+        H(:,iT) = imag(D_up) ./ step_size;
     else
-        H(:,iT) = (D_up - D) ./ diff ;
+        H(:,iT) = (D_up - D) ./ step_size;
     end
 end

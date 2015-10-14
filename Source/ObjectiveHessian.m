@@ -114,13 +114,4 @@ opts.RelTol = fixRelTol(opts.RelTol);
 opts.AbsTol = fixAbsTol(opts.AbsTol, 3, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Run main calculation
-[unused, unused, H] = computeObjHess(m, con, obj, opts);
-
-%% Normalization
-if opts.Normalized
-    T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-    
-    % Normalize
-    H = spdiags(T,0,nT,nT) * H * spdiags(T,0,nT,nT);
-    H = full(H); % Matlab bug makes this necessary
-end
+[~, ~, H] = computeObjHess(m, con, obj, opts);

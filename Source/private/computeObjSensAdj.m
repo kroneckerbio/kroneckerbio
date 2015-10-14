@@ -4,6 +4,7 @@ if verboseAll; tic; end
 
 % Constants
 nx = m.nx;
+ns = m.ns;
 nTk = sum(opts.UseParams);
 nTs = sum(sum(opts.UseSeeds));
 nTq = sum(cat(1,opts.UseInputControls{:}));
@@ -11,6 +12,7 @@ nTh = sum(cat(1,opts.UseDoseControls{:}));
 nT  = nTk + nTs + nTq +nTh;
 n_con = numel(con);
 n_obj = size(obj,1);
+d0 = zeros(ns,1); % A fake dose of 0 to subtract out
 
 y = m.y;
 dydx = m.dydx;
@@ -202,6 +204,13 @@ for i_con = 1:n_con
     if verboseAll; fprintf('iCon = %d\t|dGdT| = %g\tTime = %0.2f\n', i_con, norm(curD), toc); end    
 end
 
+if opts.Normalized
+    T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+    
+    % Normalize
+    D = D .* T;
+end
+
 if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 
 % End of function
@@ -219,7 +228,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         dfdT    = @dfdTSub;
         dudq    = con(i_con).dudq;
         dddh    = con(i_con).dddh;
-        
+
         der = @derivative;
         jac = @jacobian;
         del = @delta;
@@ -271,7 +280,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             
             lambda = -joint(1:nx,end) + dGdx; % Update current lambda
             d_i = d(t);
-            dx0dk_i = dx0dk(d_i);
+            dx0dk_i = dx0dk(d_i) - dx0dk(d0);
             dx0dk_i = dx0dk_i(:,opts.UseParams);
             dose_change_k = dx0dk_i.' * lambda;
             dx0dd_i = dx0dd(d_i);
@@ -332,7 +341,6 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         f       = m.f;
         dfdx    = m.dfdx;
         x0      = m.x0;
-        nd      = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -369,7 +377,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
 
         % Dosing
         function val = delta(t, joint)
-            val = [x0(d(t)) - x0(zeros(nd,1)); 0];
+            val = [x0(d(t)) - x0(d0); 0];
         end
     end
 
@@ -377,7 +385,6 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         f     = m.f;
         dfdx  = m.dfdx;
         x0    = m.x0;
-        nd    = m.ns;
         
         der = @derivative;
         jac = @jacobian;
@@ -397,7 +404,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         
         % Dosing
         function val = delta(t, x)
-            val = x0(d(t)) - x0(zeros(nd,1));
+            val = x0(d(t)) - x0(d0);
         end
     end
 end

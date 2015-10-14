@@ -30,67 +30,60 @@ m = InitializeModelAnalytic(symbolic.Name);
 % Compartments
 nv     = symbolic.nv;
 vNames = symbolic.vNames;
-vIDs   = symbolic.vIDs;
 v      = symbolic.v; % doubles
 dv     = symbolic.dv;
 for i = 1:nv
-    m = AddCompartment(m, vNames{i}, dv(i), v(i), vIDs{i});
+    m = AddCompartment(m, vNames{i}, dv(i), v(i));
 end
 
 % States
 nx      = symbolic.nx;
 xNames  = symbolic.xNames;
-xIDs    = symbolic.xIDs;
 xvNames = symbolic.xvNames;
 x       = symbolic.x; % cell array of strings
 for i = 1:nx
-    m = AddState(m, xNames{i}, xvNames{i}, x{i}, xIDs{i});
+    m = AddState(m, xNames{i}, xvNames{i}, x{i});
 end
 
 % Inputs
 nu      = symbolic.nu;
 uNames  = symbolic.uNames;
-uIDs    = symbolic.uIDs;
 uvNames = symbolic.uvNames;
 u       = symbolic.u; % doubles
 for i = 1:nu
-    m = AddInput(m, uNames{i}, uvNames{i}, u(i), uIDs{i});
+    m = AddInput(m, uNames{i}, uvNames{i}, u(i));
 end
 
 % Seeds
 ns      = symbolic.ns;
 sNames  = symbolic.sNames;
-sIDs    = symbolic.sIDs;
 s       = symbolic.s; % doubles
 for i = 1:ns
-    m = AddSeed(m, sNames{i}, s(i), sIDs{i});
+    m = AddSeed(m, sNames{i}, s(i));
 end
 
 % Parameters
 nk     = symbolic.nk;
 kNames = symbolic.kNames;
-kIDs   = symbolic.kIDs;
 k      = symbolic.k; % doubles
 for i = 1:nk
-    m = AddParameter(m, kNames{i}, k(i), kIDs{i});
+    m = AddParameter(m, kNames{i}, k(i));
 end
 
 % Reactions
 nr     = symbolic.nr;
 rNames = symbolic.rNames;
-rIDs   = symbolic.rIDs;
 r      = symbolic.r; % cell matrix
 for i = 1:nr
-    m = AddReaction(m, rNames{i}, r{i,1}, r{i,2}, r{i,3}, [], [], rIDs{i});
+    m = AddReaction(m, rNames{i}, r{i,1}, r{i,2}, r{i,3}, []);
 end
 
 % Rules
 nz     = symbolic.nz;
 zNames = symbolic.zNames;
-zIDs   = symbolic.zIDs;
 z      = symbolic.z; % cell matrix
 for i = 1:nz
-    m = AddRuleAnalytic(m, zNames{i}, z{i,1}, z{i,2}, z{i,3}, zIDs{i});
+    m = AddRuleAnalytic(m, zNames{i}, z{i,1}, z{i,2}, z{i,3});
 end
 
 if verbose; fprintf('done.\n'); end

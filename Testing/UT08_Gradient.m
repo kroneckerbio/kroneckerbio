@@ -8,126 +8,47 @@ end
 function testDoseModel(a)
 [m, con, obj, opts] = dose_model();
 
-% Forward
-opts.UseAdjoint = false;
-Dfwd = ObjectiveGradient(m, con(1), obj, opts);
+verifyGradient(a, m, con(1), obj, opts)
+verifyGradient(a, m, con(1), obj, opts)
+verifyGradient(a, m, con(1), obj, opts)
+end
 
-% Adjoint
-opts.UseAdjoint = true;
-Dadj = ObjectiveGradient(m, con(1), obj, opts);
+function testHigherOrderDose(a)
+[m, con, obj, opts] = higher_order_dose_model();
 
-% Discrete
-Ddisc = FiniteObjectiveGradient(m, con(1), obj, opts);
-
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
-a.verifyEqual(Dfwd, Dadj, 'RelTol', 0.001)
-
-% Forward
-opts.UseAdjoint = false;
-Dfwd = ObjectiveGradient(m, con(2), obj, opts);
-
-% Adjoint
-opts.UseAdjoint = true;
-Dadj = ObjectiveGradient(m, con(2), obj, opts);
-
-% Discrete
-Ddisc = FiniteObjectiveGradient(m, con(2), obj, opts);
-
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
-a.verifyEqual(Dfwd, Dadj, 'RelTol', 0.001)
-
-% Forward
-opts.UseAdjoint = false;
-Dfwd = ObjectiveGradient(m, con(3), obj, opts);
-
-% Adjoint
-opts.UseAdjoint = true;
-Dadj = ObjectiveGradient(m, con(3), obj, opts);
-
-% Discrete
-Ddisc = FiniteObjectiveGradient(m, con(3), obj, opts);
-
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
-a.verifyEqual(Dfwd, Dadj, 'RelTol', 0.001)
+verifyGradient(a, m, con, obj, opts)
 end
 
 function testObjectiveGradientSimpleSteadyState(a)
 simpleopts.steadyState = true;
 [m, con, obj, opts] = simple_model(simpleopts);
-nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
-m = m.Update(rand(m.nk,1)+1);
-con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
-
-% Forward
-opts.UseAdjoint = false;
-Dfwd = ObjectiveGradient(m, con, obj, opts);
-
-% Adjoint
-opts.UseAdjoint = true;
-Dadj = ObjectiveGradient(m, con, obj, opts);
-
-% Discrete
-Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
-
-a.verifyEqual(size(Dfwd), [nT,1])
-a.verifyEqual(size(Dadj), [nT,1])
-a.verifyEqual(size(Ddisc), [nT,1])
-
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
-a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+verifyGradient(a, m, con, obj, opts)
 end
 
 function testObjectiveGradientSimple(a)
 [m, con, obj, opts] = simple_model();
-nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
-% Forward
-opts.UseAdjoint = false;
-Dfwd = ObjectiveGradient(m, con, obj, opts);
-
-% Adjoint
-opts.UseAdjoint = true;
-Dadj = ObjectiveGradient(m, con, obj, opts);
-
-% Discrete
-Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
-
-a.verifyEqual(size(Dfwd), [nT,1])
-a.verifyEqual(size(Dadj), [nT,1])
-a.verifyEqual(size(Ddisc), [nT,1])
-
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
-a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+verifyGradient(a, m, con, obj, opts)
 end
 
 function testObjectiveGradientSimpleAnalytic(a)
 [m, con, obj, opts] = simple_analytic_model();
-nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
-% Forward
-opts.UseAdjoint = false;
-Dfwd = ObjectiveGradient(m, con, obj, opts);
-
-% Adjoint
-opts.UseAdjoint = true;
-Dadj = ObjectiveGradient(m, con, obj, opts);
-
-% Discrete
-Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
-
-a.verifyEqual(size(Dfwd), [nT,1])
-a.verifyEqual(size(Dadj), [nT,1])
-a.verifyEqual(size(Ddisc), [nT,1])
-
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
-a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 0.001)
+verifyGradient(a, m, con, obj, opts)
 end
 
 function testObjectiveGradientMichaelisMenten(a)
 [m, con, obj, opts] = michaelis_menten_model();
+
+verifyGradient(a, m, con, obj, opts)
+end
+
+function verifyGradient(a, m, con, obj, opts)
+opts.ImaginaryStep = true;
 nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
+opts.Normalized = false;
 % Forward
 opts.UseAdjoint = false;
 Dfwd = ObjectiveGradient(m, con, obj, opts);
@@ -143,6 +64,21 @@ a.verifyEqual(size(Dfwd), [nT,1])
 a.verifyEqual(size(Dadj), [nT,1])
 a.verifyEqual(size(Ddisc), [nT,1])
 
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001)
-a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001)
+a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
+
+opts.Normalized = true;
+% Forward
+opts.UseAdjoint = false;
+Dfwd = ObjectiveGradient(m, con, obj, opts);
+
+% Adjoint
+opts.UseAdjoint = true;
+Dadj = ObjectiveGradient(m, con, obj, opts);
+
+% Discrete
+Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
+
+a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end

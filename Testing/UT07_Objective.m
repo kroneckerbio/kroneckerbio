@@ -11,6 +11,17 @@ function testObjectiveValueSimple(a)
 G = ObjectiveValue(m, con, obj, opts);
 end
 
+function testHigherOrderDose(a)
+[m, con, obj, opts] = higher_order_dose_model();
+
+obs = observationSelect(0:10);
+sim = SimulateSystem(m, con, obs, opts);
+
+int = sim.int;
+t = 0;
+verifyDerivatives(a, obj, int, t)
+end
+
 function testObjectiveWeightedSumOfSquares(a)
 [m, con, obj, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
@@ -101,5 +112,5 @@ end
 function verifyClose(a, x0, f, dfdx)
 % dfdx_finite returned as a sparse matrix
 [~, dfdx_finite, dfdx_analytic] = fdiff(x0, f, dfdx);
-a.verifyEqual(sparse(dfdx_finite), sparse(dfdx_analytic), 'RelTol', 0.001)
+a.verifyEqual(sparse(dfdx_finite), sparse(dfdx_analytic), 'RelTol', 0.001, 'AbsTol', 1e-4)
 end
