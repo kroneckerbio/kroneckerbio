@@ -124,15 +124,15 @@ for iv = 1:nv
         bEntries(nbEntries,2) = 1;
         bValues(nbEntries) = m.Compartments(iv).Size;
     elseif iscell(m.Compartments(iv).Size)
-        % Handle compartment size given as a list of regular expressions
+        % Handle compartment size given as a list of strings
         nExpr = size(m.Compartments(iv).Size,1);
         for iExpr = 1:nExpr
             % Find states that match the expression
-            match = find(~cellfun(@isempty, regexp(x_full_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            match = find(strcmp(m.Compartments(iv).Size{iExpr,1}, x_full_names));
             nAdd = numel(match);
             nB1Entries = nB1Entries + nAdd;
             
-            % Add more room in vector if necessary
+            % Add more room in vector if string
             currentLength = size(B1Entries,1);
             if nB1Entries > currentLength
                 addlength = max(currentLength, nAdd);
@@ -145,8 +145,8 @@ for iv = 1:nv
             B1Entries(nB1Entries-nAdd+1:nB1Entries,2) = match;
             B1Values(nB1Entries-nAdd+1:nB1Entries) = m.Compartments(iv).Size{iExpr,2};
             
-            % Find inputs that match the expression
-            match = find(~cellfun(@isempty, regexp(u_full_names, m.Compartments(iv).Size{iExpr,1}, 'once')));
+            % Find inputs that match the string
+            match = find(strcmp(m.Compartments(iv).Size{iExpr,1}, u_full_names));
             nAdd = numel(match);
             nB2Entries = nB2Entries + nAdd;
             
@@ -290,10 +290,10 @@ cEntries  = zeros(0,2);
 cValues   = zeros(0,1);
 
 for iy = 1:ny
-    nExpr = size(m.Outputs(iy).Expressions,1);
+    nExpr = size(m.Outputs(iy).Expression,1);
     for iExpr = 1:nExpr
-        % Find states that match the expression
-        match = find(~cellfun(@isempty, regexp(x_full_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
+        % Find states that match the string
+        match = find(strcmp(m.Outputs(iy).Expression{iExpr,1}, x_full_names));
         nAdd = numel(match);
         nC1Entries = nC1Entries + nAdd;
         
@@ -308,10 +308,10 @@ for iy = 1:ny
         % Add entries
         C1Entries(nC1Entries-nAdd+1:nC1Entries,1) = iy;
         C1Entries(nC1Entries-nAdd+1:nC1Entries,2) = match;
-        C1Values(nC1Entries-nAdd+1:nC1Entries) = m.Outputs(iy).Expressions{iExpr,2};
+        C1Values(nC1Entries-nAdd+1:nC1Entries) = m.Outputs(iy).Expression{iExpr,2};
         
-        % Find inputs that match the expression
-        match = find(~cellfun(@isempty, regexp(u_full_names, m.Outputs(iy).Expressions{iExpr,1}, 'once')));
+        % Find inputs that match the string
+        match = find(strcmp(m.Outputs(iy).Expression{iExpr,1}, u_full_names));
         nAdd = numel(match);
         nC2Entries = nC2Entries + nAdd;
         
@@ -326,10 +326,10 @@ for iy = 1:ny
         % Add entries
         C2Entries(nC2Entries-nAdd+1:nC2Entries,1) = iy;
         C2Entries(nC2Entries-nAdd+1:nC2Entries,2) = match;
-        C2Values(nC2Entries-nAdd+1:nC2Entries) = m.Outputs(iy).Expressions{iExpr,2};
+        C2Values(nC2Entries-nAdd+1:nC2Entries) = m.Outputs(iy).Expression{iExpr,2};
 
         % Find empty expressions, which are constants
-        if isempty(m.Outputs(iy).Expressions{iExpr,1})
+        if isempty(m.Outputs(iy).Expression{iExpr,1})
             ncEntries = ncEntries + 1;
             
             % Add more room in vector if necessary
@@ -343,7 +343,7 @@ for iy = 1:ny
             % Add entries
             cEntries(ncEntries,1) = iy;
             cEntries(ncEntries,2) = 1;
-            cValues(ncEntries) = m.Outputs(iy).Expressions{iExpr,2};
+            cValues(ncEntries) = m.Outputs(iy).Expression{iExpr,2};
         end
     end
 end

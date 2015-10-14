@@ -23,12 +23,8 @@ assert(isscalar(m), 'KroneckerBio:FinalizeModel:MoreThanOneModel', 'The model st
 %% Common finalization
 % Model-specific common finalization modifications
 if is(m, 'Model.MassActionAmount')
-    growReactions_ = @growReactions;
-    growOutputs_ = @growOutputs;
     rateName = 'Parameter';
 elseif is(m, 'Model.Analytic')
-    growReactions_ = @growReactionsAnalytic;
-    growOutputs_ = @growOutputsAnalytic;
     rateName = 'Rate';
 else
     error('KroneckerBio:AddOutput:m', 'm must be a model')
@@ -133,13 +129,17 @@ assert(isempty(y_repeated), 'KroneckerBio:FinalizeModel:RepeatOutput', 'Output %
         end
     end
 
-    function [unambiguousSpecies, unqualified] = qualifyCompartment(reactionSpecies)
+    function [unambiguousSpecies, unqualified] = qualifyCompartment(species_all, compartment)
+        if nargin < 2
+            compartment = [];
+        end
+        
         % Incorporate reaction compartment
-        unqualified = false(size(reactionSpecies));
-        unambiguousSpecies = reactionSpecies;
+        unqualified = false(size(species_all));
+        unambiguousSpecies = species_all;
         for j = 1:numel(unambiguousSpecies)
             
-            species = reactionSpecies{j};
+            species = species_all{j};
             
             if ismember('.', species) % qualified - make sure this species exists
                 
@@ -189,7 +189,7 @@ for i = 1:nr
     end
     
     % Incorporate reaction compartment
-    [unambiguousSpecies, unqualified] = qualifyCompartment(reactionSpecies);
+    [unambiguousSpecies, unqualified] = qualifyCompartment(reactionSpecies, compartment);
     
     % Update reactants and products
     reactants = unambiguousSpecies(1:numel(reactants));
@@ -209,37 +209,28 @@ for i = 1:nr
 end
 
 %% Resolve output compartments and standardize names
-% Analytic only
-% Massaction models use regexes on output names, which aren't compabible with
-%   this naming/lookup scheme
-if is(m, 'Model.Analytic')
-    for i = 1:ny
-        
-        % Extract output
-        output = m.Outputs(i);
-        name        = output.Name;
-        expr        = output.Expression;
-        compartment = output.Compartment;
-        
-        % Make sure compartment exists in model if specified
-        if ~isempty(compartment)
-            assert(ismember(compartment, v_names), 'KroneckerBio:FinalizeModel:MissingOutputCompartment', 'Compartment %s not found in output %s', compartment, name)
-        end
-        
-        % Get species that appear in output expression
-        outputSpecies = getSpeciesFromExpr(expr);
-        
-        % Incorporate reaction compartment
+for i = 1:ny
+    
+    % Extract output
+    output = m.Outputs(i);
+    name        = output.Name;
+    expr        = output.Expression;
+    
+    % Check/qualify species in output expression
+    if is(m, 'Model.MassActionAmount')
+        outputSpecies = expr(:,1)';
         [unambiguousSpecies, unqualified] = qualifyCompartment(outputSpecies);
-        
-        % Rename in output expression
+        expr(unqualified,1) = unambiguousSpecies(unqualified)';
+    elseif is(m, 'Model.Analytic')
+        outputSpecies = getSpeciesFromExpr(expr);
+        [unambiguousSpecies, unqualified] = qualifyCompartment(outputSpecies);
         expr = substituteQuotedExpressions(expr, outputSpecies(unqualified), unambiguousSpecies(unqualified), true);
-        
-        % Update reaction
-        output.Expression = expr;
-        m.Outputs(i) = output;
-        
     end
+    
+    % Update reaction
+    output.Expression = expr;
+    m.Outputs(i) = output;
+    
 end
 
 %% Type-specific finalization
@@ -247,8 +238,6 @@ if is(m, 'Model.MassActionAmount')
     m = finalizeModelMassActionAmount(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = finalizeModelAnalytic(m, varargin{:});
-else
-    error('KroneckerBio:AddOutput:m', 'm must be a model')
 end
 
 end

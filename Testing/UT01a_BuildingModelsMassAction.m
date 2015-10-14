@@ -254,3 +254,10 @@ a.verifyEqual(test.nr, 0);
 a.verifyEqual(length(test.Reactions), 0);
 a.verifyError(@()RemoveReaction(m, 'r2'), 'KroneckerBio:RemoveReaction:ReactionNotFound');
 end
+
+function testAddOutputAsRegex(a)
+m = model_with_some_species();
+m = addOutputAsRegex(m, 'y', {'x'});
+m = FinalizeModel(m);
+a.verifyEqual(size(m.Outputs(1).Expression), [4,2])
+end

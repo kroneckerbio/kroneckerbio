@@ -89,17 +89,15 @@ u5     5
 
 # Format:
 #Name Value
-y1    x=1
+y1    x1=1
 
-# Value is a set of regular expressions combined with equal signs and 
+# Value is a set of species names combined with equal signs and 
 # numbers, seperated by commas. The default number is 1, so the following 
 # is identical to the previous line.
-# y1 x
+# y1 x1
 
-y2 x=1
-
-# Multiple expressions can contribute to the same output. If a species is
-# matched multiple times, the last expression prevails.
+# Multiple expressions can contribute to the same output.
+y2 x1 x2
 y3 x4 u5
 
 # Values do not have to be integers

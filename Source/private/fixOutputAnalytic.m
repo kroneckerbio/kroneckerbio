@@ -5,5 +5,5 @@ if ischar(expression)
 elseif isnumeric(expression) && isscalar(expression)
     expression = num2str(expression);
 else
-    error('fixOutputAnalytic: invalid output expression')
+    error('KroneckerBio:Output:InvalidAnalyticExpression', 'Invalid output expression')
 end

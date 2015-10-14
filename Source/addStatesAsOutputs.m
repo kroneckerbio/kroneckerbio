@@ -1,6 +1,8 @@
 function m = addStatesAsOutputs(m)
 %addStatesAsOutputs A quick and dirty helper script that adds one output
-%   for each state currently in the model
+%   for each state currently in the model. Note: this
+%   function is order-dependent, meaning it only matches species already in the
+%   model.
 %
 %   m = addStatesAsOutputs(m)
 
@@ -9,18 +11,12 @@ function m = addStatesAsOutputs(m)
 
 full_names = vec(strcat({m.States(1:m.nx).Compartment}, '.', {m.States(1:m.nx).Name}));
 
-if is(m, 'Model.MassActionAmount')
-    full_names_regex = strcat('^', full_names, '$'); 
-    
-    for i = 1:numel(full_names)
-        m = AddOutput(m, full_names{i}, full_names_regex{i});
+for i = 1:numel(full_names)
+    if is(m, 'Model.MassActionAmount')
+        m = AddOutput(m, full_names{i});
+    elseif is(m, 'Model.Analytic')
+        m = AddOutput(m, full_names{i}, ['"' full_names{i} '"']); % quotes around expressions with potentially invalid names
+    else
+        error('KroneckerBio:AddState:m', 'm must be a model')
     end
-elseif is(m, 'Model.Analytic')
-    full_names_expression = strcat('"', full_names, '"');
-
-    for i = 1:numel(full_names)
-        m = AddOutput(m, full_names{i}, full_names_expression{i});
-    end
-else
-    error('KroneckerBio:AddState:m', 'm must be a model')
 end

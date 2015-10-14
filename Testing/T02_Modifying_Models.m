@@ -14,7 +14,8 @@ m = AddState(m, 'x2', 'v2', 0);
 
 m = AddInput(m, 'u1', 'v1', 1);
 
-m = AddOutput(m, 'y1', 'x2'); % Note that 'x2' is treated as a regex, and matches both states named x2
+m = AddOutput(m, 'y1', 'v1.x2');
+m = AddOutput(m, 'y2', {'v1.x2', 'v2.x2'});
 
 m = AddParameter(m, 'k1', 1);
 m = AddParameter(m, 'k2', 2);
@@ -33,6 +34,8 @@ m = RemoveState(m, 'v2.x2');
 m = RemoveParameter(m, 'k2');
 
 m = RemoveReaction(m, 'r2');
+
+m = RemoveOutput(m, 'y2');
 
 % Finialize modified model
 m = FinalizeModel(m);

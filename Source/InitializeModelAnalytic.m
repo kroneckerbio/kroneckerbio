@@ -22,7 +22,7 @@ m.Seeds        = growSeeds;
 m.Inputs       = growInputs;
 m.States       = growStates;
 m.Reactions    = growReactionsAnalytic;
-m.Outputs      = growOutputsAnalytic;
+m.Outputs      = growOutputs;
 m.Rules        = growRules;
 
 m = initializeModelBase(m);

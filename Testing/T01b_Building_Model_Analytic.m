@@ -41,9 +41,8 @@ m = AddOutput(m, 'y1', 'x1');
 m = AddOutput(m, 'y2', '2*x1 + 3.5*x2');
 m = AddOutput(m, 'y3', 'k1*x1');
 m = AddOutput(m, 'y4', 'exp(k2*x2)');
-m = AddOutput(m, 'y5', 5);
-m = AddOutput(m, 'y6', 'x0', 'v1');
-m = AddOutput(m, 'y7', 'x0', 'v2');
+m = AddOutput(m, 'y5', '"v1.x0"'); % make sure to double-quote qualified compartment.species since they contain a dot, an otherwise invalid character
+m = AddOutput(m, 'y6', '"v2.x0"');
 
 % Demonstrate rates as arbitrary expressions
 m = AddReaction(m, 'r00', 'x1', {'x3', 'x4'}, 'k1*x5');

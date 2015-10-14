@@ -54,14 +54,13 @@ m = AddInput(m, 'u4', 'v1', 4);
 % Outputs are quantities of interest to the user, either in plotting their
 %   simulated amounts over time, or in comparing to data during fitting.
 % In massaction models, outputs are linear combinations of states and inputs.
-%   See the AddOutputMassActionAmount documentation.
-% Outputs can be specified as regular expressions matching states and inputs.
-%   Then the sum of all matching species amounts is taken as the output.
+%   See the addOutputMassActionAmount documentation.
 m = AddOutput(m, 'y1', 'x1');
-m = AddOutput(m, 'y2', {'x', 2});
-m = AddOutput(m, 'y3', {'u', 3});
-m = AddOutput(m, 'y4', {'\...$', 4});
-m = AddOutput(m, 'y5', 5);
+m = AddOutput(m, 'y2', {'x1', 2});
+m = AddOutput(m, 'y3', {'u1', 3});
+m = AddOutput(m, 'y4', {'x1', 1; 'u1', 2});
+m = addOutputAsRegex(m, 'y5', {'x'}); % optional method of specifying an output as a linear combo of regex matches
+m = addOutputAsRegex(m, 'y6', {'u', 2});
 
 %% Add Parameters
 % Parameters are the rate constants in massaction models
