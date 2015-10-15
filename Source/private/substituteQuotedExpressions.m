@@ -1,10 +1,12 @@
 function expressions = substituteQuotedExpressions(expressions, inputs, outputs, add_output_quotes)
 % Replaces instances of inputs with outputs
 % If an input is a valid identifier, it may be found in the expression as
-% either a bare identifier or quoted.
+%   either a bare identifier or quoted.
 % If an input is not a valid identifier, it must be quoted.
 % The outputs will only be quoted if both add_quotes is true and the output
-% is not a valid identifier
+%   is not a valid identifier
+% Note that fully qualified compartment.species will always be quoted, since it
+%   contains a dot, which isn't a valid identifier
 
 if nargin < 4 || isempty(add_output_quotes)
     add_output_quotes = false;

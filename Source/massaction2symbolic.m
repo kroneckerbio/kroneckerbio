@@ -3,11 +3,10 @@ function symbolic = massaction2symbolic(m, opts)
 %   m [ Model.MassActionAmount struct ]
 %   opts [ options struct ]
 %       Options struct allowing the following fields:
-%       .Verbose
-%       .Finalized [ {true} | false ]
-%           Whether to only use model components from a finalized model. True
-%           means m.* components are used. False means m.* and m.add.*
-%           components are used.
+%       .Verbose [ nonnegative integer ]
+%           The level of debug information verbosity, with higher values giving
+%           more output.
+%
 % Outputs:
 %   symbolic [ Model.Symbolic struct ]
 
@@ -37,30 +36,6 @@ for i = 1:nradd
         m.add.Reactions(i).Name = ['rxn_' num2str(nr+i)];
     end
 end
-
-%% Copy m.add.* fields in non-finalized models
-if ~opts.Finalized
-    if verbose; fprintf('Copying nonfinalized componenets...'); end
-    common = 'Name';
-    m.Compartments = combineComponents(m.Compartments, m.add.Compartments, opts.Verbose, common);
-    m.Parameters = combineComponents(m.Parameters, m.add.Parameters, opts.Verbose, common);
-    m.Seeds = combineComponents(m.Seeds, m.add.Seeds, opts.Verbose, common);
-    m.States = combineComponents(m.States, m.add.States, opts.Verbose, common);
-    m.Inputs = combineComponents(m.Inputs, m.add.Inputs, opts.Verbose, common);
-    m.Reactions = combineComponents(m.Reactions, m.add.Reactions, opts.Verbose, common);
-    m.Outputs = combineComponents(m.Outputs, m.add.Outputs, opts.Verbose, common);
-    m.Rules = combineComponents(m.Rules, m.add.Rules, opts.Verbose);
-    m.nv = length(m.Compartments);
-    m.nk = length(m.Parameters);
-    m.ns = length(m.Seeds);
-    m.nx = length(m.States);
-    m.nu = length(m.Inputs);
-    m.nr = length(m.Reactions);
-    m.ny = length(m.Outputs);
-    m.nz = length(m.Rules);
-    if verbose; fprintf('done.\n'); end
-end
-
 
 %% Extract model components
 if verbose; fprintf('Extracting model components...'); end

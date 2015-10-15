@@ -10,7 +10,7 @@ if nargin < 1
     simpleopts = struct;
 end
 
-defaultopts.objectiveFun = 'objectiveWeightedSumOfSquares';
+defaultopts.objectiveFun = 'observationLinearWeightedSumOfSquares';
 defaultopts.steadyState = false;
 
 simpleopts = mergestruct(defaultopts, simpleopts);
@@ -23,13 +23,13 @@ if nargin < 1
 end
 
 if isempty(objectiveFun)
-    objectiveFun = 'objectiveWeightedSumOfSquares';
+    objectiveFun = 'observationLinearWeightedSumOfSquares';
 end
 
 % Build model
 m = LoadModelMassAction('Simple.txt');
 m = addStatesAsOutputs(m);
-m = AddOutput(m, 'all_ligand', 'ligand');
+m = AddOutput(m, 'all_ligand', 'ligand'); % interpreted as regex?
 m = FinalizeModel(m);
 
 ns = m.ns;
@@ -71,14 +71,14 @@ if steadyState
     % Initialize expected value array
     values = [
         % output, time, value
-        2, 1, 0;
-        4, 2, 0;
-        1, 4, 0;
+        2,  1, 0;
+        4,  2, 0;
+        1,  4, 0;
         10, 3, 0;
-        8, 6, 0;
-        9, 5, 0;
-        2, 2, 0;
-        3, 4, 0;
+        8,  6, 0;
+        9,  5, 0;
+        2,  2, 0;
+        3,  4, 0;
         ];
     
     % Set parameters
@@ -126,24 +126,21 @@ if steadyState
     
 else
     values = [ 
-        2, 1, 13;
-        4, 2, 3;
-        1, 4, 3.4;
+        2,  1, 13;
+        4,  2, 3;
+        1,  4, 3.4;
         10, 3, 17;
-        8, 6, 0;
-        9, 5, 3;
-        2, 2, 16;
-        3, 4, 8;
+        8,  6, 0;
+        9,  5, 3;
+        2,  2, 16;
+        3,  4, 8;
         ];
 end
 
 switch objectiveFun
-    case 'objectiveWeightedSumOfSquares'
-%       obj = objectiveWeightedSumOfSquares(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
+    case 'observationLinearWeightedSumOfSquares'
         obs = observationLinearWeightedSumOfSquares(values(:,1), values(:,2), sd, 'SimpleData');
         obj = obs.Objective(values(:,3));
-    case 'objectiveWeightedSumOfSquaresNonNeg'
-        obj = objectiveWeightedSumOfSquaresNonNeg(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
     otherwise
         error('Error:simple_model:Objective function %s not recognized.', objectiveFun)
 end

@@ -9,9 +9,6 @@ function m = AddState(m, varargin)
 %   Model.MassActionAmount
 %       help addStateMassActionAmount
 %
-%   Model.MassActionConcentration
-%       help addStateMassActionConcentration
-%
 %   Model.Analytic
 %       help addStateAnalytic
 
@@ -20,8 +17,6 @@ function m = AddState(m, varargin)
 
 if is(m, 'Model.MassActionAmount')
     m = addStateMassActionAmount(m, varargin{:});
-elseif is(m, 'Model.MassActionConcentration')
-    m = addStateMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = addStateAnalytic(m, varargin{:});
 else

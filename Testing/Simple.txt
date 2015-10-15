@@ -51,11 +51,11 @@ capture      5
 destruction  4
 
 % Reactions
-gene                    0              product               0    production 0
-product                 0              0                     0    degradation
-extracellular_inhibitor pump           inhibitor        pump pump_in 0
-extracellular_ligand    transporter    ligand:transporter    0    ligand_on ligand_off
-ligand                  transporter    ligand:transporter    0    ligand_on ligand_off
-ligand                  product        ligand:product        0    product_on product_off
-ligand:product          gene:factor    ligand:product:factor gene release capture
-ligand:product:factor   inhibitor      0                     0    destruction 0
+gene                    0              product                  0      production
+product                 0              0                        0      degradation
+extracellular_inhibitor pump           inhibitor                pump   pump_in
+extracellular_ligand    transporter    ligand:transporter       0      ligand_on ligand_off
+ligand                  transporter    ligand:transporter       0      ligand_on ligand_off
+ligand                  product        ligand:product           0      product_on product_off
+ligand:product          gene:factor    ligand:product:factor    gene   release capture
+ligand:product:factor   inhibitor      0                        0      destruction

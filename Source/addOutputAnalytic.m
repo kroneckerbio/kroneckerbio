@@ -3,15 +3,8 @@ function m = addOutputAnalytic(m, name, expression)
 %
 %   m = AddOutput(m, name, expression)
 %
-%   Outputs are linear combinations of species. In Kronecker, they take
-%   advantage of species naming schemes by being defined by regular
-%   expressions. Each regular expression of the output has a corresponding
-%   value indicating how much each species with a matching substring
-%   contributes to this output. The value of the output is the sum of all
-%   matches times their values. If a species is matched more than once, the
-%   last match is used.
-%
-%   See regexp for help on how to write Matlab regular expressions.
+%   Outputs are arbitrary functions of species and rate constants in analytic
+%   models.
 %
 %   Inputs
 %   m: [ model struct scalar ]
@@ -20,18 +13,17 @@ function m = addOutputAnalytic(m, name, expression)
 %       A name for the output
 %   expression: [ string {name} ]
 %       Mathematical expression for the output. If blank, expression is set to
-%       the state represented by the name, if possible.
+%       the state represented by the name, if possible. Species names must be
+%       fully qualified with "compartment.species", including the double-quotes,
+%       or unqualified with species if the species is globally unique.
 %
 %   Outputs
 %   m: [ model struct scalar ]
 %       The model with the new output added.
 
-% Clean up inputs
-if nargin < 4
-    id = [];
-    if nargin < 3
-        expression = [];
-    end
+% Clean up arguments
+if nargin < 3
+    expression = [];
 end
 
 % Set defaults
@@ -40,12 +32,12 @@ if isempty(expression)
 end
 
 % Increment counter
-ny = m.add.ny + 1;
-m.add.ny = ny;
-m.add.Outputs = growOutputsAnalytic(m.add.Outputs, ny);
+ny = m.ny + 1;
+m.ny = ny;
+m.Outputs = growOutputs(m.Outputs, ny);
 
 % Add item
-m.add.Outputs(ny).Name = fixOutputName(name);
-m.add.Outputs(ny).Expression = fixOutputAnalytic(expression);
+m.Outputs(ny).Name        = fixOutputName(name);
+m.Outputs(ny).Expression  = fixOutputAnalytic(expression);
 
 m.Ready = false;

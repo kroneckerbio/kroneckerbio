@@ -1,4 +1,7 @@
+% TODO: currently outdated - fix
+
 % Global
+opts = [];
 opts.UseModelSeeds = false;
 opts.UseModelInputs = false;
 opts.RelTol = 1e-4;
@@ -36,15 +39,22 @@ n = 8;
 lintimes = linspace(tF/n,tF,n);
 sd = sdLinear(0.01,0.1);
 
-con = Experiment(mDKDP, tF);
+con = experimentInitialValue(mDKDP, [], [], [], 'InitialValueExperiment');
 
 % Define measurement structure
 outputlist = vec(repmat(outputs', [numel(lintimes),1]));
 timelist = repmat(lintimes, [numel(outputs),1]);
 
-obj = objectiveWeightedSumOfSquaresNonNeg(outputlist, timelist, sd, [], 'Fitting Data');
+% obj = objectiveWeightedSumOfSquaresNonNeg(outputlist, timelist, sd, [], 'Fitting Data');
+% obs = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, 'Fitting Data');
+% obj = obs.Objective([]);
 
-% Create fake data
+% Create test data
+sims = cell(1,nTop);
+for i = 1:nTop
+    sims{i} = SimulateSystem(m(i), con, tF);
+end
+
 sim = SimulateSelect(m(1), con, lintimes, opts);
 rand_state = rng(1);
 obj = obj.AddData(sim.sol);

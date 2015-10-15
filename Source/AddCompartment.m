@@ -9,9 +9,6 @@ function m = AddCompartment(m, varargin)
 %   Model.MassActionAmount
 %       help addCompartmentMassActionAmount
 %
-%   Model.MassActionConcentration
-%       help addCompartmentMassActionConcentration
-%
 %   Model.Analytic
 %       help addCompartmentAnalytic
 
@@ -20,8 +17,6 @@ function m = AddCompartment(m, varargin)
 
 if is(m, 'Model.MassActionAmount')
     m = addCompartmentMassActionAmount(m, varargin{:});
-elseif is(m, 'Model.MassActionConcentration')
-    m = addCompartmentMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = addCompartmentAnalytic(m, varargin{:});
 else

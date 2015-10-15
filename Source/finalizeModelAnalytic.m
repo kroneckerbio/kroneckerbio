@@ -44,7 +44,6 @@ function m = finalizeModelAnalytic(m, opts)
 %   m: [ Model.Analytic ]
 %       The useable form of the model
 
-%% Work-up
 % Clean up inputs
 if nargin < 2
     opts = [];
@@ -74,45 +73,7 @@ if opts.UseMEX && exist(opts.MEXDirectory,'dir') ~= 7
     mkdir(opts.MEXDirectory);
 end
 
-%% Trim m.add.* components to only those actually added
-m.add.Compartments = m.add.Compartments(1:m.add.nv);
-m.add.Seeds = m.add.Seeds(1:m.add.ns);
-m.add.Parameters = m.add.Parameters(1:m.add.nk);
-m.add.Inputs = m.add.Inputs(1:m.add.nu);
-m.add.States = m.add.States(1:m.add.nx);
-m.add.Reactions = m.add.Reactions(1:m.add.nr);
-m.add.Rules = m.add.Rules(1:m.add.nz);
-m.add.Outputs = m.add.Outputs(1:m.add.ny);
-
-%% Add in m.add.* components
-m.Compartments = [m.Compartments; m.add.Compartments];
-m.Seeds = [m.Seeds; m.add.Seeds];
-m.Parameters = [m.Parameters; m.add.Parameters];
-m.Inputs = [m.Inputs; m.add.Inputs];
-m.States = [m.States; m.add.States];
-m.Reactions = [m.Reactions; m.add.Reactions];
-m.Rules = [m.Rules; m.add.Rules];
-m.Outputs = [m.Outputs; m.add.Outputs];
-
-m.add.Compartments = growCompartments;
-m.add.Parameters = growParameters;
-m.add.Seeds = growSeeds;
-m.add.Inputs = growInputs;
-m.add.States = growStates;
-m.add.Reactions = growReactionsAnalytic;
-m.add.Rules = growRules;
-m.add.Outputs = growOutputsAnalytic;
-
-m.add.nv = 0;
-m.add.nk = 0;
-m.add.ns = 0;
-m.add.nu = 0;
-m.add.nx = 0;
-m.add.nz = 0;
-m.add.nr = 0;
-m.add.ny = 0;
-
-%% Extract values
+%% Extract model components
 nv = numel(m.Compartments);
 nk = numel(m.Parameters);
 ns = numel(m.Seeds);
@@ -121,6 +82,7 @@ nx = numel(m.States);
 nr = numel(m.Reactions);
 nz = numel(m.Rules);
 ny = numel(m.Outputs);
+nxu = nx + nu;
 
 v_names = vec({m.Compartments.Name});
 k_names = vec({m.Parameters.Name});
@@ -132,17 +94,20 @@ r_names = vec({m.Reactions.Name});
 y_names = vec({m.Outputs.Name});
 xu_names = [x_names; u_names];
 
+% Make list of all compartment.species in model
 u_full_names = vec(strcat({m.Inputs.Compartment}, '.', {m.Inputs.Name}));
 x_full_names = vec(strcat({m.States.Compartment}, '.', {m.States.Name}));
 xu_full_names = [x_full_names; u_full_names];
 
-unique_xu_names = false(nu+nx);
+% Make logical vector of which species names are unique
+unique_xu_names = false(nu+nx,1);
 for ixu = 1:nu+nx
     unique_xu_names(ixu) = ~ismember(xu_names{ixu}, [xu_names(1:ixu-1); xu_names(ixu+1:end)]);
 end
 unique_x_names = unique_xu_names(1:nx);
 unique_u_names = unique_xu_names(nx+(1:nu));
 
+%% Extract values for model components
 % Some of these will be converted to symbolics later after all default symbolics have been added
 dv = vec([m.Compartments.Dimension]);
 v = vec({m.Compartments.Size});
@@ -194,8 +159,8 @@ assert_unique_name([u_full_names; x_full_names])
 % Only unique species names can be referred to by their unqualified names
 % Unique species names and full names point to the same symbols
 ambiguous_names = [u_names(~unique_u_names); x_names(~unique_x_names)];
-all_names = [v_names; s_names; k_names; u_names(unique_u_names); x_names(unique_x_names); z_names; y_names; u_full_names; x_full_names];
-all_ids = [v_strs; s_strs; k_strs; u_strs(unique_u_names); x_strs(unique_x_names); z_strs; y_strs; u_strs; x_strs];
+all_names = [v_names; s_names; k_names; u_names(unique_u_names); x_names(unique_x_names); z_names; u_full_names; x_full_names];
+all_ids = [v_strs; s_strs; k_strs; u_strs(unique_u_names); x_strs(unique_x_names); z_strs; u_strs; x_strs];
 
 %% Replace names with symbolics and convert to symbolics
 % First test for ambiguous species
@@ -205,17 +170,17 @@ assert_no_ambiguous_species(z, ambiguous_names, 'rule');
 assert_no_ambiguous_species(r, ambiguous_names, 'reaction');
 assert_no_ambiguous_species(y, ambiguous_names, 'output');
 
-v = substituteQuotedExpressions(v, all_names, all_ids);
+v  = substituteQuotedExpressions(v, all_names, all_ids);
 x0 = substituteQuotedExpressions(x0, all_names, all_ids);
-z = substituteQuotedExpressions(z, all_names, all_ids);
-r = substituteQuotedExpressions(r, all_names, all_ids);
-y = substituteQuotedExpressions(y, all_names, all_ids);
+z  = substituteQuotedExpressions(z, all_names, all_ids);
+r  = substituteQuotedExpressions(r, all_names, all_ids);
+y  = substituteQuotedExpressions(y, all_names, all_ids);
 
-v = sym(v);
+v  = sym(v);
 x0 = sym(x0);
-z = sym(z);
-r = sym(r);
-y = sym(y);
+z  = sym(z);
+r  = sym(r);
+y  = sym(y);
 
 %% Substitute in expressions
 % Everything that is substitutable
@@ -229,11 +194,11 @@ for i = 1:n_subs
 end
 
 % Extract or replace
-v = substitutable_exps(1:nv,1);
+v  = substitutable_exps(1:nv,1);
 x0 = fastsubs(x0, substitutable_ids, substitutable_exps);
-z = substitutable_exps(nv+(1:nz),1);
-r = fastsubs(r, substitutable_ids, substitutable_exps);
-y = fastsubs(y, substitutable_ids, substitutable_exps);
+z  = substitutable_exps(nv+(1:nz),1);
+r  = fastsubs(r, substitutable_ids, substitutable_exps);
+y  = fastsubs(y, substitutable_ids, substitutable_exps);
 
 %% Evaluate external functions
 if opts.EvaluateExternalFunctions
@@ -244,28 +209,17 @@ end
 
 %% Process stoichiometry and rate forms/RHS's
 % Make stoichiometry matrix nSpecies x nReactions
+% All species have qualified names
 S_entries = zeros(0,3);
 for ir = 1:nr
     for j = 1:numel(m.Reactions(ir).Reactants)
         species = m.Reactions(ir).Reactants{j};
-        if ~ismember('.', species)
-            % This species is unqualified
-            ind = lookupmember(species, xu_names);
-            assert(unique_xu_names(ind), 'KroneckerBio:AmbiguousSpeciesName', 'The species (%s) in reaction #%i (%s) is ambiguous because there are several species in the model with that name', species, ir, r_names{ir})
-        else
-            ind = lookupmember(species, xu_full_names);
-        end
+        ind = lookupmember(species, xu_full_names);
         S_entries = [S_entries; ind, ir, -1];
     end
     for j = 1:numel(m.Reactions(ir).Products)
         species = m.Reactions(ir).Products{j};
-        if ~ismember('.', species)
-            % This species is unqualified
-            ind = lookupmember(species, xu_names);
-            assert(unique_xu_names(ind), 'KroneckerBio:AmbiguousSpeciesName', 'The species "%s" in reaction #%i (%s) is ambiguous because there are several species in the model with that name', species, ir, r_names{ir})
-        else
-            ind = lookupmember(species, xu_full_names);
-        end
+        ind = lookupmember(species, xu_full_names);
         S_entries = [S_entries; ind, ir, 1];
     end
 end
@@ -699,15 +653,6 @@ clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms ...
     rstates rinputs rparams statesubs inputsubs paramssubs rstatesi rinputsi rparamsi...
     uqi qsinui nonzero_map sizes symbolic2stringmethod...
     thistime defaultMEXdirectory
-
-m.nv = nv;
-m.nk = nk;
-m.ns = ns;
-m.nu = nu;
-m.nx = nx;
-m.nr = nr;
-m.ny = ny;
-m.nz = nz;
 
 m.dv = dv;
 m.k  = k;

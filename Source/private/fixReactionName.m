@@ -1,4 +1,17 @@
-function [name1 name2] = fixReactionName(name, kForward, kReverse)
+function [name1, name2] = fixReactionName(name)
+% Standardize reaction name. Reaction names don't have to be unique so the
+% forward name will be identical to the reverse if just 1 is provided. The
+% default name if nothing is provided is an empty string.
+%
+% Inputs:
+%   name [ string | 1 x 2 cell array of strings ]
+%       Reaction name string or different forward and reverse reaction names in cell
+%       array
+% Outputs:
+%   name1 [ string {''} ]
+%       Standardized forward reaction name.
+%   name2 [ string {''} ]
+%       Standardized reaction reaction name
 
 if isempty(name)
     name = '';

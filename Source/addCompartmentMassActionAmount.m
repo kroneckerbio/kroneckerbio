@@ -32,17 +32,17 @@ function m = addCompartmentMassActionAmount(m, name, dimension, size)
 %   m: [ model struct scalar ]
 %       The model with the new compartment added.
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 % Increment counter
-nv = m.add.nv + 1;
-m.add.nv = nv;
-m.add.Compartments = growCompartments(m.add.Compartments, m.add.nv);
+nv = m.nv + 1;
+m.nv = nv;
+m.Compartments = growCompartments(m.Compartments, nv);
 
 % Add item
-m.add.Compartments(nv).Name = fixCompartmentName(name);
-m.add.Compartments(nv).Dimension = fixCompartmentDimension(dimension);
-m.add.Compartments(nv).Size = fixCompartmentSize(size, dimension);
+m.Compartments(nv).Name      = fixCompartmentName(name);
+m.Compartments(nv).Dimension = fixCompartmentDimension(dimension);
+m.Compartments(nv).Size      = fixCompartmentSize(size, dimension);
 
 m.Ready = false;

@@ -22,16 +22,7 @@ m.Seeds        = growSeeds;
 m.Inputs       = growInputs;
 m.States       = growStates;
 m.Reactions    = growReactionsAnalytic;
-m.Outputs      = growOutputsAnalytic;
+m.Outputs      = growOutputs;
 m.Rules        = growRules;
 
 m = initializeModelBase(m);
-
-m.add.Compartments = growCompartments;
-m.add.Parameters   = growParameters;
-m.add.Seeds        = growSeeds;
-m.add.Inputs       = growInputs;
-m.add.States       = growStates;
-m.add.Reactions    = growReactionsAnalytic;
-m.add.Outputs      = growOutputsAnalytic;
-m.add.Rules        = growRules;

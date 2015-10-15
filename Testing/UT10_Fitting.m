@@ -6,7 +6,6 @@ end
 end
 
 function testSimpleFitting(a)
-% Uses objectiveWeightedSumOfSquares objective function
 [m, con, obj, opts] = simple_model();
 opts.MaxIter = 2;
 
@@ -20,7 +19,6 @@ a.verifyLessThan(Gnew, Gold)
 end
 
 function testSimpleAnalyticFitting(a)
-% Uses objectiveWeightedSumOfSquares objective function
 [m, con, obj, opts] = simple_analytic_model();
 opts.MaxIter = 2;
 
@@ -34,7 +32,6 @@ a.verifyLessThan(Gnew, Gold)
 end
 
 function testMichaelisMentenFitting(a)
-% Uses objectiveLinearWeightedSumOfSquares objective function
 [m, con, obj, opts] = michaelis_menten_model();
 opts.MaxIter = 2;
 

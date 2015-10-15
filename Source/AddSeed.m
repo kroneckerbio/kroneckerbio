@@ -1,29 +1,32 @@
-function m = AddSeed(m, varargin)
-%AddSeed Add a seed parameter to a generic model
+function m = AddSeed(m, name, value)
+%AddSeed Add a seed parameter to a model. The parameter must be a
+%nonnegative scalar.
 %
-%   m = AddSeed(m, ...)
+%   m = AddSeed(m, name, value)
 %
-%   This is a generic function. Select the appropriate help file below
-%   depending on the type of the model.
+%   Seed parameters determine the initial conditions of states that
+%   associate with them.
 %
-%   Model.MassActionAmount
-%       help addSeedMassActionAmount
+%   Inputs
+%   m: [ model struct scalar ]
+%       The model to which the parameter will be added
+%   name: [ string ]
+%       A name for the parameter. This is the name by which states will
+%       refer to it.
+%   value: [ nonnegative scalar ]
+%       The numeric value of the parameter
 %
-%   Model.MassActionConcentration
-%       help addSeedMassActionConcentration
-%
-%   Model.Analytic
-%       help addSeedAnalytic
+%   Outputs
+%   m: [ model struct scalar ]
+%       The model with the new parameter added
 
-% (c) 2015 David R Hagen
-% This work is released under the MIT license.
+% Increment counter
+ns = m.ns + 1;
+m.ns = ns;
+m.Seeds = growSeeds(m.Seeds, ns);
 
-if is(m, 'Model.MassActionAmount')
-    m = addSeedMassActionAmount(m, varargin{:});
-elseif is(m, 'Model.MassActionConcentration')
-    m = addSeedMassActionConcentration(m, varargin{:});
-elseif is(m, 'Model.Analytic')
-    m = addSeedAnalytic(m, varargin{:});
-else
-    error('KroneckerBio:AddSeed:m', 'm must be a model')
-end
+% Add item
+m.Seeds(ns).Name  = fixParameterName(name);
+m.Seeds(ns).Value = fixParameterValue(value);
+
+m.Ready = false;

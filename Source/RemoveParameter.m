@@ -2,12 +2,11 @@ function m = RemoveParameter(m, name)
 % RemoveParameter Remove a parameter by name
 
 % Find added instances of this name
-ind_main = strcmp(name, {m.Parameters.Name});
-ind_add = strcmp(name, {m.add.Parameters.Name});
+ind = strcmp(name, {m.Parameters(1:m.nk).Name});
+assert(sum(ind)==1, 'KroneckerBio:RemoveParameter:ParameterNotFound', 'Parameter with name %s not found in model', name)
 
 % Remove all mention of this parameter
-m.Parameters(ind_main,:) = [];
-m.add.Parameters(ind_add,:) = [];
-m.add.nk = m.add.nk - nnz(ind_add);
+m.Parameters(ind,:) = [];
+m.nk = m.nk - 1;
 
 m.Ready = false;

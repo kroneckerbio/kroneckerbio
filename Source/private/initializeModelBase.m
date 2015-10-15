@@ -143,14 +143,4 @@ m.d2ydkdu = @(t,x,u)(zeros(0,0));
 m.d2ydudk = @(t,x,u)(zeros(0,0));
 
 m.Ready  = true;
-m.add    = struct;
 m.Update = @(k,x0,q)(InitializeModel(name));
-
-m.add.nv  = 0;
-m.add.nk  = 0;
-m.add.ns  = 0;
-m.add.nu  = 0;
-m.add.nx  = 0;
-m.add.nr  = 0;
-m.add.ny  = 0;
-m.add.nz  = 0;

@@ -9,9 +9,6 @@ function m = AddInput(m, varargin)
 %   Model.MassActionAmount
 %       help addInputMassActionAmount
 %
-%   Model.MassActionConcentration
-%       help addInputMassActionConcentration
-%
 %   Model.Analytic
 %       help addInputAnalytic
 
@@ -20,8 +17,6 @@ function m = AddInput(m, varargin)
 
 if is(m, 'Model.MassActionAmount')
     m = addInputMassActionAmount(m, varargin{:});
-elseif is(m, 'Model.MassActionConcentration')
-    m = addInputMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = addInputAnalytic(m, varargin{:});
 else

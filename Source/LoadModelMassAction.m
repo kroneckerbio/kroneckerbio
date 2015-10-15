@@ -310,7 +310,10 @@ for iFile = 1:nFiles
                         elements = regexp(tokens{i+4}, '=', 'split');
                         assert(numel(elements) <= 2, 'KroneckerBio:LoadModelMassAction:InvalidExpression', 'Line %i in %s has more than one equal sign in an expression: %s', lineNumber, files{iFile}, line)
                         
-                        if numel(elements) == 2
+                        if strcmp(elements{1}, '0')
+                            % It is an empty reaction
+                            parameters(i,:) = {'', 0};
+                        elseif numel(elements) == 2
                             % It is a parameter and a modifier
                             parameters(i,:) = {elements{1}, eval(elements{2})};
                         else

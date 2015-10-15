@@ -9,9 +9,6 @@ function m = AddReaction(m, varargin)
 %   Model.MassActionAmount
 %       help addReactionMassActionAmount
 %
-%   Model.MassActionConcentration
-%       help addReactionMassActionConcentration
-%
 %   Model.Analytic
 %       help addReactionAnalytic
 
@@ -20,8 +17,6 @@ function m = AddReaction(m, varargin)
 
 if is(m, 'Model.MassActionAmount')
     m = addReactionMassActionAmount(m, varargin{:});
-elseif is(m, 'Model.MassActionConcentration')
-    m = addReactionMassActionConcentration(m, varargin{:});
 elseif is(m, 'Model.Analytic')
     m = addReactionAnalytic(m, varargin{:});
 else

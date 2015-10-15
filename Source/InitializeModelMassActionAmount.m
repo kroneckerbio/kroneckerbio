@@ -296,11 +296,6 @@ function m = InitializeModelMassActionAmount(name)
 %           set to false. The model may contain inconsistent or out-of-date
 %           information until FinalizeModel is called, which refreshes the
 %           structure of the model.
-%       .add [ struct scalar ]
-%           Functions that add components to the model put them here until
-%           FinalizeModel is called. Storing them here and processing them
-%           all at once at the end is faster than lengthing each struct
-%           vector one element a time.
 %       .Update [ handle @(k,x0,q) return struct scalar ]
 %           This function handle allows the parameter values of the model
 %           to be changed without having to rebuild the model. Each vector
@@ -320,22 +315,13 @@ end
 m.Type = 'Model.MassActionAmount';
 m.Name = fixModelName(name);
 
-m.Compartments = emptyCompartments(0);
-m.Parameters   = emptyParameters(0);
-m.Seeds        = emptySeeds(0);
-m.Inputs       = emptyInputs(0);
-m.States       = emptyStates(0);
-m.Reactions    = emptyReactions(0);
-m.Outputs      = emptyOutputs(0);
-m.Rules        = growRules();
+m.Compartments = growCompartments;
+m.Parameters   = growParameters;
+m.Seeds        = growSeeds;
+m.Inputs       = growInputs;
+m.States       = growStates;
+m.Reactions    = growReactions;
+m.Outputs      = growOutputs;
+m.Rules        = growRules;
 
 m = initializeModelBase(m);
-
-m.add.Compartments = growCompartments([], 0);
-m.add.Parameters   = growParameters([], 0);
-m.add.Seeds        = growSeeds([], 0);
-m.add.Inputs       = growInputs([], 0);
-m.add.States       = growStates([], 0);
-m.add.Reactions    = growReactions([], 0);
-m.add.Outputs      = growOutputs([], 0);
-m.add.Rules        = growRules();

@@ -1,5 +1,5 @@
 function m = addInputMassActionAmount(m, name, compartment, default)
-%AddInput Add an input species to a KroneckerBio model
+%AddInput Add an input species to a Model.MassActionAmount
 %
 %   m = AddInput(m, name, compartment, default)
 %
@@ -27,13 +27,13 @@ if nargin < 4
 end
 
 % Increment counter
-nu = m.add.nu + 1;
-m.add.nu = nu;
-m.add.Inputs = growInputs(m.add.Inputs, nu);
+nu = m.nu + 1;
+m.nu = nu;
+m.Inputs = growInputs(m.Inputs, nu);
 
 % Add item
-m.add.Inputs(nu).Name = fixSpeciesName(name);
-m.add.Inputs(nu).Compartment = fixCompartmentName(compartment);
-m.add.Inputs(nu).DefaultValue = fixInputDefaultValue(default);
+m.Inputs(nu).Name         = fixSpeciesName(name);
+m.Inputs(nu).Compartment  = fixCompartmentName(compartment);
+m.Inputs(nu).DefaultValue = fixInputDefaultValue(default);
 
 m.Ready = false;

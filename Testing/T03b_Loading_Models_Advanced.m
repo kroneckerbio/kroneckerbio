@@ -20,7 +20,7 @@ m2 = AddOutput(m2, 'Out1', '("RasGapActive" + kSos*RapGapActive)/2 + sqrt(AktAct
 m2 = AddOutput(m2, 'Out2', 'EGF + 2*NGF');
 m2 = FinalizeModel(m2, opts);
 
-%% Simple mass saction model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Simple mass action model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 opts = [];
 opts.Verbose = 2;
 m3 = LoadModelSbmlMassAction('simple_massaction.xml', opts);
@@ -28,14 +28,14 @@ m3 = FinalizeModel(m3);
 % m3 = LoadModelSbmlAnalytic('simple_massaction.xml', opts);
 % m3 = FinalizeModel(m3, opts);
 
-%% Bigger mass action %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Bigger mass action model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Warning: loading as a massaction model is slow
 m4 = LoadModelSbmlAnalytic('../Models/Chen2009_ErbB_A431.xml', opts);
 m4 = FinalizeModel(m4, opts);
 % m4 = LoadModelSbmlMassAction('../Models/Chen2009_ErbB_A431.xml', opts);
 % m4 = FinalizeModel(m4);
 
-%% Bonus: Load SimBiology model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load SimBiology model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 opts = [];
 opts.Verbose = 2;
 load('simple_massaction_simbio_model.mat')
