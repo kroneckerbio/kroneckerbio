@@ -119,9 +119,10 @@ if steadyState
     simobjopts.Verbose = 0;
     simobj = SimulateSystem(mobj, conobj, max(values(:,2)), simobjopts);
     
-    % Fill in expected values
+    % Fill in expected values with reasonable starting values close to correct values
     for vi = 1:size(values,1)
-        values(vi,3) = round(simobj.y(values(vi,2), values(vi,1)), 2, 'significant');
+        val = simobj.y(values(vi,2), values(vi,1));
+        values(vi,3) = val + normrnd(0, 0.01*val);
     end
     
 else
