@@ -27,10 +27,7 @@ function [UseSeeds, nTs] = fixUseSeeds(UseSeeds, ns, nCon)
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-if isnumeric(UseSeeds) && isscalar(UseSeeds) && isnan(UseSeeds)
-    % Default
-    UseSeeds = true(ns,1);
-elseif isnumeric(UseSeeds) && all(floor(vec(UseSeeds)) == vec(UseSeeds)) && all(UseSeeds >= 1)
+if isnumeric(UseSeeds) && all(floor(vec(UseSeeds)) == vec(UseSeeds)) && all(UseSeeds >= 1)
     % Linear index
     UseSeeds = vec(UseSeeds);
     assert(all(UseSeeds <= ns), 'KroneckerBio:UseSeeds:LinearIndexOutOfRange', 'UseSeeds, when a linear index, can have no value larger than m.ns. Use a logical matrix to refer to different seeds on each condition.')

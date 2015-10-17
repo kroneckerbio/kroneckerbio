@@ -56,9 +56,9 @@ nCon = numel(con);
 defaultOpts.RelTol         = [];
 
 defaultOpts.UseParams        = 1:m.nk;
-defaultOpts.UseSeeds         = nan;
-defaultOpts.UseInputControls = nan;
-defaultOpts.UseDoseControls  = nan;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 opts = mergestruct(defaultOpts, opts);
 

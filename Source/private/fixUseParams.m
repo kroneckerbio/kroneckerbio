@@ -7,7 +7,6 @@ function [UseParams, nTk] = fixUseParams(UseParams, nk)
 %   Inputs
 %   UseParams: [ logical vector nk | positive integer vector ]
 %       Indicates the kinetic parameters that will be allowed to vary
-%       during the optimization
 %   nk: [ nonegative integer scalar ]
 %       The number of kinetic parameters in the model
 %
@@ -20,10 +19,7 @@ function [UseParams, nTk] = fixUseParams(UseParams, nk)
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
-if isnumeric(UseParams) && isscalar(UseParams) && isnan(UseParams)
-    % Default
-    UseParams = true(nk,1);
-elseif islogical(UseParams)
+if islogical(UseParams)
     UseParams = vec(UseParams);
 else%if isnumeric
     temp = UseParams;

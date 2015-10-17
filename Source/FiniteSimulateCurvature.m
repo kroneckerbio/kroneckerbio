@@ -75,10 +75,10 @@ defaultOpts.AbsTol           = [];
 defaultOpts.ImaginaryStep    = false;
 
 defaultOpts.Normalized       = true;
-defaultOpts.UseParams        = nan;
-defaultOpts.UseSeeds         = nan;
-defaultOpts.UseInputControls = nan;
-defaultOpts.UseDoseControls  = nan;
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 opts = mergestruct(defaultOpts, opts);
 
