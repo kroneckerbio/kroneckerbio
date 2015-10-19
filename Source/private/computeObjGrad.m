@@ -76,6 +76,12 @@ for i_con = 1:n_con
         Ds_i = obj(i_obj,i_con).dGds(ints(i_obj));
         Dq_i = obj(i_obj,i_con).dGdq(ints(i_obj));
         Dh_i = obj(i_obj,i_con).dGdh(ints(i_obj));
+        if opts.Normalized
+            Dk_i = Dk_i.*ints(i_obj).k;
+            Ds_i = Ds_i.*ints(i_obj).s;
+            Dq_i = Dq_i.*ints(i_obj).q;
+            Dh_i = Dh_i.*ints(i_obj).h;
+        end
         D_disc_i = [Dk_i(opts.UseParams); Ds_i(UseSeeds_i); Dq_i(UseInputControls_i); Dh_i(UseDoseControls_i)];
 
         n_disc = numel(discrete_times_all{i_obj});

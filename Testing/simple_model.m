@@ -12,11 +12,17 @@ end
 
 defaultopts.objectiveFun = 'observationLinearWeightedSumOfSquares';
 defaultopts.steadyState = false;
+defaultopts.kineticPrior = false;
+defaultopts.logKineticPrior = false;
+defaultopts.logSeedPrior = false;
 
 simpleopts = mergestruct(defaultopts, simpleopts);
 
 objectiveFun = simpleopts.objectiveFun;
 steadyState = simpleopts.steadyState;
+kineticPrior = simpleopts.kineticPrior;
+logKineticPrior = simpleopts.logKineticPrior;
+logSeedPrior = simpleopts.logSeedPrior;
 
 if nargin < 1
     objectiveFun = [];
@@ -144,6 +150,31 @@ switch objectiveFun
         obj = obs.Objective(values(:,3));
     otherwise
         error('Error:simple_model:Objective function %s not recognized.', objectiveFun)
+end
+
+% Also include priors, if requested
+if kineticPrior
+    kprior = 1+rand(m.nk,1);
+    Vlogkprior = rand(m.nk);
+    Vlogkprior = Vlogkprior*Vlogkprior.'; % ensure symmetric
+    obj_kprior = objectiveNormalPriorOnKineticParameters(kprior, Vlogkprior, 'SimpleKPrior');
+    obj = [obj; obj_kprior];
+end
+if logKineticPrior
+    kprior = 1+rand(m.nk,1);
+    Vlogkprior = rand(m.nk);
+    Vlogkprior = Vlogkprior*Vlogkprior.'; % ensure symmetric
+    Vkprior = diag(kprior)*Vlogkprior*diag(kprior); % Multiply squared parameters in because objective function takes "non-normalized" inputs
+    obj_logkprior = objectiveLogNormalPriorOnKineticParameters(kprior, Vkprior, 'SimpleLogKPrior');
+    obj = [obj; obj_logkprior]; 
+end
+if logSeedPrior
+    sprior = 1+rand(m.ns,1);
+    Vlogsprior = rand(m.ns);
+    Vlogsprior = Vlogsprior*Vlogsprior.'; % ensure symmetric
+    Vsprior = diag(sprior)*Vlogsprior*diag(sprior); % Multiply squared parameters in because objective function takes "non-normalized" inputs
+    obj_logsprior = objectiveLogNormalPriorOnSeedParameters(sprior, Vsprior, 'SimpleLogSPrior');
+    obj = [obj; obj_logsprior]; 
 end
 
 % Options

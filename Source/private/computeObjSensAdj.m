@@ -228,6 +228,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
         dfdT    = @dfdTSub;
         dudq    = con(i_con).dudq;
         dddh    = con(i_con).dddh;
+        nh      = con(i_con).nh;
 
         der = @derivative;
         jac = @jacobian;
@@ -271,10 +272,16 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             for i = 1:n_obj
                 dGdy = obj(i,i_con).dGdy(t, int_sys(i));
                 dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*dGdy;
-                dGdk = obj(i,i_con).dGdk(int_sys(i)) + dydk_i.' * dGdy; % k_ % partial dGdk(i)
-                dGds = obj(i,i_con).dGds(int_sys(i)); % s_ % partial dGds(i)
-                dGdq = obj(i,i_con).dGdq(int_sys(i)) + dudq(t).' * dydu_i.' * dGdy; % q_ % partial dGdq(i)
-                dGdh = obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdh(i)
+                dGdk = dydk_i.' * dGdy;
+                dGds = zeros(ns, 1);
+                dGdq = dudq(t).' * dydu_i.' * dGdy; % q_ % partial dGdq(i)
+                dGdh = zeros(nh, 1);
+                if t == 0 % Only evaluate the partial derivatives that don't depend on time once at t=0 (t=0 chosen arbitrarily)
+                    dGdk = dGdk + obj(i,i_con).dGdk(int_sys(i)); % k_ % partial dGdk(i)
+                    dGds = dGds + obj(i,i_con).dGds(int_sys(i)); % s_ % partial dGds(i)
+                    dGdq = dGdq + obj(i,i_con).dGdq(int_sys(i)); % q_ % partial dGdq(i)
+                    dGdh = dGdh + obj(i,i_con).dGdh(int_sys(i)); % h_ % partial dGdh(i)
+                end
                 dGdT = dGdT + opts.ObjWeights(i,i_con)*[dGdk(opts.UseParams); dGds(UseSeeds_i); dGdq(UseInputControls_i); dGdh(UseDoseControls_i)]; % T_ + (k_ -> T_) -> T_
             end
             

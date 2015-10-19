@@ -39,12 +39,12 @@ obj = pastestruct(objectiveZero, obj);
 %%%%% Parameter fitting functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function [val, stopTimes] = G(sol)
-        nk = numel(sol.k);
-        nTk = nnz(sol.UseParams);
-        Tk = sol.k(sol.UseParams);
-        Tbark = kbar(sol.UseParams);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
+    function [val, stopTimes] = G(int)
+        nk = numel(int.k);
+        nTk = nnz(int.UseParams);
+        Tk = int.k(int.UseParams);
+        Tbark = kbar(int.UseParams);
+        VTbark = Vkbar(int.UseParams,int.UseParams);
         
         % Normalize
         logTk = log(Tk);
@@ -58,12 +58,12 @@ obj = pastestruct(objectiveZero, obj);
         val = diff.' * FlogTbark * diff;
     end
 
-    function val = dGdk(sol)
-        nk = numel(sol.k);
-        nTk = nnz(sol.UseParams);
-        Tk = sol.k(sol.UseParams);
-        Tbark = kbar(sol.UseParams);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
+    function val = dGdk(int)
+        nk = numel(int.k);
+        nTk = nnz(int.UseParams);
+        Tk = int.k(int.UseParams);
+        Tbark = kbar(int.UseParams);
+        VTbark = Vkbar(int.UseParams,int.UseParams);
         
         % Normalize
         logTk = log(Tk);
@@ -72,16 +72,16 @@ obj = pastestruct(objectiveZero, obj);
         
         FlogTbark = infoinv(VlogTbark);
 
-        val = zeros(nk,1);
-        val(sol.UseParams) = 2 * (diag(Tk.^(-1)) * (FlogTbark * (logTk - logTbark)));
+        val = sparse(nk, 1);
+        val(int.UseParams) = 2 * (diag(Tk.^(-1)) * (FlogTbark * (logTk - logTbark)));
     end
 
-    function val = d2Gdk2(sol)
-        nk = numel(sol.k);
-        nTk = nnz(sol.UseParams);
-        Tk = sol.k(sol.UseParams);
-        Tbark = kbar(sol.UseParams);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
+    function val = d2Gdk2(int)
+        nk = numel(int.k);
+        nTk = nnz(int.UseParams);
+        Tk = int.k(int.UseParams);
+        Tbark = kbar(int.UseParams);
+        VTbark = Vkbar(int.UseParams,int.UseParams);
         
         % Normalize
         logTk = log(Tk);
@@ -90,8 +90,8 @@ obj = pastestruct(objectiveZero, obj);
         
         FlogTbark = infoinv(VlogTbark);
 
-        val = zeros(nk,nk);
-        val(sol.UseParams,sol.UseParams) = 2 * diag(Tk.^(-1)) * FTbark * diag(Tk.^(-1)) - 2 * diag(Tk.^(-2)) * diag(FlogTbark * (logTk - logTbark));
+        val = sparse(nk,nk);
+        val(int.UseParams,int.UseParams) = 2 * diag(Tk.^(-1)) * FlogTbark * diag(Tk.^(-1)) - 2 * diag(Tk.^(-2)) * diag(FlogTbark * (logTk - logTbark));
     end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%

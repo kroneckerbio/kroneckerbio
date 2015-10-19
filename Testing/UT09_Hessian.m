@@ -32,6 +32,30 @@ simpleopts.steadyState = true;
 verifyHessian(a, m, con, obj, opts)
 end
 
+function testObjectiveHessianSimpleKineticPriors(a)
+simpleopts.kineticPrior = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+obj = obj(2);
+
+verifyHessian(a, m, con, obj, opts)
+end
+
+function testObjectiveHessianSimpleLogKineticPriors(a)
+simpleopts.logKineticPrior = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+obj = obj(2);
+
+verifyHessian(a, m, con, obj, opts)
+end
+
+function testObjectiveHessianSimpleLogSeedPriors(a)
+simpleopts.logSeedPrior = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+obj = obj(2);
+
+verifyHessian(a, m, con, obj, opts)
+end
+
 function testObjectiveHessianMichaelisMenten(a)
 [m, con, obj, opts] = michaelis_menten_model();
 
@@ -58,8 +82,8 @@ a.verifyEqual(size(Hdisc), [nT,nT])
 a.verifyEqual(Hfwd, Hdisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
 
 opts.Normalized = true;
-Hfwd = ObjectiveHessian(m, con, obj, opts);
-Hdisc = FiniteObjectiveHessian(m, con, obj, opts);
+Hfwdn = ObjectiveHessian(m, con, obj, opts);
+Hdiscn = FiniteObjectiveHessian(m, con, obj, opts);
 
-a.verifyEqual(Hfwd, Hdisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(Hfwdn, Hdiscn, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end

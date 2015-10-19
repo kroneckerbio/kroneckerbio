@@ -32,6 +32,30 @@ function testObjectiveGradientSimple(a)
 verifyGradient(a, m, con, obj, opts)
 end
 
+function testObjectiveGradientSimpleKineticPrior(a)
+simpleopts.kineticPrior = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+obj = obj(2);
+
+verifyGradient(a, m, con, obj, opts)
+end
+
+function testObjectiveGradientSimpleLogKineticPrior(a)
+simpleopts.logKineticPrior = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+obj = obj(2);
+
+verifyGradient(a, m, con, obj, opts)
+end
+
+function testObjectiveGradientSimpleLogSeedPrior(a)
+simpleopts.logSeedPrior = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+obj = obj(2);
+
+verifyGradient(a, m, con, obj, opts)
+end
+
 function testObjectiveGradientSimpleAnalytic(a)
 [m, con, obj, opts] = simple_analytic_model();
 
@@ -70,15 +94,15 @@ a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
 opts.Normalized = true;
 % Forward
 opts.UseAdjoint = false;
-Dfwd = ObjectiveGradient(m, con, obj, opts);
+Dfwdn = ObjectiveGradient(m, con, obj, opts);
 
 % Adjoint
 opts.UseAdjoint = true;
-Dadj = ObjectiveGradient(m, con, obj, opts);
+Dadjn = ObjectiveGradient(m, con, obj, opts);
 
 % Discrete
-Ddisc = FiniteObjectiveGradient(m, con, obj, opts);
+Ddiscn = FiniteObjectiveGradient(m, con, obj, opts);
 
-a.verifyEqual(Dfwd, Ddisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
-a.verifyEqual(Dadj, Ddisc, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(Dfwdn, Ddiscn, 'RelTol', 0.001, 'AbsTol', 1e-4)
+a.verifyEqual(Dadjn, Ddiscn, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end

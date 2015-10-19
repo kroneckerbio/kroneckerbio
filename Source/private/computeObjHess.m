@@ -76,12 +76,24 @@ for i_con = 1:n_con
         Ds_i = obj(i_obj,i_con).dGds(ints(i_obj));
         Dq_i = obj(i_obj,i_con).dGdq(ints(i_obj));
         Dh_i = obj(i_obj,i_con).dGdh(ints(i_obj));
+        if opts.Normalized
+            Dk_i = Dk_i.*ints(i_obj).k;
+            Ds_i = Ds_i.*ints(i_obj).s;
+            Dq_i = Dq_i.*ints(i_obj).q;
+            Dh_i = Dh_i.*ints(i_obj).h;
+        end
         D_disc_i = [Dk_i(opts.UseParams); Ds_i(UseSeeds_i); Dq_i(UseInputControls_i); Dh_i(UseDoseControls_i)];
 
         Hk_i = obj(i_obj,i_con).d2Gdk2(ints(i_obj));
         Hs_i = obj(i_obj,i_con).d2Gds2(ints(i_obj));
         Hq_i = obj(i_obj,i_con).d2Gdq2(ints(i_obj));
         Hh_i = obj(i_obj,i_con).d2Gdh2(ints(i_obj));
+        if opts.Normalized
+            Hk_i = spdiags(ints(i_obj).k,0,m.nk,m.nk) * Hk_i * spdiags(ints(i_obj).k,0,m.nk,m.nk) + spdiags(Dk_i,0,m.nk,m.nk);
+            Hs_i = spdiags(ints(i_obj).s,0,m.ns,m.ns) * Hs_i * spdiags(ints(i_obj).s,0,m.ns,m.ns) + spdiags(Ds_i,0,m.ns,m.ns);
+            Hq_i = spdiags(ints(i_obj).q,0,con(i_con).nq,con(i_con).nq) * Hq_i * spdiags(ints(i_obj).q,0,con(i_con).nq,con(i_con).nq) + spdiags(Dq_i,0,con(i_con).nq,con(i_con).nq);
+            Hh_i = spdiags(ints(i_obj).h,0,con(i_con).nh,con(i_con).nh) * Hh_i * spdiags(ints(i_obj).h,0,con(i_con).nh,con(i_con).nh) + spdiags(Dh_i,0,con(i_con).nh,con(i_con).nh);
+        end
         H_disc_i = [Hk_i(opts.UseParams,opts.UseParams), zeros(nTk,nT-nTk);
                     zeros(nTs,nTk), Hs_i(UseSeeds_i,UseSeeds_i), zeros(nTs,nTq+nTh);
                     zeros(nTq,nTk+nTs), Hq_i(UseInputControls_i,UseInputControls_i), zeros(nTq,nTh);

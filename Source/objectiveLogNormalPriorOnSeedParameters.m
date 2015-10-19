@@ -39,12 +39,12 @@ obj = pastestruct(objectiveZero, obj);
 %%%%% Parameter fitting functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function [val stopTimes] = G(sol)
-        ns = numel(sol.s);
-        nTs = nnz(sol.UseSeeds);
-        Ts = sol.s(sol.UseSeeds);
-        Tbars = sbar(sol.UseSeeds);
-        VTbars = Vsbar(sol.UseSeeds,sol.UseSeeds);
+    function [val stopTimes] = G(int)
+        ns = numel(int.s);
+        nTs = nnz(int.UseSeeds);
+        Ts = int.s(int.UseSeeds);
+        Tbars = sbar(int.UseSeeds);
+        VTbars = Vsbar(int.UseSeeds,int.UseSeeds);
         
         % Normalize
         logTs = log(Ts);
@@ -58,12 +58,12 @@ obj = pastestruct(objectiveZero, obj);
         val = diff.' * FlogTbars * diff;
     end
 
-    function val = dGds(sol)
-        ns = numel(sol.s);
-        nTs = nnz(sol.UseSeeds);
-        Ts = sol.s(sol.UseSeeds);
-        Tbars = sbar(sol.UseSeeds);
-        VTbars = Vsbar(sol.UseSeeds,sol.UseSeeds);
+    function val = dGds(int)
+        ns = numel(int.s);
+        nTs = nnz(int.UseSeeds);
+        Ts = int.s(int.UseSeeds);
+        Tbars = sbar(int.UseSeeds);
+        VTbars = Vsbar(int.UseSeeds,int.UseSeeds);
         
         % Normalize
         logTs = log(Ts);
@@ -72,16 +72,16 @@ obj = pastestruct(objectiveZero, obj);
         
         FlogTbars = infoinv(VlogTbars);
 
-        val = zeros(ns,1);
-        val(sol.UseSeeds) = 2 * (diag(Ts.^(-1)) * (FlogTbars * (logTs - logTbars)));
+        val = sparse(ns,1);
+        val(int.UseSeeds) = 2 * (diag(Ts.^(-1)) * (FlogTbars * (logTs - logTbars)));
     end
 
-    function val = d2Gds2(sol)
-        ns = numel(sol.s);
-        nTs = nnz(sol.UseSeeds);
-        Ts = sol.s(sol.UseSeeds);
-        Tbars = sbar(sol.UseSeeds);
-        VTbars = Vsbar(sol.UseSeeds,sol.UseSeeds);
+    function val = d2Gds2(int)
+        ns = numel(int.s);
+        nTs = nnz(int.UseSeeds);
+        Ts = int.s(int.UseSeeds);
+        Tbars = sbar(int.UseSeeds);
+        VTbars = Vsbar(int.UseSeeds,int.UseSeeds);
         
         % Normalize
         logTs = log(Ts);
@@ -90,8 +90,8 @@ obj = pastestruct(objectiveZero, obj);
         
         FlogTbars = infoinv(VlogTbars);
 
-        val = zeros(ns,ns);
-        val(sol.UseSeeds,sol.UseSeeds) = 2 * diag(Ts.^(-1)) * FTbars * diag(Ts.^(-1)) - 2 * diag(Ts.^(-2)) * diag(FlogTbars * (logTs - logTbars));
+        val = sparse(ns,ns);
+        val(int.UseSeeds,int.UseSeeds) = 2 * diag(Ts.^(-1)) * FlogTbars * diag(Ts.^(-1)) - 2 * diag(Ts.^(-2)) * diag(FlogTbars * (logTs - logTbars));
     end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%

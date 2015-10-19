@@ -37,10 +37,10 @@ obj = pastestruct(objectiveZero, obj);
 %%%%% Parameter fitting functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function [val, stopTimes] = G(sol)
-        Tk = sol.k(sol.UseParams);
-        Tbark = kbar(sol.UseParams);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
+    function [val, stopTimes] = G(int)
+        Tk = int.k(int.UseParams);
+        Tbark = kbar(int.UseParams);
+        VTbark = Vkbar(int.UseParams,int.UseParams);
         FTbark = infoinv(VTbark);
         
         stopTimes = 0;
@@ -48,28 +48,24 @@ obj = pastestruct(objectiveZero, obj);
         val = diff.' * FTbark * diff;
     end
 
-    function val = dGdk(t,sol)
-        nk = numel(sol.k);
-        Tk = sol.k(sol.UseParams);
-        Tbark = kbar(sol.UseParams);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
+    function val = dGdk(int)
+        nk = numel(int.k);
+        Tk = int.k(int.UseParams);
+        Tbark = kbar(int.UseParams);
+        VTbark = Vkbar(int.UseParams,int.UseParams);
         FTbark = infoinv(VTbark);
         
-        val = zeros(nk,1);
-        if t == 0
-            val(sol.UseParams) = 2 * (FTbark * (Tk - Tbark));
-        end
+        val = sparse(nk,1);
+        val(int.UseParams) = 2 * (FTbark * (Tk - Tbark));
     end
 
-    function val = d2Gdk2(t,sol)
-        nk = numel(sol.k);
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
+    function val = d2Gdk2(int)
+        nk = numel(int.k);
+        VTbark = Vkbar(int.UseParams,int.UseParams);
         FTbark = infoinv(VTbark);
         
-        val = zeros(nk,nk);
-        if t == 0
-            val(sol.UseParams,sol.UseParams) = 2 * FTbark;
-        end
+        val = sparse(nk,nk);
+        val(int.UseParams,int.UseParams) = 2 * FTbark;
     end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%
