@@ -1,25 +1,25 @@
 function expr = simbioExpr2kroneckerbioExpr(expr)
 % Convert SimBio expression to kroneckerbio expression - replaces invalid names
-% escaped inside square brackets [] with double-quotes "".
+%   escaped inside square brackets [] with double-quotes "" and double-quotes
+%   compartment.species (since this implicitly contains a dot, which is an invalid
+%   character)
 % SimBio only surrounds the component with invalid characters. In the case of
-% compartment.species, only [compartment].[species] are bracketed while in
-% kroneckerbio, all of "compartment.species" is quoted.
+%   compartment.species, only [compartment].[species] are bracketed while in
+%   kroneckerbio, all of "compartment.species" is quoted.
 
-% Regexes that recognize bracketed components
-brackets = {'(^|[^w\.])(\[.+?\])([^w\.]|$)', ... % [invalid] or [invalid].[invalid]
-    '(^|\W)(\w+\.\[.+?\])(\W|$)', ... % valid.[invalid]
-    '(^|\W)(\[.+?\]\.\w+)(\W|$)'}; % [invalid].valid
+% Regex that matches SimBio species, which are assumed to be qualified compartment.species
+% Species names must either be valid Matlab identifiers (can't start with
+%   underscore) or bracketed (will be quoted).
+% Note: check that SimBio's species naming convention matches Matlab's valid
+%   variable naming requirement
+% Matches the species in: 'compartment.species + c.s + [c*].[s*] + c.[s*] +
+%   [c*].s + 1.2', but not the last term.
+match = '\<(([a-zA-Z]\w*|\[[^\]]+\])\.([a-zA-Z]\w*|\[[^\]]+\]))\>';
 
-% Go through different replacements, replacing 1 by 1
-for i = 1:length(brackets)
-    while true
-        tokens = regexp(expr, brackets{i}, 'tokens', 'once');
-        if isempty(tokens)
-            break
-        end
-        quoted = ['"' regexprep(tokens{2}, '(\[|\])', '') '"'];
-        old = regexptranslate('escape', [tokens{1} tokens{2} tokens{3}]);
-        new = [tokens{1} quoted tokens{3}];
-        expr = regexprep(expr, old, new, 'once');
-    end
+% Fix all species names
+tokens = regexp(expr, match, 'tokens');
+for i = 1:length(tokens)
+    token = tokens{i}{1};
+    quoted = ['"' regexprep(token, '[\[|\]]', '') '"'];
+    expr = regexprep(expr, regexptranslate('escape', token), quoted, 'once');
 end

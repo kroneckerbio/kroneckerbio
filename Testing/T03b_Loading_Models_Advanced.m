@@ -39,8 +39,12 @@ m4 = FinalizeModel(m4, opts);
 opts = [];
 opts.Verbose = 2;
 load('simple_massaction_simbio_model.mat')
-% m5 = LoadModelSimBioAnalytic(simbiomodel, opts);
-% m5 = FinalizeModel(m5, opts);
-m5 = LoadModelSimBioMassAction(simbiomodel, opts);
-m5 = FinalizeModel(m5);
+
+% Test SimBio -> analytic model
+m5 = LoadModelSimBioAnalytic(simbiomodel, opts);
+m5 = FinalizeModel(m5, opts);
+
+% Test SimBio -> massaction model
+m6 = LoadModelSimBioMassAction(simbiomodel, opts);
+m6 = FinalizeModel(m5);
 
