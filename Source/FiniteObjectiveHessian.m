@@ -26,7 +26,7 @@ function [H, All] = FiniteObjectiveHessian(m, con, obj, opts)
 %                          the normalized hessian will be computed. The
 %                          normalized hessian is normalized with respect to
 %                          the values of the parameters. Default = true
-%           .ImaginaryStep - Scalar boolean. If set to true, use an
+%           .ComplexStep - Scalar boolean. If set to true, use an
 %                           imaginary finite difference step. This has the
 %                           advantage of not requiring the subtraction of
 %                           two large numbers, increasing the stability of
@@ -69,7 +69,7 @@ defaultOpts.Verbose        = 1;
 defaultOpts.RelTol         = [];
 defaultOpts.AbsTol         = [];
 
-defaultOpts.ImaginaryStep  = false;
+defaultOpts.ComplexStep  = false;
 
 defaultOpts.UseParams        = 1:m.nk;
 defaultOpts.UseSeeds         = [];
@@ -140,7 +140,7 @@ for iT = 1:nT
     else
         norm_factor = 1;
     end
-    if opts.ImaginaryStep
+    if opts.ComplexStep
         imag_factor = 1i;
     else
         imag_factor = 1;
@@ -153,7 +153,7 @@ for iT = 1:nT
     [~, D_up] = computeObjGrad(m, con, obj, opts);
 
     % Compute D
-    if opts.ImaginaryStep
+    if opts.ComplexStep
         H(:,iT) = imag(D_up) ./ step_size;
     else
         H(:,iT) = (D_up - D) ./ step_size;

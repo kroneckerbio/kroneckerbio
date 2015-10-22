@@ -76,7 +76,7 @@ for iT = 1:nT
     else
         norm_factor = 1;
     end
-    if opts.ImaginaryStep
+    if opts.ComplexStep
         imag_factor = 1i;
     else
         imag_factor = 1;
@@ -98,7 +98,7 @@ for iT = 1:nT
     ind_yT_start = (iT-1)*ny*nT+1;
     ind_yT_end = (iT-1)*ny*nT+ny*nT;
     
-    if opts.ImaginaryStep
+    if opts.ComplexStep
         d2xdT2_all(ind_xT_start:ind_xT_end,:) = imag(int_up.dxdT) ./ step_size;
         d2udT2_all(ind_uT_start:ind_uT_end,:) = imag(int_up.dudT) ./ step_size;
         d2ydT2_all(ind_yT_start:ind_yT_end,:) = imag(int_up.dydT) ./ step_size;

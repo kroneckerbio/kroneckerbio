@@ -83,7 +83,7 @@ end
 function verifyCurvature(a, m, con, tGet, opts)
 nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 obsSelect = observationSelect(tGet);
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 
 opts.Normalized = false;
 sim1 = SimulateCurvature(m, con, max(tGet), opts);
@@ -107,7 +107,7 @@ a.verifyEqual(sim5.d2ydT2, sim6.d2ydT2, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end
 
 function verifyCurvatureEvent(a, m, con, obs, opts)
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 
 opts.Normalized = false;
 sim1 = SimulateCurvature(m, con, obs, opts);

@@ -77,7 +77,7 @@ verifySensitivityEvent(a, m, con, obs, opts)
 end
 
 function verifySensitivity(a, m, con, tGet, opts)
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 obsSelect = observationSelect(tGet);
 
 opts.Normalized = false;
@@ -98,7 +98,7 @@ a.verifyEqual(sim5.dydT, sim6.dydT, 'RelTol', 0.001, 'AbsTol', 1e-4)
 end
 
 function verifySensitivityEvent(a, m, con, obs, opts)
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 
 opts.Normalized = false;
 sim1 = SimulateSensitivity(m, con, obs, opts);

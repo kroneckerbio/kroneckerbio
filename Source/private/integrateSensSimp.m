@@ -13,7 +13,7 @@ nT  = nTk + nTs + nTq + nTh;
 dxdTStart = nx+1;
 dxdTEnd   = nx+nx*nT;
 normalized = opts.Normalized;
-T = real(collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls}));
+T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls});
 T_stack_x = vec(repmat(row(T), nx,1));
 T_stack_u = vec(repmat(row(T), nu,1));
 T_stack_y = vec(repmat(row(T), ny,1));
@@ -99,9 +99,9 @@ end
 
 if normalized
     % Normalize sensitivities
-    int.dxdT = bsxfun(@times, int.dxdT, T_stack_x);
-    int.dudT = bsxfun(@times, int.dudT, T_stack_u);
-    int.dydT = bsxfun(@times, int.dydT, T_stack_y);
+    int.dxdT = normalizeDerivatives(T, int.dxdT);
+    int.dudT = normalizeDerivatives(T, int.dudT);
+    int.dydT = normalizeDerivatives(T, int.dydT);
 end
 
 nte = numel(sol.ie);
@@ -129,9 +129,9 @@ end
 
 if normalized
     % Normalize events
-    int.dxedT = bsxfun(@times, int.dxedT, T_stack_x);
-    int.duedT = bsxfun(@times, int.duedT, T_stack_u);
-    int.dyedT = bsxfun(@times, int.dyedT, T_stack_y);
+    int.dxedT = normalizeDerivatives(T, int.dxedT);
+    int.duedT = normalizeDerivatives(T, int.duedT);
+    int.dyedT = normalizeDerivatives(T, int.dyedT);
 end
 
 int.sol = sol;
@@ -177,7 +177,7 @@ int.sol = sol;
             u_t = u(t);            
             x = joint(1:nx); % x_
             dxdT = reshape(joint(dxdTStart:dxdTEnd), nx,nT); % x_T
-            
+
             % Compute d/dx(dfdT)
             d2fdxdT = sparse(d2fdx2(t,x,u_t) * dxdT) + d2fdTdx(t,x,u_t); % fx_T
             d2fdxdT = spermute132(d2fdxdT, [nx,nx,nT], [nx*nT,nx]);

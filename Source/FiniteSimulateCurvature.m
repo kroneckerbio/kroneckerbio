@@ -72,7 +72,7 @@ defaultOpts.Verbose          = 1;
 defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
-defaultOpts.ImaginaryStep    = false;
+defaultOpts.ComplexStep    = false;
 
 defaultOpts.Normalized       = true;
 defaultOpts.UseParams        = 1:m.nk;

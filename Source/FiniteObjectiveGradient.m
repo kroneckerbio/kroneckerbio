@@ -45,7 +45,7 @@ function D = FiniteObjectiveGradient(m, con, obj, opts)
 %                 nonegative scalar {1e-9} ]
 %           Absolute tolerance of the integration. If a cell vector is
 %           provided, a different AbsTol will be used for each experiment.
-%       .ImaginaryStep [ logical scalar {false} ]
+%       .ComplexStep [ logical scalar {false} ]
 %           If set to true, use an imaginary finite difference step. This
 %           has the advantage of not requiring the subtraction of two large
 %           numbers, increasing the stability of the result, but comes at
@@ -77,7 +77,7 @@ defaultOpts.Verbose          = 1;
 defaultOpts.RelTol           = [];
 defaultOpts.AbsTol           = [];
 
-defaultOpts.ImaginaryStep    = false;
+defaultOpts.ComplexStep    = false;
 
 defaultOpts.Normalized       = true;
 defaultOpts.UseParams        = 1:m.nk;
@@ -146,7 +146,7 @@ for iT = 1:nT
     else
         norm_factor = 1;
     end
-    if opts.ImaginaryStep
+    if opts.ComplexStep
         imag_factor = 1i;
     else
         imag_factor = 1;
@@ -159,7 +159,7 @@ for iT = 1:nT
     G_up = computeObj(m, con, obj, opts);
 
     % Compute D
-    if opts.ImaginaryStep
+    if opts.ComplexStep
         D(iT) = imag(G_up) ./ step_size;
     else
         D(iT) = (G_up - G) ./ step_size;

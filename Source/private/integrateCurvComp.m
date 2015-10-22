@@ -19,12 +19,6 @@ d2xdT2Start = nx+nx*nT+1;
 d2xdT2End   = nx+nx*nT+nx*nT*nT;
 normalized = opts.Normalized;
 T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls});
-T_stack_x = vec(repmat(row(T), nx,1));
-T_stack_u = vec(repmat(row(T), nu,1));
-T_stack_y = vec(repmat(row(T), ny,1));
-TT_stack_x = vec(repmat(row(T), nx*nT,1)) .* vec(repmat(row(T), nx,nT));
-TT_stack_u = vec(repmat(row(T), nu*nT,1)) .* vec(repmat(row(T), nu,nT));
-TT_stack_y = vec(repmat(row(T), ny*nT,1)) .* vec(repmat(row(T), ny,nT));
 
 dkdT = sparse(find(opts.UseParams), 1:nTk, 1, nk, nT);
 if normalized
@@ -171,13 +165,9 @@ end
 
 if normalized
     % Normalize events
-    int.dxedT = bsxfun(@times, int.dxedT, T_stack_x);
-    int.duedT = bsxfun(@times, int.duedT, T_stack_u);
-    int.dyedT = bsxfun(@times, int.dyedT, T_stack_y);
-    
-    int.d2xedT2 = bsxfun(@times, int.d2xedT2, TT_stack_x);
-    int.d2uedT2 = bsxfun(@times, int.d2uedT2, TT_stack_u);
-    int.d2yedT2 = bsxfun(@times, int.d2yedT2, TT_stack_y);
+    [int.dxedT, int.d2xedT2] = normalizeDerivatives(T, int.dxedT, int.d2xedT2);
+    [int.duedT, int.d2uedT2] = normalizeDerivatives(T, int.duedT, int.d2uedT2);
+    [int.dyedT, int.d2yedT2] = normalizeDerivatives(T, int.dyedT, int.d2yedT2);
 end
 
 int.sol = sol;
@@ -340,11 +330,19 @@ int.sol = sol;
     function val = evaluate_state_sensitivity(sol, t)
         val = devals(sol, t, dxdTStart:dxdTEnd); % xT_t
         if normalized
-            val = bsxfun(@times, val, T_stack_x);
+            val = normalizeDerivatives(T, val);
         end
     end
 
     function val = evaluate_input_sensitivity(t)
+        val = evaluate_input_sensitivity_nonnormalized(t);
+        
+        if normalized
+            val = normalizeDerivatives(T, val);
+        end
+    end
+
+    function val = evaluate_input_sensitivity_nonnormalized(t)
         nt = numel(t);
         
         val = zeros(nu*nT,nt);
@@ -353,10 +351,6 @@ int.sol = sol;
             dudq_i = dudq_i(:,opts.UseInputControls); % u_Q
             dudT = [sparse(nu,nTk+nTs), reshape(dudq_i, nu,nTq), sparse(nu,nTh)]; % u_Q -> u_T
             val(:,i) = vec(dudT); % u_Q -> u_T -> uT_
-        end
-        
-        if normalized
-            val = bsxfun(@times, val, T_stack_u);
         end
     end
 
@@ -377,9 +371,9 @@ int.sol = sol;
 
     function val = evaluate_state_curvature(sol, t)
         val = devals(sol, t, d2xdT2Start:d2xdT2End);
-        
         if normalized
-            val = bsxfun(@times, val, TT_stack_x);
+            dxdT = devals(sol, t, dxdTStart:dxdTEnd);
+            [unused,val] = normalizeDerivatives(T, dxdT, val);
         end
     end
 
@@ -398,7 +392,8 @@ int.sol = sol;
         end
         
         if normalized
-            val = bsxfun(@times, val, TT_stack_u);
+            dudT = evaluate_input_sensitivity_nonnormalized(t);
+            [unused,val] = normalizeDerivatives(T, dudT, val);
         end
     end
 
@@ -438,9 +433,17 @@ int.sol = sol;
             temp6 = spermute132(temp6, [ny,nu,nT], [ny*nT,nu]) * dudT_i; % (yu_T -> yT_u) * u_T -> yT_T
             temp6 = reshape(temp6 + spermute132(temp6, [ny,nT,nT], [ny*nT,nT]), ny,nT*nT); % yT_T + (yT_T -> yT_T) -> yT_T -> y_TT
             
-            % Note d2kdT2 is zero, so dydk_i * d2kdT2 term is zero
+            % Note d2kdT2 is zero, so dydk_i * d2kdT2 term is zero...
+            if opts.Normalized
+                % ...UNLESS normalizing, in which case there is a first
+                % derivative contribution, which is nonzero
+                Ti_is_Tj = find(speye(nT));
+                d2kdT2 = sparse(repmat((1:nk).', nT, 1), vec(repmat(row(Ti_is_Tj), nk, 1)), dkdT_maybe_normalized(:), nk, nT*nT);
+            else
+                d2kdT2 = sparse(nk, nT*nT);
+            end
             % Also, this doesn't have to be normalized either
-            d2ydT2 = dydx_i * d2xdT2_i + dydu_i * d2udT2_i + temp1 + temp2 + temp3 + temp4 + temp5 + temp6;
+            d2ydT2 = dydx_i * d2xdT2_i + dydu_i * d2udT2_i + dydk_i * d2kdT2 + temp1 + temp2 + temp3 + temp4 + temp5 + temp6;
             val(:,i) = vec(d2ydT2);
         end
     end
