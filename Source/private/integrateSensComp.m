@@ -12,10 +12,7 @@ nT  = nTk + nTs + nTq + nTh;
 dxdTStart = nx+1;
 dxdTEnd   = nx+nx*nT;
 normalized = opts.Normalized;
-T = real(collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls}));
-T_stack_x = vec(repmat(row(T), nx,1));
-T_stack_u = vec(repmat(row(T), nu,1));
-T_stack_y = vec(repmat(row(T), ny,1));
+T = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, {opts.UseInputControls}, {opts.UseDoseControls});
 
 y = m.y;
 u = con.u;
@@ -113,9 +110,9 @@ end
 
 if normalized
     % Normalize events
-    int.dxedT = bsxfun(@times, int.dxedT, T_stack_x);
-    int.duedT = bsxfun(@times, int.duedT, T_stack_u);
-    int.dyedT = bsxfun(@times, int.dyedT, T_stack_y);
+    int.dxedT = normalizeDerivatives(T, int.dxedT);
+    int.duedT = normalizeDerivatives(T, int.duedT);
+    int.dyedT = normalizeDerivatives(T, int.dyedT);
 end
 
 int.sol = sol;
@@ -203,7 +200,7 @@ int.sol = sol;
         val = devals(sol, t, dxdTStart:dxdTEnd); % xT_t
         
         if normalized
-            val = bsxfun(@times, val, T_stack_x);
+            val = normalizeDerivatives(T, val);
         end
     end
 
@@ -219,7 +216,7 @@ int.sol = sol;
         end
         
         if normalized
-            val = bsxfun(@times, val, T_stack_u);
+            val = normalizeDerivatives(T, val);
         end
     end
 

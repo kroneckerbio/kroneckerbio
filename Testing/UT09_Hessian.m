@@ -69,7 +69,7 @@ verifyHessian(a, m, con, obj, opts)
 end
 
 function verifyHessian(a, m, con, obj, opts)
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
 
 opts.Normalized = false;

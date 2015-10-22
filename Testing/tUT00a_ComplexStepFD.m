@@ -22,14 +22,14 @@
 % avoids calculating a small difference between two nearly equal large
 % numbers and doesn't have roundoff error problems).
 
-function tests = UT00a_ImaginaryStepFD()
+function tests = UT00a_ComplexStepFD()
 tests = functiontests(localfunctions);
 end
 
 
 %% Sensitivity
 
-function tests = testImaginaryStepFD_MassActionSensitivity(a)
+function tests = testComplexStepFD_MassActionSensitivity(a)
 [m, con, unused, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
@@ -38,7 +38,7 @@ tGet = 1:6;
 verifySensitivity(a, m, con, tGet, opts)
 end
 
-function tests = testImaginaryStepFD_AnalyticSensitivity(a)
+function tests = testComplexStepFD_AnalyticSensitivity(a)
 [m, con, ~, opts] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+m.k+1);
 con = con.Update(rand(con.ns,1)+con.s+1, rand(con.nq,1)+con.q+1, rand(con.nh,1)+con.h+1);
@@ -47,7 +47,7 @@ tGet = 1:10;
 verifySensitivity(a, m, con, tGet, opts)
 end
 
-function tests = testImaginaryStepFD_MassActionEventSensitivity(a)
+function tests = testComplexStepFD_MassActionEventSensitivity(a)
 [m, con, unused, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
@@ -59,7 +59,7 @@ obs = observationEvents(6, [eve1;eve2]);
 verifySensitivityEvent(a, m, con, obs, opts)
 end
 
-function tests = testImaginaryStepFD_AnalyticEventSensitivity(a)
+function tests = testComplexStepFD_AnalyticEventSensitivity(a)
 [m, con, ~, opts, eve] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+m.k+1);
 con = con.Update(rand(con.ns,1)+con.s+1, rand(con.nq,1)+con.q+1, rand(con.nh,1)+con.h+1);
@@ -74,10 +74,10 @@ obsSelect = observationSelect(tGet);
 
 simint = SimulateSensitivity(m, con, obsSelect, opts);
 
-opts.ImaginaryStep = false;
+opts.ComplexStep = false;
 simreal_simple = FiniteSimulateSensitivity(m, con, obsSelect, opts);
 
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 simimag_simple = FiniteSimulateSensitivity(m, con, obsSelect, opts);
 % Complex finite sensitivities aren't implemented yet
 %simimag_complex = FiniteSimulateSensitivity(m, con, max(tGet), opts);
@@ -91,10 +91,10 @@ function verifySensitivityEvent(a, m, con, obs, opts)
 
 simint = SimulateSensitivity(m, con, obs, opts);
 
-opts.ImaginaryStep = false;
+opts.ComplexStep = false;
 simreal = FiniteSimulateSensitivity(m, con, obs, opts);
 
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 simimag = FiniteSimulateSensitivity(m, con, obs, opts);
 
 a.verifyEqual(simreal.dyedT, simimag.dyedT, 'RelTol', 0.001, 'AbsTol', 1e-4, 'Finite differences using an imaginary step returned different values than using a real step.')
@@ -104,7 +104,7 @@ end
 
 %% Curvature
 
-function tests = testImaginaryStepFD_MassActionCurvature(a)
+function tests = testComplexStepFD_MassActionCurvature(a)
 
 [m, con, unused, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
@@ -115,7 +115,7 @@ verifyCurvature(a, m, con, tGet, opts)
 
 end
 
-function tests = testImaginaryStepFD_AnalyticCurvature(a)
+function tests = testComplexStepFD_AnalyticCurvature(a)
 
 [m, con, ~, opts] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+m.k+1);
@@ -126,7 +126,7 @@ verifyCurvature(a, m, con, tGet, opts)
 
 end
 
-function tests = testImaginaryStepFD_MassActionEventCurvature(a)
+function tests = testComplexStepFD_MassActionEventCurvature(a)
 
 [m, con, unused, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
@@ -140,7 +140,7 @@ verifyCurvatureEvent(a, m, con, obs, opts)
 
 end
 
-function tests = testImaginaryStepFD_AnalyticEventCurvature(a)
+function tests = testComplexStepFD_AnalyticEventCurvature(a)
 
 [m, con, ~, opts, eve] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+m.k+1);
@@ -159,10 +159,10 @@ obsSelect = observationSelect(tGet);
 
 simint = SimulateCurvature(m, con, obsSelect, opts);
 
-opts.ImaginaryStep = false;
+opts.ComplexStep = false;
 simreal_simple = FiniteSimulateCurvature(m, con, obsSelect, opts);
 
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 simimag_simple = FiniteSimulateCurvature(m, con, obsSelect, opts);
 
 % Complex finite curvature is not implemented
@@ -180,10 +180,10 @@ function verifyCurvatureEvent(a, m, con, obs, opts)
 
 simint = SimulateCurvature(m, con, obs, opts);
 
-opts.ImaginaryStep = false;
+opts.ComplexStep = false;
 simreal = FiniteSimulateCurvature(m, con, obs, opts);
 
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 simimag = FiniteSimulateCurvature(m, con, obs, opts);
 
 a.verifyEqual(simreal.d2yedT2, simimag.d2yedT2, 'RelTol', 0.001, 'AbsTol', 1e-4, 'Finite differences using an imaginary step returned different values than using a real step.')
@@ -193,20 +193,20 @@ end
 
 %% Gradient
 
-function tests = testImaginaryStepFD_MassActionGradient(a)
+function tests = testComplexStepFD_MassActionGradient(a)
 [m, con, obj, opts] = simple_model();
 
 verifyGradient(a, m, con, obj, opts)
 end
 
-function tests = testImaginaryStepFD_SteadyStateGradient(a)
+function tests = testComplexStepFD_SteadyStateGradient(a)
 simpleopts.steadyState = true;
 [m, con, obj, opts] = simple_model(simpleopts);
 
 verifyGradient(a, m, con, obj, opts)
 end
 
-function tests = testImaginaryStepFD_AnalyticGradient(a)
+function tests = testComplexStepFD_AnalyticGradient(a)
 [m, con, obj, opts] = michaelis_menten_model();
 
 verifyGradient(a, m, con, obj, opts)
@@ -219,11 +219,11 @@ nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.
 Dinteg = ObjectiveGradient(m, con, obj, opts);
 
 % Real FD
-opts.ImaginaryStep = false;
+opts.ComplexStep = false;
 Dreal = FiniteObjectiveGradient(m, con, obj, opts);
 
 % Imaginary FD
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 Dimag = FiniteObjectiveGradient(m, con, obj, opts);
 
 a.verifyEqual(size(Dimag), [nT,1])
@@ -234,7 +234,7 @@ end
 
 %% Hessian
 
-function tests = testImaginaryStepFD_MassActionHessian(a)
+function tests = testComplexStepFD_MassActionHessian(a)
 [m, con, obj, opts] = simple_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
@@ -242,7 +242,7 @@ con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 verifyHessian(a, m, con, obj, opts)
 end
 
-function tests = testImaginaryStepFD_SteadyStateHessian(a)
+function tests = testComplexStepFD_SteadyStateHessian(a)
 simpleopts.steadyState = true;
 [m, con, obj, opts] = simple_model(simpleopts);
 m = m.Update(rand(m.nk,1)+1);
@@ -251,7 +251,7 @@ con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
 verifyHessian(a, m, con, obj, opts)
 end
 
-function tests = testImaginaryStepFD_AnalyticHessian(a)
+function tests = testComplexStepFD_AnalyticHessian(a)
 [m, con, obj, opts] = michaelis_menten_model();
 m = m.Update(rand(m.nk,1)+1);
 con = con.Update(rand(con.ns,1)+1, rand(con.nq,1)+1, rand(con.nh,1)+1);
@@ -266,11 +266,11 @@ nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.
 Hinteg = ObjectiveHessian(m, con, obj, opts);
 
 % Finite differences with real step
-opts.ImaginaryStep = false;
+opts.ComplexStep = false;
 Hreal = FiniteObjectiveHessian(m, con, obj, opts);
 
 % Finite differences with imaginary step
-opts.ImaginaryStep = true;
+opts.ComplexStep = true;
 Himag = FiniteObjectiveHessian(m, con, obj, opts);
 
 a.verifyEqual(size(Himag), [nT,nT])
