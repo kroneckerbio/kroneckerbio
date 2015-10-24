@@ -84,6 +84,14 @@ m = FinalizeModel(m);
 a.verifyEqual(m.f(0,x0,u0), [15;15;-15;0])
 end
 
+function testAddRule(a)
+[m, x0, u0] = model_with_some_species();
+m = AddRule(m, 'z1', 'sqrt(x1)');
+m = AddReaction(m, 'test', 'x1', 'x2', 'z1');
+m = FinalizeModel(m);
+a.verifyEqual(m.f(0,x0,u0), [-sqrt(2);sqrt(2);0;0])
+end
+
 function testRepeatedComponents(a)
 % Consider adding repeated reaction and rule tests
 m = InitializeModelAnalytic();
@@ -236,6 +244,7 @@ m = AddState(m, 'x1', 'v1', 1);
 m = AddInput(m, 'u1', 'v1', 1);
 m = AddOutput(m, 'y1', 'x1');
 m = AddReaction(m, 'r1', 'x1', {}, 'k1*x1');
+m = AddRule(m, 'z1', 'x1*x1');
 m = FinalizeModel(m);
 
 test = RemoveCompartment(m, 'v1');
@@ -272,4 +281,9 @@ test = RemoveReaction(m, 'r1');
 a.verifyEqual(test.nr, 0);
 a.verifyEqual(length(test.Reactions), 0);
 a.verifyError(@()RemoveReaction(m, 'r2'), 'KroneckerBio:RemoveReaction:ReactionNotFound');
+
+test = RemoveRule(m, 'z1');
+a.verifyEqual(test.nz, 0);
+a.verifyEqual(length(test.Rules), 0);
+a.verifyError(@()RemoveRule(m, 'z2'), 'KroneckerBio:RemoveRule:RuleNotFound');
 end
