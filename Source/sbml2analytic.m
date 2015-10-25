@@ -6,7 +6,7 @@ m = InitializeModelAnalytic(sbml.name);
 nv = numel(sbml.compartment);
 v_ids = vec({sbml.compartment.id});
 v_names = vec({sbml.compartment.name});
-v_dims = vec([sbml.compartment.spatialDimensions]);
+v_dims = double(vec([sbml.compartment.spatialDimensions])); % Sometimes Matlab freaks out if this is not a double
 
 nk = numel(sbml.parameter);
 k_ids = vec({sbml.parameter.id});
@@ -111,6 +111,7 @@ z_handled(z_is_initial) = true;
 
 % Append rate rules are reactions
 z_is_rate = strcmp('SBML_RATE_RULE', z_types);
+nr = nr + nnz(z_is_rate);
 r_names = [r_names; z_names(z_is_rate)];
 r_reactants = [r_reactants; repmat({cell(0,2)}, nnz(z_is_rate),1)];
 r_products = [r_products; cellfun(@(id){{id,1}}, z_ids(z_is_rate))];
@@ -132,7 +133,8 @@ z_names(z_is_parameter) = k_names(k_handled);
 
 % Species assignments delete the species
 [z_is_species, xu_handled] = ismember(z_ids, xu_ids);
-xu_handled(xu_handled == 0) = [];
+z_is_species = z_is_species & ~z_handled; % Don't do anything with species already handled as initial conditions
+xu_handled(xu_handled == 0 | z_handled) = [];
 z_names(z_is_species) = xu_names(xu_handled);
 
 % Purge handled objects
@@ -188,7 +190,7 @@ for ixu = 1:nxu
     end
 end
 
-for ir = 1:numel(sbml.reaction)
+for ir = 1:nr
     reactants_i = expand_reactants(r_reactants{ir});
     products_i = expand_reactants(r_products{ir});
     

@@ -68,6 +68,21 @@ m = simple_analytic_model();
 verifyDerivatives(a, m);
 end
 
+function testSimbioSbmlLoading(a)
+file = 'simple_analytic.xml';
+m1 = LoadModelSbmlAnalytic(file);
+m1 = FinalizeModel(m1);
+verifyDerivatives(a, m1);
+
+m2 = LoadModelSimBioAnalytic(file);
+% TODO: hack simbio to get the correct compartments out
+m2.Compartments(3).Dimension = 2;
+m2 = FinalizeModel(m2);
+verifyDerivatives(a, m2);
+
+compare_analytic_models(a, m1, m2)
+end
+
 function testHigherOrderDose(a)
 m = higher_order_dose_model();
 verifyDerivatives(a, m);
@@ -167,4 +182,16 @@ end
 function verifyClose(a, x0, f, dfdx)
 [~, dfdx_finite, dfdx_analytic] = fdiff(x0, f, dfdx);
 a.verifyEqual(sparse(dfdx_finite), dfdx_analytic, 'RelTol', 0.001)
+end
+
+function compare_analytic_models(a, m1, m2)
+a.verifyEqual(m1.Name, m2.Name)
+a.verifyEqual(m1.Compartments, m2.Compartments)
+a.verifyEqual(m1.Parameters, m2.Parameters)
+a.verifyEqual(m1.Seeds, m2.Seeds)
+a.verifyEqual(m1.Inputs, m2.Inputs)
+a.verifyEqual(m1.States, m2.States)
+a.verifyEqual(m1.Reactions, m2.Reactions)
+a.verifyEqual(m1.Rules, m2.Rules)
+a.verifyEqual(m1.Outputs, m2.Outputs)
 end

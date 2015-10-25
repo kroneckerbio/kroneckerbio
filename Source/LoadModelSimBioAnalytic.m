@@ -1,34 +1,18 @@
-function m = LoadModelSimBioAnalytic(simbio, opts)
+function m = LoadModelSimBioAnalytic(simbio)
 %LoadModelSimBioAnalytic Load analytic model from a Matlab SimBiology model
 %   Modify the model and add outputs after calling this.
 %
-%   m = LoadModelSbmlMassAction(SimbioModel, opts)
+%   m = LoadModelSimBioAnalytic(SimbioModel)
 %
 %   Inputs
-%   simbio: [ simbio model object ]
-%       Matlab SimBiology Model object
-%   opts: [ options struct scalar {} ]
-%       .Verbose [ logical scalar {false} ]
-%       	Print progress to command window
+%   simbio: [ simbio model object | string ]
+%       Matlab SimBiology Model object or name of SBML file ot import
 
-%% Clean up inputs
-if nargin < 2
-    opts = [];
+% (c) 2015 Kevin Shi, David R Hagen & Bruce Tidor
+% This work is released under the MIT license.
+
+if ischar(simbio)
+    simbio = sbmlimport(simbio);
 end
 
-% Default options
-opts_.Verbose = 0;
-opts_.Validate = false;
-opts_.UseNames = false;
-
-opts = mergestruct(opts_, opts);
-
-%% Convert model
-
-symbolic = simbio2symbolic(simbio, opts);
-
-assert(isValidSymbolicModel(symbolic), 'LoadModelSbmlAnalytic:InvalidSymbolicModel', 'Symbolic model intermediate failed validation check')
-
-m = symbolic2analytic(symbolic, opts);
-
-end
+m = simbio2analytic(simbio);
