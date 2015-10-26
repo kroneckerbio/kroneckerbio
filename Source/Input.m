@@ -49,8 +49,8 @@ if nargin < 6
 end
 
 % m
-assert(is(m, 'Model'), 'KroneckerBio:Dose:m', 'm must be a Model')
-m = keepfields(m, {'Type', 'u', 'nu'});
+% assert(is(m, 'Model'), 'KroneckerBio:Dose:m', 'm must be a Model')
+% m = keepfields(m, {'Type', 'u', 'nu'});
 
 % u
 assert(isfunction(u) && nargin(u) == 2, 'KroneckerBio:Input:u', 'u must be a function handle accepting 2 arguments')
@@ -76,9 +76,9 @@ inp.nq = nq;
 inp.dudq = dudq;
 inp.d2udq2 = d2udq2;
 inp.discontinuities = discontinuities;
-inp.Update = @update;
+inp.Update = @updateInput;
 
-    function inp_out = update(q)
+    function inp_out = updateInput(q)
         assert(numel(q) == nq, 'KroneckerBio:Input:Update:q', 'q must be a vector of length nq')
         inp_out = Input(m, u, discontinuities, q, dudq, d2udq2);
     end

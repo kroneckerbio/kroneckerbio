@@ -44,10 +44,11 @@ if nargin < 5
 end
 
 if isempty(s)
-    s = m.s;
+    s = [m.Seeds.Value]';
 end
 if isempty(inp)
-    inp = inputConstant(m, m.u);
+    u = [m.Inputs.DefaultValue]';
+    inp = inputConstant(m, u);
 end
 if isempty(dos)
     dos = doseZero(m);
@@ -57,13 +58,16 @@ if isempty(name)
 end
 
 % m
-assert(isscalar(m) && is(m, 'Model'), 'KroneckerBio:Experiment:m', 'm must be a Model')
-m = keepfields(m, {'Type', 's', 'u', 'ns', 'nu'});
+% assert(isscalar(m) && is(m, 'Model'), 'KroneckerBio:Experiment:m', 'm must be a Model')
+% m = keepfields(m, {'Type', 's', 'u', 'ns', 'nu'});
+% s = [m.Seeds.Value]';
+% u = [m.Inputs.DefaultValue]';
+ns = m.ns;
 nu = m.nu;
 
 % s
-assert(numel(s) == m.ns, 'KroneckerBio:Experiment:s', 's must a vector with length equal to m.ns')
-s = vec(s);
+assert(numel(s) == ns, 'KroneckerBio:Experiment:s', 's must a vector with length equal to m.ns')
+% s = vec(s);
 
 % inp
 if isnumeric(inp)
@@ -82,15 +86,15 @@ assert(ischar(name), 'KroneckerBio:Experiment:name', 'name must be a string')
 % Build experiment
 con.Type = 'Experiment:InitialValue';
 con.Name = name;
-con.nu = m.nu;
-con.ns = m.ns;
+con.nu = nu;
+con.ns = ns;
 con.nq = numel(inp.q);
 con.nh = numel(dos.h);
 con.s  = s;
 con.q  = inp.q;
 con.h  = dos.h;
 % Store input functions in a closure instead of leaving them in inp because accessing con.inp.u is slow
-[con.u,con.dudq,con.d2udq2] = getU(inp,m.nu);
+[con.u, con.dudq, con.d2udq2] = getU(inp, nu);
 con.d  = @(t)dos.d(t,dos.h);
 con.dddh = @(t)dos.dddh(t,dos.h);
 con.d2ddh2 = @(t)dos.d2ddh2(t,dos.h);
@@ -108,7 +112,7 @@ con.private = [];
 
 end
 
-function [u_t,dudq_t,d2udq2_t] = getU(inp,nu)
+function [u_t, dudq_t, d2udq2_t] = getU(inp, nu)
 
 u_tq = inp.u;
 dudq_tq = inp.dudq;

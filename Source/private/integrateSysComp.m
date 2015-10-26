@@ -1,9 +1,11 @@
 function int = integrateSysComp(m, con, tF, eve, fin, opts)
 
+% HACK: model internal interface throughout
+
 % Constants
 nx = m.nx;
 
-y = m.y;
+y = m.m.y;
 u = con.u;
 
 % Construct system
@@ -36,13 +38,13 @@ int.nk = m.nk;
 int.ns = m.ns;
 int.nq = con.nq;
 int.nh = con.nh;
-int.k = m.k;
+int.k = m.m.k;
 int.s = con.s;
 int.q = con.q;
 int.h = con.h;
 
-int.dydx = m.dydx;
-int.dydu = m.dydu;
+int.dydx = m.m.dydx;
+int.dydu = m.m.dydu;
 
 int.t = sol.x;
 int.x = @(t)devals(sol, t);
@@ -64,14 +66,14 @@ int.sol = sol;
 %%%%% The system for integrating f %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [der, jac, del] = constructSystem()
-        f     = m.f;
-        dfdx  = m.dfdx;
+        f     = m.m.f;
+        dfdx  = m.m.dfdx;
         u     = con.u;
         d     = con.d;
-        x0    = m.x0;
+        x0    = m.m.x0;
         nd    = m.ns;
         
-        y = m.y;
+        y = m.m.y;
         
         der = @derivative;
         jac = @jacobian;

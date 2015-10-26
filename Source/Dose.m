@@ -45,8 +45,8 @@ if nargin < 6
 end
 
 % m
-assert(is(m, 'Model'), 'KroneckerBio:Dose:m', 'm must be a Model')
-m = keepfields(m, {'Type', 'ns'});
+% assert(is(m, 'Model'), 'KroneckerBio:Dose:m', 'm must be a Model')
+% m = keepfields(m, {'Type', 'ns'});
 
 % d
 assert(isfunction(d) && nargin(d) == 2, 'KroneckerBio:Dose:d', 'd must be a function handle acceptiong 2 arguments')
@@ -72,9 +72,9 @@ dos.nh = nh;
 dos.dddh = dddh;
 dos.d2ddh2 = d2ddh2;
 dos.discontinuities = schedule;
-dos.Update = @update;
+dos.Update = @updateDose;
 
-    function dos_out = update(h)
+    function dos_out = updateDose(h)
         assert(numel(h) == nh, 'KroneckerBio:Dose:Update:h', 'h must be a vector of length nh')
         dos_out = Dose(m, d, schedule, h, dddh, d2ddh2);
     end

@@ -6,10 +6,12 @@ function ic = extractICs(m,con,opts,order)
 % and UseDoseControls fields to indicate which parameters are to be fitted.
 % If order == 0, these fields are not required.
 
+% HACK: model internal interface throughout
+
 s = con.s;
 
 % Initial conditions
-x0 = m.x0(s);
+x0 = m.m.x0(s);
 
 if order >= 1
     % Constants
@@ -27,11 +29,11 @@ if order >= 1
     nT  = nTk + nTs + nTq + nTh;
     
     % Initial effect of rates on states is dx0dk
-    dx0dk = m.dx0dk(s);
+    dx0dk = m.m.dx0dk(s);
     dx0dTk = dx0dk(:,UseParams);
     
     % Initial effect of seeds on states is dx0ds
-    dx0ds = m.dx0ds(s);
+    dx0ds = m.m.dx0ds(s);
     dx0dTs = dx0ds(:,UseSeeds);
     
     % Initial effect of qs on states is 0
@@ -43,16 +45,16 @@ if order >= 1
     dx0dT = [dx0dTk, dx0dTs, dx0dTq, dx0dTh];
     
     if order >= 2
-        d2x0ds2 = reshape(full(m.d2x0ds2(s)), nx,ns,ns);
+        d2x0ds2 = reshape(full(m.m.d2x0ds2(s)), nx,ns,ns);
         d2x0dTs2 = d2x0ds2(:,UseSeeds,UseSeeds);
         
-        d2x0dk2 = reshape(full(m.d2x0dk2(s)), nx,nk,nk);
+        d2x0dk2 = reshape(full(m.m.d2x0dk2(s)), nx,nk,nk);
         d2x0dTk2 = d2x0dk2(:,UseParams,UseParams);
         
-        d2x0dkds = reshape(full(m.d2x0dkds(s)), nx,ns,nk);
+        d2x0dkds = reshape(full(m.m.d2x0dkds(s)), nx,ns,nk);
         d2x0dTkdTs = d2x0dkds(:,UseSeeds,UseParams);
         
-        d2x0dsdk = reshape(full(m.d2x0dsdk(s)), nx,nk,ns);
+        d2x0dsdk = reshape(full(m.m.d2x0dsdk(s)), nx,nk,ns);
         d2x0dTsdTk = d2x0dsdk(:,UseParams,UseSeeds);
         
         d2x0dT2 = zeros(nx,nT,nT);

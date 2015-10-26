@@ -1,7 +1,7 @@
 function [tF, eve, fin, t_get] = collectObservations(m, con, obs)
 nx = m.nx;
 u = con.u;
-y = m.y;
+y = m.m.y; % HACK model internal interface
 
 n_obs = numel(obs);
 nes = vec([obs.ne]);
