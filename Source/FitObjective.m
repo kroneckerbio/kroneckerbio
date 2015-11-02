@@ -126,6 +126,11 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 % This work is released under the MIT license.
 
 %% Work-up
+% Check for optimization toolbox
+% Note: this isn't necessary for simple local optimzation methods like
+%   fminsearch but we don't use that
+assert(logical(license('test','optimization_toolbox')), 'KroneckerBio:FitObjective:OptimizationToolboxMissing', 'FitObjective requires the optimization toolbox for fmincon.')
+
 % Clean up inputs
 assert(nargin >= 3, 'KroneckerBio:FitObjective:TooFewInputs', 'FitObjective requires at least 3 input arguments')
 if nargin < 4
@@ -181,12 +186,18 @@ opts.GlobalOpts = mergestruct(defaultGlobalOpts, opts.GlobalOpts);
 verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
 
+% Check for global optimization toolbox only if global optimization is specified
+%   Note: this isn't necesssary for all global optimization methods, but we depend
+%   on this functionality for the current implementation
+if opts.GlobalOptimization
+    assert(logical(license('test','gads_toolbox')), 'KroneckerBio:FitObjective:GlobalOptimizationToolboxMissing', 'Global optimization requires the global optimization (gads) toolbox.')
+end
+
 % Constants
 nx = m.nx;
 nk = m.nk;
 ns = m.ns;
 nCon = numel(con);
-nObj = size(obj,1);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
@@ -203,12 +214,12 @@ nT = nTk + nTs + nTq + nTh;
 % Ensure Restart is a positive integer
 if ~(opts.Restart >= 0)
     opts.Restart = 0;
-    warning('KroneckerBio:FitObjective', 'opts.Restart was not nonegative. It has been set to 0.')
+    warning('KroneckerBio:FitObjective:NegativeRestart', 'opts.Restart was not nonegative. It has been set to 0.')
 end
 
 if ~(opts.Restart == floor(opts.Restart))
     opts.Restart = floor(opts.Restart);
-    warning('KroneckerBio:FitObjective', 'opts.Restart was not a whole number. It has been floored.')
+    warning('KroneckerBio:FitObjective:NonintegerRestart', 'opts.Restart was not a whole number. It has been floored.')
 end
 
 % Ensure RestartJump is a function handle
@@ -264,7 +275,7 @@ globalOpts = opts.GlobalOpts;
 
 % Sanity checking
 if strcmpi(globalOpts.Algorithm, 'multistart') && globalOpts.UseParallel
-    warning('KroneckerBio:FitObjective', 'Using multistart with UseParallel is not supported at this time (due to global variable in obj fun usage).')
+    warning('KroneckerBio:FitObjective:InvalidMultistartOpts', 'Using multistart with UseParallel is not supported at this time (due to global variable in obj fun usage).')
 end
 
 %% Normalize parameters
@@ -302,15 +313,15 @@ for iRestart = 1:opts.Restart+1
     aborted = false;
     Tabort = That;
     
-    % Create local optimization problem
-    %   Always needed - used as a subset/refinement of global optimization
-    localProblem = createOptimProblem('fmincon', 'objective', @objective, ...
-        'x0', That, 'Aeq', opts.Aeq, 'beq', opts.beq, ...
-        'lb', opts.LowerBound, 'ub', opts.UpperBound, ...
-        'options', localOpts);
-    
     % Run specified optimization
     if opts.GlobalOptimization
+        
+        % Create local optimization problem
+        %   Used as a subset/refinement of global optimization
+        localProblem = createOptimProblem('fmincon', 'objective', @objective, ...
+            'x0', That, 'Aeq', opts.Aeq, 'beq', opts.beq, ...
+            'lb', opts.LowerBound, 'ub', opts.UpperBound, ...
+            'options', localOpts);
         
         if opts.Verbose
             fprintf('Beginning global optimization with %s...\n', globalOpts.Algorithm)
@@ -329,7 +340,7 @@ for iRestart = 1:opts.Restart+1
                 [That, G, exitflag] = patternsearch(@objective, That, [], [], ...
                     opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], psOpts);
             otherwise
-                error('Error:KroneckerBio:FitObjective: %s global optimization algorithm not recognized.', globalOpts.Algorithm)
+                error('KroneckerBio:FitObjective:InvalidGlobalOptAlgorithm', 'Global optimization algorithm %s not recognized.', globalOpts.Algorithm)
         end
         
         [~, D] = objective(That); % since global solvers don't return gradient at endpoint
@@ -337,7 +348,7 @@ for iRestart = 1:opts.Restart+1
     else
         
         if opts.Verbose; fprintf('Beginning gradient descent...\n'); end
-        [That, G, exitflag, ~, ~, D] = fmincon(localProblem);
+        [That, G, exitflag, ~, ~, D] = fmincon(@objective, That, [], [], opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], localOpts);
         
     end
     
