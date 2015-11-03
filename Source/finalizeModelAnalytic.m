@@ -39,6 +39,19 @@ function m = finalizeModelAnalytic(m, opts)
 %           computed. Note: required to evaluate exponents written usen the pow
 %           function. Try setting this to true if pow functions aren't
 %           recognized in final symbolic expressions and function handles.
+%       .SimplifyMethod [ string {''} ]
+%           Sets the symbolic simplification method used after each step of
+%           symbolic differentiation of the model's expressions. An empty
+%           string (the default) uses no simplification. 'simplify' uses
+%           the `simplify` procedure in MuPAD. 'simplifyFraction' uses the
+%           `simplifyFraction` procedure in MuPAD, which simplifies the
+%           expression and expresses it as a fraction where the greatest
+%           common divisor of the numerator and denominator is 1.
+%           Generally, simplification offers little benefit to model
+%           construction and can take significant amount of time to
+%           complete, so it is recommended in most cases to use no
+%           simplification.
+%           
 %
 %   Outputs
 %   m: [ Model.Analytic ]
@@ -61,6 +74,7 @@ default_opts.Verbose                   = 0;
 default_opts.UseMEX                    = false;
 default_opts.MEXDirectory              = defaultMEXdirectory;
 default_opts.EvaluateExternalFunctions = true; % needed for calls to power() and other functions
+default_opts.SimplifyMethod            = '';
 
 opts = mergestruct(default_opts, opts);
 
@@ -68,6 +82,8 @@ verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
 
 order = opts.Order;
+
+simplifyMethod = opts.SimplifyMethod;
 
 if opts.UseMEX && exist(opts.MEXDirectory,'dir') ~= 7
     mkdir(opts.MEXDirectory);
@@ -1014,7 +1030,7 @@ if verbose; fprintf('done.\n'); end
         end
         
         % Take derivatives of the possibly nonzero entries
-        nzders = diff_vectorized(vec(dydx1_(nzterms)), vec(x2Syms_(nzdens)));
+        nzders = diff_vectorized(vec(dydx1_(nzterms)), vec(x2Syms_(nzdens)), simplifyMethod);
         
         % Of the supposedly nonzero derivatives, find the ones that are
         % actually nonzero, and only keep those

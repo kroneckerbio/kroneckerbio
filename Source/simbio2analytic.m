@@ -198,7 +198,8 @@ function expressions = clean_simbio_expression(expressions)
 % a dot in them and enclose them in quotes.
 
 temp = @transmute; % Matlab bug can't find local functions
-expressions = regexprep(expressions, '([\[^\[\]]*\])|(\<[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\>)', '${temp($1)}');
+%expressions = regexprep(expressions, '([\[^\[\]]*\])|(\<[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\>)', '${temp($1)}');
+expressions = regexprep(expressions, '(\[[^\[\]]*\])|(\<[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\>)', '${temp($1)}');
 
     function output = transmute(input)
         if input(1) == '['

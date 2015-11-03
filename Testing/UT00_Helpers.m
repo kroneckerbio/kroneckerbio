@@ -65,3 +65,24 @@ a.verifyEqual(size(r), [1,2])
 a.verifyEqual(size(r{1}), [n(1),1])
 a.verifyEqual(size(r{2}), [n(2),1])
 end
+
+function test_diff_vectorized(a)
+    syms x y
+    expr = ((x^2 + 2*x + 1)*(y^2 - 1)/(x + 1)/(y + 1))^(1/2);
+    
+    cd ../Source/private
+    difffun = @diff_vectorized;
+    cd ../../Testing
+    
+    dexpr = difffun([expr; expr], [x; y], '');
+    dexpr_simplify = difffun([expr; expr], [x; y], 'simplify');
+    dexpr_simplifyFraction = difffun([expr; expr], [x; y], 'simplifyFraction');
+    
+    dexpr_expected = [diff(expr,x); diff(expr,y)];
+    dexpr_simplify_expected = [simplify(diff(expr,x)); simplify(diff(expr,y))];
+    dexpr_simplifyFraction_expected = [simplifyFraction(diff(expr,x)); simplifyFraction(diff(expr,y))];
+    
+    a.verifyEqual(dexpr, dexpr_expected)
+    a.verifyEqual(dexpr_simplify, dexpr_simplify_expected)
+    a.verifyEqual(dexpr_simplifyFraction, dexpr_simplifyFraction_expected)        
+end
