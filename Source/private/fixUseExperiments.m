@@ -1,12 +1,12 @@
-function useExperiments = fixUseExperiments(useExperiments, nObj, nCon)
+function UseExperiments = fixUseExperiments(UseExperiments, n_obs, n_con)
 %useExperiments = fixUseExperiments(useExperiments)
 
-if isnumeric(useExperiments)
-    temp = false(nObj, nCon);
-    temp(useExperiments) = true;
-    useExperiments = temp;
-elseif islogical(useExperiments)
-    assert(ndims(useExperiments) == 2 && all(size(useExperiments) == [nObj, nCon]), 'KroneckerBio:fixUseExperiments:SizeOfUseExperiments', 'If UseExperiments is provided as a logical array, it must be the size of nObj by nCon')
+if isnumeric(UseExperiments)
+    temp = false(n_obs, n_con);
+    temp(UseExperiments) = true;
+    UseExperiments = temp;
+elseif islogical(UseExperiments)
+    assert(ismatrix(UseExperiments) && all(size(UseExperiments) == [n_obs, n_con]), 'KroneckerBio:fixUseExperiments:SizeOfUseExperiments', 'If UseExperiments is provided as a logical array, it must be the size of n_obs by n_con')
 else
     error('KroneckerBio:fixUseExperiments:InvalidClass', 'UseExperiments must be a logical array or vector of indexes')
 end

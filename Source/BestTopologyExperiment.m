@@ -1,30 +1,147 @@
-function [best data] = BestTopologyExperiment(m, con, obj, objPriorParams, objPriorSeeds, objPriorControls, conPos, objPos, target, opts)
-%[best data] = BestTopologyExperiment(m, con, obj, objPrior, conPos, objPos, target, opts, pmyStart)
+function [best, data] = BestTopologyExperiment(m, con, obj, objPriorParams, objPriorSeeds, objPriorInputControls, objPriorDoseControls, con_pos, obs_pos, target, opts)
+%BestTopologyExperiment Determine which experiments will most efficiently
+%   minimize a target function of the posterior probability distribution of
+%   the topologies. Traditionally, this algorithm is used to minimize some
+%   uncertainty in the topology.
+%
+%   best = BestTopologyExperiment(m, con, obj, obj_prior_params, 
+%               obj_prior_seeds, obj_prior_input_controls, 
+%               obj_prior_dose_controls, con_pos, obs_pos, target, opts)
+%
+%   This algorithm generates random models according to the current
+%   probability distribution according to con and obj and priors. Each
+%   random model is simulated according to each con_pos and observed
+%   according to each obs_pos. Then the resulting objective function is
+%   used to recompute the posterior probability. The target function is
+%   used to evalute the quality of that posterior probability. (A sane
+%   target function returns a smaller scalar for distributions that
+%   represent smaller topological uncertainty. The entropy function is
+%   recommended.) The index to the best observation scheme is returned,
+%   where best is defined as having the smallest average target function
+%   value over the sample of parameters.
+%
+%   Inputs:
+%   m: [ model struct scalar ]
+%       The KroneckerBio model that will be used
+%   con: [ experiment struct vector ]
+%       The experimental conditions for the known data
+%   obj: [ objective struct matrix ]
+%       The objective structures defining the information that is already
+%       known
+%   objPriorParams: [ objective struct vector nTop | {[]} ]
+%       The priors of the kinetic parameters. Optional and can be empty if
+%       UseParams specifies no parameters.
+%   objPriorSeeds: [ objective struct vector nCon |
+%                    objective struct scalar | {[]} ]
+%       The priors of the seeds. Optional and can be empty if UseSeeds
+%       specifies no seeds.
+%   objPriorInputControls: [ objective struct vector nCon |
+%                            objective struct scalar | {[]} ]
+%       The priors of the input control parameters. Optional and can be
+%       empty if UseInputControls specifies no controls.
+%   objPriorDoseControls: [ objective struct vector nCon |
+%                           objective struct scalar | {[]} ]
+%       The priors of the dose control parameters. Optional and can be
+%       empty if UseDoseControls specifies no controls.
+%   con_pos: [ experiment struct vector ]
+%       The candidate experimental conditions
+%   obs_pos: [ objective struct matrix ]
+%       The candidate observation structures corresponding to the
+%       measurement technique that will be applied under the candidate
+%       experimental conditions
+%   target: [ handle @(pmy) returns scalar ]
+%       The goal function quantifies the value of a particular information
+%       matrix
+%   opts: [ options struct scalar {} ]
+%       .TargetTol [ positive scalar {0.05} ]
+%           The acceptable uncertainty in the estimate of the target
+%           function
+%       .MinTargetIter [ nonnegative integer {0} ]
+%           The minimum number of samples used to consider each observation
+%           scheme
+%       .MaxTargetIter [ nonnegative integer {200} ]
+%           The maximum number of sample used to consider each observation
+%           scheme
+%       .PriorTopology [ nonnegative vector nTop {zeros(nTop,1) + 1/nTop} ]
+%           The discrete prior on the topologies
+%       .TopologyMethod [ {'linear'} | 'path' | 'harmonic' ]
+%           Linear makes a linear approximation around the maximum a
+%           posterior parameters
+%           Path is a Monte Carlo method that will converge in a few weeks
+%           for a simple model
+%           Harmonic is a Monte Carlo method that will converge sometime
+%           next millenium for a simple model
+%       .NeedFit [ {true} | false ]
+%           Do the parameters need to be fit before linearized? This should
+%           only be set to false if the parameters were fit beforehand
+%       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
+%           Indicates the kinetic parameters that will be allowed to vary
+%           during the optimization
+%       .UseSeeds [ logical matrix ns by nCon | logical vector ns |
+%                   positive integer vector {[]} ]
+%           Indicates the seeds that will be allowed to vary during the
+%           optimzation. If UseModelSeeds is true then UseSeeds can be a
+%           vector of linear indexes or a vector of logicals length of ns.
+%           If UseModelSeeds is false then UseSeeds can be a matrix of
+%           logicals size ns by nCon. It can also be a vector of length ns,
+%           and every experiment will be considered to have the same active
+%           seed parameters. It can also be a vector of linear indexes into
+%           the ns vector and assumed the same for all conditions.
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
+%           Indicates the input control parameters that will be allowed to
+%           vary during the optimization and will be considered free
+%           parameters whose uncertainty will be optimized
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                          integer vectors | logical vector nq | positive 
+%                          integer vector {[]} ]
+%           Indicates the dose control parameters that will be allowed to
+%           vary during the optimization and will be considered free
+%           parameters whose uncertainty will be optimized
+%       .Verbose [ nonnegative integer scalar {1} ]
+%           Bigger number displays more progress information
+% 
+%   Outputs
+%   best: [ positive integer ]
+%       Linear index into obs_pos
+%   data: [ struct ]
+%       Additional information
+
+% (c) 2015 David R Hagen & Bruce Tidor
+% This work is released under the MIT license.
 
 % Clean-up inputs
-if nargin < 8
+if nargin < 11
     opts = [];
+end
+
+if isempty(con)
+    % Create a con to fit with the prior
+    con = experimentZero(m(1));
+end
+if isempty(obj)
+    obj = objectiveZero([1,numel(con)]);
 end
 
 % Constants
 nTop = numel(m);
 nCon = numel(con);
 nObj = size(obj,1);
-nConPos = numel(conPos);
-nObjPos = size(objPos,1);
+nConPos = numel(con_pos);
+nObjPos = size(obs_pos,1);
 
 % Deafult options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
 defaultOpts.UseParams      = cell(nTop,1); 
 for i=1:nTop; defaultOpts.UseParams{i} = 1:m(i).nk;end
 defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls = [];
 
 defaultOpts.Normalized     = true;
 defaultOpts.UseAdjoint     = true;
@@ -60,14 +177,6 @@ for iTop = 1:nTop
 end
 
 %% Standardize structures
-if isempty(con)
-    % Create a con and obj to fit with the prior
-    con = Uzero(1);
-    obj = Gzero;
-    nCon = 1;
-    nObj = 1;
-end
-
 % Experimental conditions
 con = vec(con);
 
@@ -75,10 +184,10 @@ con = vec(con);
 assert(size(obj,2) == nCon, 'KroneckerBio:TopologyProbability:ObjSize', 'Second dimension of "obj" must be equal to nCon')
 
 % Possible experimental conditions
-conPos = vec(conPos);
+con_pos = vec(con_pos);
 
 % Possible objective functions
-assert(size(objPos,2) == nConPos, 'KroneckerBio:TopologyProbability:ObjPosSize', 'Second dimension of "objPos" must be equal to nCon')
+assert(size(obs_pos,2) == nConPos, 'KroneckerBio:TopologyProbability:ObsPosSize', 'Second dimension of "obs_pos" must be equal to n_con')
 
 %% Active Parameters
 % UseParams is same for all topologies if only one is provided
@@ -93,57 +202,50 @@ for iTop = 1:nTop
 end
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon+nConPos);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon+nConPos);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls, nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon+nConPos, m(1).nq, cat(1,con.nq,conPos.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon+nConPos, cat(1,con.nq,con_pos.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon+nConPos, cat(1,con.nh,con_pos.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 %% Priors
 if nTk > 0
     assert(numel(objPriorParams) == nTop, ...
         'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorParams" must be a vector of length numel(m)')
-    objPriorParams = [reshape(objPriorParams, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
+    objPriorParams = [reshape(objPriorParams, [1,1,nTop]), objectiveZero([1, nCon-1, nTop])];
 else
-    objPriorParams = Gzero([0,nCon,nTop]);
+    objPriorParams = objectiveZero([0,nCon,nTop]);
 end
 
 if nTs > 0
-    if opts.UseModelSeeds
-        assert(numel(objPriorSeeds) == 1, ...
-            'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a scalar if UseModelSeeds is true')
-        objPriorSeeds = [repmat(objPriorSeeds, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
-    else
-        assert(numel(objPriorSeeds) == nCon, ...
-            'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a vector of length numel(con) if UseModelSeeds is false')
-        objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
-    end
+    assert(numel(objPriorSeeds) == nCon, ...
+        'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a vector of length numel(con)')
+    objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
 else
-    objPriorSeeds = Gzero([0,nCon,nTop]);
+    objPriorSeeds = objectiveZero([0,nCon,nTop]);
 end
 
 if nTq > 0
-    if opts.UseModelControls
-        assert(numel(objPriorSeeds) == 1, ...
-            'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a scalar if UseModelControls is true')
-        objPriorSeeds = [repmat(objPriorSeeds, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
-    else
-        assert(numel(objPriorSeeds) == nCon, ...
-            'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a vector of length numel(con) if UseModelControls is false')
-        objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
-    end
+    assert(numel(objPriorInputControls) == nCon, ...
+        'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorInputControls" must be a vector of length numel(con)')
+    objPriorInputControls = repmat(reshape(objPriorInputControls, [1,nCon,1]), [1,1,nTop]);
 else
-    objPriorControls = Gzero([0,nCon,nTop]);
+    objPriorInputControls = objectiveZero([0,nCon,nTop]);
+end
+
+if nTh > 0
+    assert(numel(objPriorDoseControls) == nCon, ...
+        'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a vector of length numel(con)')
+    objPriorDoseControls = repmat(reshape(objPriorDoseControls, [1,nCon,1]), [1,1,nTop]);
+else
+    objPriorDoseControls = objectiveZero([0,nCon,nTop]);
 end
 
 % Match dimensions of objPrior to obj
-objPrior = [objPriorParams; objPriorSeeds; objPriorControls];
+objPrior = [objPriorParams; objPriorSeeds; objPriorInputControls; objPriorDoseControls];
 nObjPrior = size(objPrior,1);
-
-%% Integration type: simple, continuous, complex, or both
-[continuous, complex, tGet] = fixIntegrationType(con, obj);
-[continuousPos, complexPos, tGetPos] = fixIntegrationType(conPos, objPos);
 
 %% Tolerances
 % RelTol
@@ -174,11 +276,11 @@ for iTop = 1:nTop
     [opts.AbsTol{iTop}.System] = deal(temp{:});
     temp = fixAbsTol(tempAbsTol{iTop}, 1, true(nCon+nConPos,1), nx(iTop), nCon+nConPos);
     [opts.AbsTol{iTop}.Objective] = deal(temp{:});
-    temp = fixAbsTol(tempAbsTol{iTop}, 2, false(nCon+nConPos,1), nx(iTop), nCon+nConPos, false, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams{iTop}, opts.UseSeeds, opts.UseControls);
+    temp = fixAbsTol(tempAbsTol{iTop}, 2, false(nCon+nConPos,1), nx(iTop), nCon+nConPos, false, opts.UseParams{iTop}, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
     [opts.AbsTol{iTop}.Sensitivity] = deal(temp{:});
-    temp = fixAbsTol(tempAbsTol{iTop}, 2, true(nCon+nConPos,1), nx(iTop), nCon+nConPos, false, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams{iTop}, opts.UseSeeds, opts.UseControls);
+    temp = fixAbsTol(tempAbsTol{iTop}, 2, true(nCon+nConPos,1), nx(iTop), nCon+nConPos, false, opts.UseParams{iTop}, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
     [opts.AbsTol{iTop}.Gradient] = deal(temp{:});
-    temp = fixAbsTol(tempAbsTol{iTop}, 2, false(nCon+nConPos,1), nx(iTop), nCon+nConPos, true, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams{iTop}, opts.UseSeeds, opts.UseControls);
+    temp = fixAbsTol(tempAbsTol{iTop}, 2, false(nCon+nConPos,1), nx(iTop), nCon+nConPos, true, opts.UseParams{iTop}, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
     [opts.AbsTol{iTop}.Adjoint] = deal(temp{:});
 end
 
@@ -190,8 +292,8 @@ if isnumeric(opts.UpperBound)
     opts.UpperBound = repmat({opts.UpperBound}, nTop,1);
 end
 for iTop = 1:nTop
-    opts.LowerBound{iTop} = fixBounds(opts.LowerBound{iTop}, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams{iTop}, opts.UseSeeds, opts.UseControls);
-    opts.UpperBound{iTop} = fixBounds(opts.UpperBound{iTop}, opts.UseModelSeeds, opts.UseModelInputs, opts.UseParams{iTop}, opts.UseSeeds, opts.UseControls);
+    opts.LowerBound{iTop} = fixBounds(opts.LowerBound{iTop}, opts.UseParams{iTop}, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+    opts.UpperBound{iTop} = fixBounds(opts.UpperBound{iTop}, opts.UseParams{iTop}, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 end
 
 %% Distribute options for topology specific functions
@@ -199,12 +301,9 @@ assert(~isfield(opts, 'ObjWeights') || all(vec(opts.ObjWeights) == 1), 'ObjWeigh
 optsAll = repmat(opts, nTop,1);
 for iTop = 1:nTop
     optsAll(iTop).UseParams       = opts.UseParams{iTop};
-    if ~opts.UseModelSeeds
-        optsAll(iTop).UseSeeds    = opts.UseSeeds(:,1:nCon);
-    end
-    if ~opts.UseModelInputs
-        optsAll(iTop).UseControls = opts.UseControls(1:nCon);
-    end
+    optsAll(iTop).UseSeeds        = opts.UseSeeds(:,1:nCon);
+    optsAll(iTop).UseInputControls = opts.UseInputControls(1:nCon);
+    optsAll(iTop).UseDoseControls = opts.UseDoseControls(1:nCon);
     optsAll(iTop).AbsTol          = opts.AbsTol{iTop}(1:nCon);
     optsAll(iTop).LowerBound      = opts.LowerBound{iTop};
     optsAll(iTop).UpperBound      = opts.UpperBound{iTop};
@@ -225,19 +324,12 @@ optsTemp = opts;
 optsTemp.NeedFit = false;
 for iTop = 1:nTop
     optsTemp.AbsTol{iTop} = optsTemp.AbsTol{iTop}(1:nCon);
-end
-if ~opts.UseModelSeeds
-    for iTop = 1:nTop
-        optsTemp.UseSeeds = optsTemp.UseSeeds(:,1:nCon);
-    end
-end
-if ~opts.UseModelInputs
-    for iTop = 1:nTop
-        optsTemp.UseControls = optsTemp.UseControls(1:nCon);
-    end
+    optsTemp.UseSeeds = optsTemp.UseSeeds(:,1:nCon);
+    optsTemp.UseInputControls = optsTemp.UseInputControls(1:nCon);
+    optsTemp.UseDoseControls = optsTemp.UseDoseControls(1:nCon);
 end
 
-pmyStart = TopologyProbability(m, con, obj, objPriorParams, objPriorSeeds, objPriorControls, optsTemp);
+pmyStart = TopologyProbability(m, con, obj, objPriorParams, objPriorSeeds, objPriorInputControls, objPriorDoseControls, optsTemp);
 
 %% Expected target function value for each possible experiment
 % Initialize containers
@@ -255,12 +347,12 @@ iSam = zeros(nTop,1);
 sam = cell(nTop,1);
 step = nan(nTop,1);
 for iTop = 1:nTop
-    sam{iTop} = collectActiveParameters(m(iTop), con, opts.UseModelSeeds, opts.UseModelInputs, optsAll(iTop).UseParams, optsAll(iTop).UseSeeds, optsAll(iTop).UseControls);
+    sam{iTop} = collectActiveParameters(m(iTop), con, optsAll(iTop).UseParams, optsAll(iTop).UseSeeds, optsAll(iTop).UseInputControls, optsAll(iTop).UseDoseControls);
 end
 
 for iPosCon = 1:nConPos
     for iPosObj = 1:nObjPos
-        if verbose; fprintf(['Monte Carlo sampling for ' objPos(iPosObj,iPosCon,1).Name '...\n']); end
+        if verbose; fprintf(['Monte Carlo sampling for ' obs_pos(iPosObj,iPosCon,1).Name '...\n']); end
         
         % Reset growing variables
         index = 0;
@@ -280,7 +372,7 @@ for iPosCon = 1:nConPos
             % Sample until autocorrelation is computed
             while isnan(step(trueTop))
                 if verbose; fprintf('Sampling for autocorrelation...\n'); end
-                [mDraw, conDraw] = updateAll(m(trueTop), con, sam{trueTop}(:,end), opts.UseModelSeeds, opts.UseModelInputs, optsAll(trueTop).UseParams, optsAll(trueTop).UseSeeds, optsAll(trueTop).UseControls);
+                [mDraw, conDraw] = updateAll(m(trueTop), con, sam{trueTop}(:,end), optsAll(trueTop).UseParams, optsAll(trueTop).UseSeeds, optsAll(trueTop).UseInputControls, optsAll(trueTop).UseDoseControls);
                 sam{trueTop} = [sam{trueTop}, SampleParameterSpace(mDraw, conDraw, [obj; objPrior(:,:,trueTop)], opts.StepsPerCheck, optsAll(trueTop))];
                 
                 % Autocorrelation for each parameter
@@ -313,34 +405,21 @@ for iPosCon = 1:nConPos
             % Replenish parameter sample supply when empty
             if iSam(trueTop) > size(sam{trueTop}, 2)
                 if verbose; fprintf('Generating additional parameter sampling...\n'); end
-                [mDraw, conDraw] = updateAll(m(trueTop), con, sam{trueTop}(:,end), opts.UseModelSeeds, opts.UseModelInputs, optsAll(trueTop).UseParams, optsAll(trueTop).UseSeeds, optsAll(trueTop).UseControls);
+                [mDraw, conDraw] = updateAll(m(trueTop), con, sam{trueTop}(:,end), optsAll(trueTop).UseParams, optsAll(trueTop).UseSeeds, optsAll(trueTop).UseInputControls, optsAll(trueTop).UseDoseControls);
                 sam{trueTop} = [sam{trueTop}, SampleParameterSpace(mDraw, conDraw, [obj; objPrior(:,:,trueTop)], opts.StepsPerCheck, optsAll(trueTop))];
             end
             
             % Construct true parameterized model
             Ttrue = sam{trueTop}(:,iSam(trueTop));
-            mRand = updateAll(m(trueTop), con, Ttrue, opts.UseModelSeeds, opts.UseModelInputs, optsAll(trueTop).UseParams, optsAll(trueTop).UseSeeds, optsAll(trueTop).UseControls);
+            mRand = updateAll(m(trueTop), con, Ttrue, optsAll(trueTop).UseParams, optsAll(trueTop).UseSeeds, optsAll(trueTop).UseInputControls, optsAll(trueTop).UseDoseControls);
             
             try
                 % Generate data according to possible experiment
                 if verbose; fprintf('Generating data from Monte Carlo model...\n'); end
                 optsTemp = optsAll(iTop);
-                if continuousPos(iPosCon) && complexPos(iPosCon)
-                    optsTemp.AbsTol = opts.AbsTol{trueTop}(nCon+iPosCon).Objective;
-                    sol = integrateObj(mRand, conPos(iPosCon), objPos(iObjPos,iConPos), optsTemp);
-                elseif complexPos(iPosCon)
-                    optsTemp.AbsTol = opts.AbsTol{trueTop}(nCon+iPosCon).System;
-                    sol = integrateSys(mRand, conPos(iPosCon), optsTemp);
-                elseif continuousPos(iPosCon)
-                    optsTemp.AbsTol = opts.AbsTol{trueTop}(nCon+iPosCon).Objective;
-                    sol = integrateObjSelect(mRand, conPos(iPosCon), objPos(iObjPos,iConPos), tGetPos{iPosCon}, optsTemp);
-                else
-                    optsTemp.AbsTol = opts.AbsTol{trueTop}(nCon+iPosCon).System;
-                    sol = integrateSysSelect(mRand, conPos(iPosCon), tGetPos{iPosCon}, optsTemp);
-                end
-                
-                % Create objective function appropriate to each topology
-                [new_obj, new_data] = objPos(nObjPos,nConPos).AddData(sol);
+                sim = SimulateSystem(mRand, con_pos(iPosCon), obs_pos(iPosObj,iPosCon), optsTemp);
+                new_data = sim.measurements;
+                new_obj = obs_pos(nObjPos,nConPos).Objective(new_data);
                 
                 % Fit the new data
                 mfit = m;
@@ -348,13 +427,10 @@ for iPosCon = 1:nConPos
                     if verbose; fprintf(['Fitting ' m(iTop).Name ' to existing data plus Monte Carlo data...\n']); end
                     optsTemp = optsAll(iTop);
                     optsTemp.AbsTol = [optsTemp.AbsTol; opts.AbsTol{iTop}(nCon+iPosCon)];
-                    if ~opts.UseModelSeeds
-                        optsTemp.UseSeeds = [optsTemp.UseSeeds, opts.UseSeeds(:,nCon+iPosCon)];
-                    end
-                    if ~opts.UseModelInputs
-                        optsTemp.UseControls = [optsTemp.UseControls; opts.UseControls(nCon+iPosCon)];
-                    end
-                    mfit(iTop) = FitObjective(mfit(iTop), [con; conPos(iPosCon)], [[obj; objPrior(:,:,iTop)], [new_obj; Gzero([nObj+nObjPrior-1,1])]], optsTemp);
+                    optsTemp.UseSeeds = [optsTemp.UseSeeds, opts.UseSeeds(:,nCon+iPosCon)];
+                    optsTemp.UseInputControls = [optsTemp.UseInputControls; opts.UseInputControls(nCon+iPosCon)];
+                    optsTemp.UseDoseControls = [optsTemp.UseDoseControls; opts.UseDoseControls(nCon+iPosCon)];
+                    mfit(iTop) = FitObjective(mfit(iTop), [con; con_pos(iPosCon)], [[obj; objPrior(:,:,iTop)], [new_obj; objectiveZero([nObj+nObjPrior-1,1])]], optsTemp);
                 end
                 
                 % Compute the topology probability
@@ -363,20 +439,13 @@ for iPosCon = 1:nConPos
                 opts.NeedFit = false;
                 for iTop = 1:nTop
                     optsTemp.AbsTol{iTop} = optsTemp.AbsTol{iTop}([1:nCon,iPosCon]);
+                    optsTemp.UseSeeds = optsTemp.UseSeeds(:,[1:nCon,iPosCon]);
+                    optsTemp.UseInputControls = optsTemp.UseInputControls([1:nCon,iPosCon]);
+                    optsTemp.UseDoseControls = optsTemp.UseDoseControls([1:nCon,iPosCon]);
                 end
-                if ~opts.UseModelSeeds
-                    for iTop = 1:nTop
-                        optsTemp.UseSeeds = optsTemp.UseSeeds(:,[1:nCon,iPosCon]);
-                    end
-                end
-                if ~opts.UseModelInputs
-                    for iTop = 1:nTop
-                        optsTemp.UseControls = optsTemp.UseControls([1:nCon,iPosCon]);
-                    end
-                end
-                pmy = TopologyProbability(mfit, [con; conPos(iPosCon)], [obj, [new_obj; Gzero([nObj-1,1])]], objPriorParams, objPriorSeeds, objPriorControls, optsTemp);
+                pmy = TopologyProbability(mfit, [con; con_pos(iPosCon)], [obj, [new_obj; objectiveZero([nObj-1,1])]], objPriorParams, objPriorSeeds, objPriorInputControls, objPriorDoseControls, optsTemp);
             catch me
-                if strcmp(me.identifier, 'KroneckerBio:accumulateSol:IntegrationFailure')
+                if strcmp(me.identifier, 'KroneckerBio:accumulateOde:IntegrationFailure')
                     % The integrator crashed unexpectedly
                     % Just ignore this draw and start over
                     if verbose; fprintf('Integrator crashed--discarding draw and resuming...\n'); end
@@ -403,7 +472,7 @@ for iPosCon = 1:nConPos
             trueTs{index}   = Ttrue;
             trueys{index}   = new_data;
             for iTop = 1:nTop
-                fitsTs{iTop,index} = collectActiveParameters(mfit(iTop), con, opts.UseModelSeeds, opts.UseModelInputs, optsAll(iTop).UseParams, optsAll(iTop).UseSeeds, optsAll(iTop).UseControls);
+                fitsTs{iTop,index} = collectActiveParameters(mfit(iTop), con, optsAll(iTop).UseParams, optsAll(iTop).UseSeeds, optsAll(iTop).UseInputControls, optsAll(iTop).UseDoseControls);
             end
             pmys(:,index)   = pmy;
             
@@ -436,7 +505,7 @@ for iPosCon = 1:nConPos
     end % iPosObj
 end % iPosCon
 
-[unused, best] = min(Etarget);
+[~, best] = min(Etarget);
 
 data.Targets               = Etarget;
 data.TopologiesChosen      = trueTopAll;

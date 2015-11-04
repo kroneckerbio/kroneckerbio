@@ -1,4 +1,4 @@
-function [best, data] = BestParameterExperiment(m, con, obj, con_pos, obj_pos, goal, opts, F, EFs)
+function [best, data] = BestParameterExperiment(m, con, obj, con_pos, obs_pos, goal, opts, F, EFs)
 %BestParameterExperiment Determine which experiments will most efficiently
 %   minimize a goal function of the fisher information matrix (FIM) of the
 %   objective function. Traditionally, this algorithm is used to minimize
@@ -25,24 +25,14 @@ function [best, data] = BestParameterExperiment(m, con, obj, con_pos, obj_pos, g
 %       known
 %   con_pos: [ experiment struct vector ]
 %       The candidate experimental conditions
-%   obj_pos: [ objective struct matrix ]
-%       The candidate objective structures corresponding to the measurement
-%       technique that will be applied under the candidate experimental
-%       conditions
+%   obs_pos: [ objective struct matrix ]
+%       The candidate observation structures corresponding to the
+%       measurement technique that will be applied under the candidate
+%       experimental conditions
 %   goal: [ handle @(F) returns scalar ]
 %       The goal function quantifies the value of a particular information
 %       matrix
 %   opts: [ options struct scalar {} ]
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions. This will
-%           determine both which parameters are used for simulation as well
-%           as what parameters will be varied in the optimization.
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions. This will determine both
-%           which parameters are used for simulation as well as what
-%           parameters will be varied in the optimization.
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Indicates the kinetic parameters that will be allowed to vary
 %           during the optimization
@@ -56,11 +46,18 @@ function [best, data] = BestParameterExperiment(m, con, obj, con_pos, obj_pos, g
 %           and every experiment will be considered to have the same active
 %           seed parameters. It can also be a vector of linear indexes into
 %           the ns vector and assumed the same for all conditions.
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
 %           Indicates the input control parameters that will be allowed to
-%           vary during the optimization
+%           vary during the optimization and will be considered free
+%           parameters whose uncertainty will be optimized
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                          integer vectors | logical vector nq | positive 
+%                          integer vector {[]} ]
+%           Indicates the dose control parameters that will be allowed to
+%           vary during the optimization and will be considered free
+%           parameters whose uncertainty will be optimized
 %       .ReturnCount [ whole scalar {1} ]
 %           The number of a best experiments to return
 %       .MaxGreedySize [ natural scalar {1} ]
@@ -103,7 +100,7 @@ function [best, data] = BestParameterExperiment(m, con, obj, con_pos, obj_pos, g
 %   [best, data] = FindBestExperiment(m, con, obj, conPos, objPos, goal, opts)
 %       Returns intermediate results from the algorithm
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
 
 %% Work-up
@@ -121,25 +118,31 @@ end
 
 assert(isscalar(m), 'KroneckerBio:BestParameterExperiment:MoreThanOneModel', 'The model structure must be scalar')
 
+if isempty(con)
+    con = experimentZero(0);
+end
+if isempty(obj)
+    obj = objectiveZero([0,numel(con)]);
+end
+
 % Default options
 defaultOpts.Verbose         = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
-defaultOpts.UseParams      = 1:m.nk;
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseParams        = 1:m.nk;
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 defaultOpts.ObjWeights      = ones(size(obj));
 
 defaultOpts.Normalized      = true;
 defaultOpts.UseAdjoint      = true;
 
-defaultOpts.UseExperiments  = true(size(obj_pos));
-defaultOpts.Cost            = zeros(size(obj_pos));
+defaultOpts.UseExperiments  = true(size(obs_pos));
+defaultOpts.Cost            = zeros(size(obs_pos));
 defaultOpts.ReturnCount     = 1;        % Number of experiments to return
 defaultOpts.MaxGreedySize   = 1;        % Number of experiments to consider at once for the greedy search. Inf = not greedy
 defaultOpts.Budget          = inf;
@@ -154,10 +157,10 @@ opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
 n_pos_con = numel(con_pos);
-n_pos_obj = size(obj_pos,1);
+n_pos_obs = size(obs_pos,1);
 
 %% Fix UseExperiments
-opts.UseExperiments = fixUseExperiments(opts.UseExperiments, n_pos_obj, n_pos_con);
+opts.UseExperiments = fixUseExperiments(opts.UseExperiments, n_pos_obs, n_pos_con);
 remaining_cons = vec(find(opts.UseExperiments)); % The indexes of the conditions allowed to be chosen
 n_pos = numel(remaining_cons);
 % The block size is bounded by MaxGreedySize, ReturnCount, and the total
@@ -186,7 +189,7 @@ end
 
 %% Fetch expected information
 if isempty(EFs)
-    [unused, EFs] = ObjectiveInformation(m, con_pos, obj_pos, opts);
+    [~, EFs] = ObjectiveInformation(m, con_pos, obs_pos, opts);
 end
 
 %% Find best experiment
@@ -266,8 +269,8 @@ while remaining_count > 0 && best_goal > opts.TerminalGoal && any(remaining_budg
     
     if verbose
         for i = 1:numel(best_set)
-            [iObj, iCon] = ind2sub([n_pos_obj,n_pos_con], best_set(i));
-            fprintf([con_pos(iCon).Name ' ' obj_pos(best_set(i)).Name ' was chosen\n']);
+            [iObj, iCon] = ind2sub([n_pos_obs,n_pos_con], best_set(i));
+            fprintf([con_pos(iCon).Name ' ' obs_pos(best_set(i)).Name ' was chosen\n']);
         end
         fprintf('Expected goal is %d\n', best_goal);
     end
@@ -368,73 +371,3 @@ end
 list = cellfun(@(A)cat(2, A, zeros(size(A,1), block_size-size(A,2))), list, 'UniformOutput', false);
 list = cat(1, list{:});
 end
-
-% function list = generateBlock(conPos, blockSize, allowRepeats, cost, budget)
-% 
-% nPos = numel(conPos);
-% listSize = repmat(nPos, blockSize,1);
-% 
-% if allowRepeats
-%     list = false(listSize);
-%     inds = combinator(nPos, blockSize, 'c', 'r'); % Generate all possible sets that fit in blockSize
-%     inds = mat2cell(inds, size(inds,1), ones(size(inds,1),1)); % Distribute each column over a cell vector
-%     list(sub2ind(listSize, inds{:})) = true; % Mark each valid set of experiments in logical hypercube
-% else
-%     list = false(listSize);
-%     inds = combinator(nPos, blockSize, 'c', 'n'); % Generate all possible sets that fit in blockSize
-%     inds = mat2cell(inds, size(inds,1), ones(size(inds,1),1)); % Distribute each column over a cell vector
-%     list(sub2ind(listSize, inds{:})) = true; % Mark each valid set of experiments in logical hypercube
-% end
-% 
-% for iDim = blockSize:-1:1
-% end
-% 
-% end
-
-% function list = generateBlock(conPos, blockSize, allowRepeats, costPos, budget)
-% nElements = 0;
-% list = cell(0,1);
-% 
-% % Run the recusive list builder
-% recursiveBuild(zeros(0,1), conPos, budget);
-% 
-% % Remove empty elements
-% list = list(1:nElements);
-% 
-%     function recursiveBuild(recursiveList, remainingCons, remainingBudget)
-%         % Recusively generate the tree that adds each experiment until no more can be added
-%         canBeExtended = false;
-%         if numel(recursiveList) < blockSize
-%             % There is room for more experiments, see if there is enough budget
-%             for iPos = 1:numel(remainingCons)
-%                 if remainingBudget >= costPos(iPos)
-%                     % Budget allows for this experiment, add it and try to add more recursively
-%                     if allowRepeats
-%                         % Send the full list of experiments to the next iteration
-%                         recursiveBuild([recursiveList; remainingCons(iPos)], remainingCons, remainingBudget - costPos(iPos));
-%                     else
-%                         % Remove repeats from possible experiments
-%                         nextRemainingCons = remainingCons;
-%                         nextRemainingCons(iPos) = [];
-%                         recursiveBuild([recursiveList; remainingCons(iPos)], nextRemainingCons, remainingBudget - costPos(iPos));
-%                     end
-%                     canBeExtended = true;
-%                 end
-%             end
-%         end
-%         
-%         if ~canBeExtended
-%             % This is a full length set. Add it to the list of sets.
-%             % Increment counter
-%             nElements = nElements + 1;
-%             if numel(list) < nElements
-%                 % Double size of list
-%                 list = [list; cell(max(nElements,1),1)];
-%             end
-%             
-%             % Add element
-%             list{nElements} = recursiveList;
-%         end
-%     end
-% 
-% end

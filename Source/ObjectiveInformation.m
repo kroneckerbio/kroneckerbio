@@ -6,7 +6,7 @@ function [F, All] = ObjectiveInformation(m, con, obj, opts, dxdTSol)
 %
 %   [...] = ObjectiveInformation(m, con, obj, opts, dxdTSol)
 %
-%   Inputs:
+%   Inputs
 %   m: [ model struct scalar ]
 %       The KroneckerBio model that will be simulated
 %   con: [ experiment struct vector ]
@@ -57,15 +57,11 @@ function [F, All] = ObjectiveInformation(m, con, obj, opts, dxdTSol)
 %       sensitivities under each condition can be provided to prevent this
 %       method from recalculating it
 %
-%   Outputs:
-%       F = ObjectiveInformation(m, con, obj, ...)
-%           F - A matrix
-%
-%       [F, All] = ObjectiveInformation(m, con, obj, ...)
-%           All - The fisher information matrix (FIM) is the sum of all
-%                 fisher information matrices assuming there is no
-%                 covariance between errors in seperate experiments. All
-%                 provides the individual FIMs for each experiment.
+%   Outputs
+%   F: [ symmetric positive definite matrix nT by nT ]
+%       The Fisher information matrix according to all objective functions
+%   All: [ cell array n_con by n_obj of FIMs ]
+%       The Fisher information matrix according to each objective function
 %
 %   Additional info:
 %   - The experimental condition vector can also be a cell vector
@@ -188,7 +184,7 @@ for i_con = 1:n_con
     end
     
     if provide_all
-        All(:,iCon) = Allout;
+        All(:,i_con) = Allout;
     end
     
     % Determine where this experiment's parameters go among all experiments

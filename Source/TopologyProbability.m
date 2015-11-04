@@ -1,4 +1,4 @@
-function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPriorSeeds, objPriorControls, opts, log_pyTm, F)
+function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPriorSeeds, objPriorInputControls, objPriorDoseControls, opts, log_pyTm, F)
 % TopologyProbability Compute the relative probability that each member of
 %   a set of topologies is true according to a set of
 %   information-theory-based objective functions
@@ -19,39 +19,34 @@ function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPrior
 %   obj: [ objective struct matrix ]
 %       The objective structures defining the data likelihood functions to
 %       be evaluated.
-%   objPriorParams: [ objective struct vector nTop | {[]}]
+%   objPriorParams: [ objective struct vector nTop | {[]} ]
 %       The priors of the kinetic parameters. Optional and can be empty if
 %       UseParams specifies no parameters.
 %   objPriorSeeds: [ objective struct vector nCon |
-%                    objective struct scalar | {[]}]
-%       The priors of the seeds. Must be a vector if UseModelSeeds is
-%       false; otherwise, must be a scalar. Optional and can be empty if
-%       UseSeeds specifies no seeds.
-%   objPriorControls: [ objective struct vector nCon |
-%                       objective struct scalar | {[]}]
-%       The priors of the input control parameters. Must be a vector if
-%       UseModelInputs is false; otherwise, must be a scalar. Optional and
-%       can be empty if UseControls specifies no controls.
-%   opts: [ options struct scalar | {[]}]
-%       .PriorTopology [ nonnegative vector nTop ]
+%                    objective struct scalar | {[]} ]
+%       The priors of the seeds. Optional and can be empty if UseSeeds
+%       specifies no seeds.
+%   objPriorInputControls: [ objective struct vector nCon |
+%                            objective struct scalar | {[]} ]
+%       The priors of the input control parameters. Optional and can be
+%       empty if UseInputControls specifies no controls.
+%   objPriorDoseControls: [ objective struct vector nCon |
+%                           objective struct scalar | {[]} ]
+%       The priors of the dose control parameters. Optional and can be
+%       empty if UseDoseControls specifies no controls.
+%   opts: [ options struct scalar | {[]} ]
+%       .PriorTopology [ nonnegative vector nTop {zeros(nTop,1) + 1/nTop} ]
 %           The discrete prior on the topologies
-%       .TopologyMethod [ {'linear'} | 'harmonic' ]
+%       .TopologyMethod [ {'linear'} | 'path' | 'harmonic' ]
 %           Linear makes a linear approximation around the maximum a
 %           posterior parameters
-%           Harmonic is a slow Monte Carlo method that is not recommended
+%           Path is a Monte Carlo method that will converge in a few weeks
+%           for a simple model
+%           Harmonic is a Monte Carlo method that will converge sometime
+%           next millenium for a simple model
 %       .NeedFit [ {true} | false ]
 %           Do the parameters need to be fit before linearized? This should
 %           only be set to false if the parameters were fit beforehand
-%       .UseModelSeeds [ logical scalar {false} ]
-%           Indicates that the model's seed parameters should be used
-%           instead of those of the experimental conditions. This will
-%           determine both which parameters are used for simulation as well
-%           as what parameters will be varied in the optimization.
-%       .UseModelInputs [ logical scalar {false} ]
-%           Indicates that the model's inputs should be used instead of
-%           those of the experimental conditions. This will determine both
-%           which parameters are used for simulation as well as what
-%           parameters will be varied in the optimization.
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Indicates the kinetic parameters that will be allowed to vary
 %           during the optimization and will be considered free parameters
@@ -67,10 +62,16 @@ function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPrior
 %           and every experiment will be considered to have the same active
 %           seed parameters. It can also be a vector of linear indexes into
 %           the ns vector and assumed the same for all conditions.
-%       .UseControls [ cell vector nCon of logical vectors or positive 
-%                      integer vectors | logical vector nq | positive 
-%                      integer vector {[]} ]
+%       .UseInputControls [ cell vector nCon of logical vectors or positive 
+%                           integer vectors | logical vector nq | positive 
+%                           integer vector {[]} ]
 %           Indicates the input control parameters that will be allowed to
+%           vary during the optimization and will be considered free
+%           parameters in the topology evaluation
+%       .UseDoseControls [ cell vector nCon of logical vectors or positive 
+%                          integer vectors | logical vector nq | positive 
+%                          integer vector {[]} ]
+%           Indicates the dose control parameters that will be allowed to
 %           vary during the optimization and will be considered free
 %           parameters in the topology evaluation
 %       All other options available for FitObjective to fit the model to
@@ -78,7 +79,7 @@ function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPrior
 %   log_pyTm: [ vector nTop | {[]} ]
 %       The log likelihood of each topology. This should be supplied only
 %       if these values were calculated beforehand.
-%   F: [ cell vector nTop of matrix nT by nT | {[]}]
+%   F: [ cell vector nTop of matrix nT by nT | {[]} ]
 %       The Fisher information matrices at the linearization point. This
 %       should be supplied only if these matrices were calculated
 %       beforehand.
@@ -87,20 +88,26 @@ function [pmy, data] = TopologyProbability(m, con, obj, objPriorParams, objPrior
 %   pmy: [ nonnegative vector nTop ]
 %       The posterior probability of each topology given the data
 
+% (c) 2015 David R Hagen & Bruce Tidor
+% This work is released under the MIT license.
+
 % Clean up inputs
 assert(nargin >= 3, 'KroneckerBio:TopologyProbability:TooFewInputs', 'TopologyProbability requires at least 3 input arguments')
-if nargin < 9
+if nargin < 10
     F = [];
-    if nargin < 8
+    if nargin < 9
         log_pyTm = [];
-        if nargin < 7
+        if nargin < 8
             opts = [];
-            if nargin < 6
-                objPriorControls = [];
-                if nargin < 5
-                    objPriorSeeds = [];
-                    if nargin < 4
-                        objPriorParams = [];
+            if nargin < 7
+                objPriorDoseControls = [];
+                if nargin < 6
+                    objPriorInputControls = [];
+                    if nargin < 5
+                        objPriorSeeds = [];
+                        if nargin < 4
+                            objPriorParams = [];
+                        end
                     end
                 end
             end
@@ -116,18 +123,17 @@ nObj = size(obj,1);
 % Default options
 defaultOpts.Verbose        = 1;
 
-defaultOpts.RelTol         = NaN;
-defaultOpts.AbsTol         = NaN;
-defaultOpts.UseModelSeeds  = false;
-defaultOpts.UseModelInputs = false;
+defaultOpts.RelTol         = [];
+defaultOpts.AbsTol         = [];
 
 defaultOpts.UseParams      = cell(nTop,1); 
 for i=1:nTop; defaultOpts.UseParams{i} = 1:m(i).nk;end
-defaultOpts.UseSeeds       = [];
-defaultOpts.UseControls    = [];
+defaultOpts.UseSeeds         = [];
+defaultOpts.UseInputControls = [];
+defaultOpts.UseDoseControls  = [];
 
 defaultOpts.Normalized     = true;
-defaultOpts.UseAdjoint     = false;
+defaultOpts.UseAdjoint     = true;
 defaultOpts.LowerBound     = 0;
 defaultOpts.UpperBound     = inf;
 
@@ -173,7 +179,7 @@ end
 if isempty(con)
     % Create a con and obj to fit with the prior
     con = Uzero(1);
-    obj = Gzero;
+    obj = objectiveZero;
     nCon = 1;
     nObj = 1;
 end
@@ -193,56 +199,53 @@ end
 % Ensure UseParams is vector of logical indexes within a cell array
 nTk = zeros(nTop,1);
 for iTop = 1:nTop
-    [opts.UseParams{iTop} nTk(iTop)] = fixUseParams(opts.UseParams{iTop}, nk(iTop));
+    [opts.UseParams{iTop}, nTk(iTop)] = fixUseParams(opts.UseParams{iTop}, nk(iTop));
 end
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, opts.UseModelSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseControls, nTq] = fixUseControls(opts.UseControls, opts.UseModelInputs, nCon, m(1).nq, cat(1,con.nq));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
 
-nT = nTk + nTs + nTq;
+nT = nTk + nTs + nTq + nTh;
 
 %% Priors
 if nTk > 0
     assert(numel(objPriorParams) == nTop, ...
         'KroneckerBio:TopologyProbability:ObjPriorParamsSize', 'Input "objPriorParams" must be a vector of length numel(m)')
-    objPriorParams = [reshape(objPriorParams, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
+    objPriorParams = [reshape(objPriorParams, [1,1,nTop]), objectiveZero([1, nCon-1, nTop])];
 else
-    objPriorParams = Gzero([0,nCon,nTop]);
+    objPriorParams = objectiveZero([0,nCon,nTop]);
 end
 
 if nTs > 0
-    if opts.UseModelSeeds
-        assert(numel(objPriorSeeds) == 1, ...
-            'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a scalar if UseModelSeeds is true')
-        objPriorSeeds = [repmat(objPriorSeeds, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
-    else
-        assert(numel(objPriorSeeds) == nCon, ...
-            'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a vector of length numel(con) if UseModelSeeds is false')
-        objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
-    end
+    assert(numel(objPriorSeeds) == nCon, ...
+        'KroneckerBio:TopologyProbability:ObjPriorSeedsSize', 'Input "objPriorSeeds" must be a vector of length numel(con)')
+    objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
 else
-    objPriorSeeds = Gzero([0,nCon,nTop]);
+    objPriorSeeds = objectiveZero([0,nCon,nTop]);
 end
 
 if nTq > 0
-    if opts.UseModelControls
-        assert(numel(objPriorSeeds) == 1, ...
-            'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a scalar if UseModelControls is true')
-        objPriorSeeds = [repmat(objPriorSeeds, [1,1,nTop]), Gzero([1, nCon-1, nTop])];
-    else
-        assert(numel(objPriorSeeds) == nCon, ...
-            'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a vector of length numel(con) if UseModelControls is false')
-        objPriorSeeds = repmat(reshape(objPriorSeeds, [1,nCon,1]), [1,1,nTop]);
-    end
+    assert(numel(objPriorInputControls) == nCon, ...
+        'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorInputControls" must be a vector of length numel(con)')
+    objPriorInputControls = repmat(reshape(objPriorInputControls, [1,nCon,1]), [1,1,nTop]);
 else
-    objPriorControls = Gzero([0,nCon,nTop]);
+    objPriorInputControls = objectiveZero([0,nCon,nTop]);
+end
+
+if nTh > 0
+    assert(numel(objPriorDoseControls) == nCon, ...
+        'KroneckerBio:TopologyProbability:ObjPriorControlsSize', 'Input "objPriorControls" must be a vector of length numel(con)')
+    objPriorDoseControls = repmat(reshape(objPriorDoseControls, [1,nCon,1]), [1,1,nTop]);
+else
+    objPriorDoseControls = objectiveZero([0,nCon,nTop]);
 end
 
 % Match dimensions of objPrior to obj
-objPrior = [objPriorParams; objPriorSeeds; objPriorControls];
+objPrior = [objPriorParams; objPriorSeeds; objPriorInputControls; objPriorDoseControls];
 
 %% Tolerances
 % RelTol
@@ -295,7 +298,7 @@ end
 % Store parameter sets that were fit
 T = cell(nTop,1);
 for iTop = 1:nTop
-    T{iTop} = collectActiveParameters(m(iTop), con, optsTop(iTop).UseModelSeeds, optsTop(iTop).UseModelInputs, optsTop(iTop).UseParams, optsTop(iTop).UseSeeds, optsTop(iTop).UseControls);
+    T{iTop} = collectActiveParameters(m(iTop), con, optsTop(iTop).UseParams, optsTop(iTop).UseSeeds, optsTop(iTop).UseInputControls, optsTop(iTop).UseDoseControls);
 end
 
 %% Choose topology method
@@ -449,7 +452,7 @@ elseif strcmpi(opts.TopologyMethod, 'Path')
         objApprox = objPrior;
     elseif strcmpi(opts.PathProposalDist, 'Linear')
         % Initial proposal distribution is the linearization at the maximum a posteriori parameters
-        objApprox = Gzero([1,nCon,nTop]);
+        objApprox = objectiveZero([1,nCon,nTop]);
         for iTop = 1:nTop
             % Fisher information for posterior
             F_approx = ObjectiveInformation(m(iTop), con, [obj; objPrior(:,:,iTop)], optsTop(iTop));
@@ -632,8 +635,8 @@ elseif strcmpi(opts.TopologyMethod, 'Path')
             if isnan(iTop)
                 % Find the topology with the largest uncertainty and the
                 % bridge with the largest uncertainty and try to reduce it
-                [unused, iTop] = max(unc_pmy);
-                [unused, i_bridge] = max(unc_mean_weights{iTop});
+                [~, iTop] = max(unc_pmy);
+                [~, i_bridge] = max(unc_mean_weights{iTop});
             end
             
             % Fetch actual bridge values
@@ -857,7 +860,7 @@ function obj = objectiveRescaled(objOld, scale)
     obj.AddData = @(sol)(objectiveRescaled(objOld.AddData(sol), scale));
     obj.Update = @update;
     
-    obj = pastestruct(Gzero, obj);
+    obj = pastestruct(objectiveZero, obj);
     
     function [val, discrete_times] = G(sol)
         [val, discrete_times] = objOld.G(sol);
