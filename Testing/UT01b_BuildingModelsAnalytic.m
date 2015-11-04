@@ -287,3 +287,30 @@ a.verifyEqual(test.nz, 0);
 a.verifyEqual(length(test.Rules), 0);
 a.verifyError(@()RemoveRule(m, 'z2'), 'KroneckerBio:RemoveRule:RuleNotFound');
 end
+
+function testAddComponentsAsOutputs(a)
+[m, x0, u0] = model_with_some_species();
+m = AddInput(m, 'u1', 'v1');
+m = AddInput(m, 'u2', 'v1');
+m = AddRule(m, 'z1', 'x1*u1');
+m = AddRule(m, 'z2', 'x2*u2');
+m = FinalizeModel(m);
+
+test = addStatesAsOutputs(m);
+a.verifyEqual(strcat('v1.', {m.States.Name}), {test.Outputs.Name})
+a.verifyEqual(strcat('"v1.', {m.States.Name}, '"'), {test.Outputs.Expression})
+
+test = addStatesAsOutputs(m, false);
+a.verifyEqual({m.States.Name}, {test.Outputs.Name})
+
+test = addInputsAsOutputs(m);
+a.verifyEqual(strcat('v1.', {m.Inputs.Name}), {test.Outputs.Name})
+a.verifyEqual(strcat('"v1.', {m.Inputs.Name}, '"'), {test.Outputs.Expression})
+
+test = addInputsAsOutputs(m, false);
+a.verifyEqual({m.Inputs.Name}, {test.Outputs.Name})
+
+test = addRulesAsOutputs(m);
+a.verifyEqual({m.Rules.Name}, {test.Outputs.Name})
+a.verifyEqual(strcat('"', {m.Rules.Name}, '"'), {test.Outputs.Expression})
+end
