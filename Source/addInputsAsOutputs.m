@@ -1,9 +1,9 @@
-function m = addStatesAsOutputs(m, include_compartment)
-%addStatesAsOutputs A quick and dirty helper script that adds one output
-%   for each state currently in the model. Note: this function is
-%   order-dependent, meaning it only matches states already in the model.
+function m = addInputsAsOutputs(m, include_compartment)
+%addInputsAsOutputs A quick and dirty helper script that adds one output
+%   for each input currently in the model. Note: this function is
+%   order-dependent, meaning it only matches inputs already in the model.
 %
-%   m = addStatesAsOutputs(m, include_compartment)
+%   m = addInputsAsOutputs(m, include_compartment)
 
 % (c) 2015 David R Hagen
 % This work is released under the MIT license.
@@ -13,9 +13,9 @@ if nargin < 2
 end
 
 if include_compartment
-    full_names = vec(strcat({m.States(1:m.nx).Compartment}, '.', {m.States(1:m.nx).Name}));
+    full_names = vec(strcat({m.Inputs(1:m.nu).Compartment}, '.', {m.Inputs(1:m.nu).Name}));
 else
-    full_names = vec({m.States(1:m.nx).Name});
+    full_names = vec({m.Inputs(1:m.nu).Name});
 end
 
 for i = 1:numel(full_names)
