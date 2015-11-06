@@ -1,19 +1,19 @@
 function obj = objectiveZero(dims)
-%objectiveZero Default structure for Kronecker Bio objective functions
+%objectiveZero Default structure for KroneckerBio objective functions
 % 
-%   obj = objectiveZero(size)
+%   obj = objectiveZero(dims)
 %
-%   This function is a blank objective function. It is used to fill in the
-%   fields with appropriately zero defaults when they are not provided.
+%   This function returns a objective function that always has a value of
+%   0. It is used to fill in the fields with appropriately zero defaults
+%   when they are not provided. It also serves as the documentation for the
+%   objective function structure
 %
 %   Inputs
 %   dims: [ nonnegative integer vector ]
 %       The size of the blank objective structure array
 %
-%   Outputs:
+%   Outputs
 %   obj: [ Kronecker objective structure scalar ]
-%       The meaning of the fields in a Kronecker objective structure is
-%       given below.
 %       .Type [ 'Objective' 'Objective.Information' 'Objective.Data' ]
 %           The Type field can be used to see what analyses can be done on
 %           the objective structure.
@@ -35,101 +35,92 @@ function obj = objectiveZero(dims)
 %       .DiscreteTimes [ nonnegative vector ]
 %           If Complex is false, then all discrete time points at which the
 %           objective function must be evaluated must be put here.
-%       .g [ handle @(t,x,u) returns real scalar ]
+%       .g [ handle @(t,y) returns real scalar ]
+%           TODO: Not implemented
 %           This is the continuous objective function. This function
 %           returns the derivative of the goal function with respect to
 %           time. The goal value comes from the numerical integration of
 %           this function.
-%       .dgdx [ handle @(t,x,u) returns real vector nx ]
-%           The partial derivative of g wrt x
-%       .d2gdx2 [ handle @(t,x,u) returns real matrix nx by nx ]
-%           The partial derivative of dgdx wrt x
-%       .G [ handle @(sol) returns real scalar ]
+%       .dgdy [ handle @(t,y) returns real vector ny ]
+%           The partial derivative of g wrt y
+%       .d2gdy2 [ handle @(t,y) returns real matrix ny by ny ]
+%           The partial derivative of dgdy wrt y
+%       .G [ handle @(int) returns real scalar ]
 %           This is the discrete objective function. This function
-%           evaluates the simulation of the system and returns the
-%           objective value. If Complex is true for any objective structure
-%           attached to an experiment, sol will be an ODE solution
-%           evaluatable by deval(). Otherwise, sol.x will include
-%           DiscreteTimes and the corresponding simulation values will be
-%           in sol.y.
-%       .dGdx [ handle @(t,sol) returns real vector nx ]
-%           The derivative of G wrt x at the scalar time point t.
-%       .dGdk [ handle @(t,sol) returns real vector nk ]
+%           evaluates the integration of the system and returns the
+%           objective value. If Complex is true, int will be a dense
+%           integration with function handles. Otherwise, int will only
+%           provide the solution at DiscreteTimes.
+%       .dGdy [ handle @(t,int) returns real vector ny ]
+%           The derivative of G wrt y at the scalar time point t.
+%       .dGdk [ handle @(int) returns real vector nk ]
 %           The derivative of G wrt k at the scalar time point t.
-%       .dGds [ handle @(t,sol) returns real vector ns ]
+%       .dGds [ handle @(int) returns real vector ns ]
 %           The derivative of G wrt s at the scalar time point t.
-%       .dGdq [ handle @(t,sol) returns real vector nq ]
+%       .dGdq [ handle @(t,int) returns real vector nq ]
 %           The derivative of G wrt q at the scalar time point t.
-%       .dGdh [ handle @(t,sol) returns real vector nh ]
+%       .dGdh [ handle @(t,int) returns real vector nh ]
 %           The derivative of G wrt h at the scalar time point t.
-%       .d2Gdx2 [ handle @(t,sol) returns real vector nx by nx ]
-%           The derivative of dGdx wrt x at the scalar time point t.
-%       .d2Gdk2 [ handle @(t,sol) returns real vector nk by nk ]
+%       .d2Gdy2 [ handle @(t,int) returns real vector ny by ny ]
+%           The derivative of dGdy wrt y at the scalar time point t.
+%       .d2Gdk2 [ handle @(t,int) returns real vector nk by nk ]
 %           The derivative of dGdk wrt k at the scalar time point t.
-%       .d2Gds2 [ handle @(t,sol) returns real vector ns by ns ]
+%       .d2Gds2 [ handle @(t,int) returns real vector ns by ns ]
 %           The derivative of dGds wrt s at the scalar time point t.
-%       .d2Gdq2 [ handle @(t,sol) returns real vector nq by nq ]
+%       .d2Gdq2 [ handle @(t,int) returns real vector nq by nq ]
 %           The derivative of dGdq wrt q at the scalar time point t.
-%       .d2Gdh2 [ handle @(t,sol) returns real vector nh by nh ]
+%       .d2Gdh2 [ handle @(t,int) returns real vector nh by nh ]
 %           The derivative of dGdq wrt h at the scalar time point t.
-%       .d2Gdkdx [ handle @(t,sol) returns real vector nx by nk ]
-%           The derivative of dGdx wrt k at the scalar time point t.
-%       .d2Gdsdx [ handle @(t,sol) returns real vector nx by ns ]
-%           The derivative of dGdx wrt s at the scalar time point t.
-%       .d2Gdqdx [ handle @(t,sol) returns real vector nx by nq ]
-%           The derivative of dGdx wrt q at the scalar time point t.
-%       .d2Gdhdx [ handle @(t,sol) returns real vector nx by nh ]
-%           The derivative of dGdx wrt h at the scalar time point t.
-%       .d2Gdxdk [ handle @(t,sol) returns real vector nk by nx ]
-%           The derivative of dGdk wrt x at the scalar time point t.
-%       .d2Gdsdk [ handle @(t,sol) returns real vector nk by s ]
+%       .d2Gdkdy [ handle @(t,int) returns real vector ny by nk ]
+%           The derivative of dGdy wrt k at the scalar time point t.
+%       .d2Gdsdy [ handle @(t,int) returns real vector ny by ns ]
+%           The derivative of dGdy wrt s at the scalar time point t.
+%       .d2Gdqdy [ handle @(t,int) returns real vector ny by nq ]
+%           The derivative of dGdy wrt q at the scalar time point t.
+%       .d2Gdhdy [ handle @(t,int) returns real vector ny by nh ]
+%           The derivative of dGdy wrt h at the scalar time point t.
+%       .d2Gdydk [ handle @(t,int) returns real vector nk by ny ]
+%           The derivative of dGdk wrt y at the scalar time point t.
+%       .d2Gdsdk [ handle @(t,int) returns real vector nk by s ]
 %           The derivative of dGdk wrt s at the scalar time point t.
-%       .d2Gdqdk [ handle @(t,sol) returns real vector nk by nq ]
+%       .d2Gdqdk [ handle @(t,int) returns real vector nk by nq ]
 %           The derivative of dGdk wrt q at the scalar time point t.
-%       .d2Gdhdk [ handle @(t,sol) returns real vector nk by nh ]
+%       .d2Gdhdk [ handle @(t,int) returns real vector nk by nh ]
 %           The derivative of dGdk wrt h at the scalar time point t.
-%       .d2Gdxds [ handle @(t,sol) returns real vector ns by nx ]
-%           The derivative of dGds wrt x at the scalar time point t.
-%       .d2Gdkds [ handle @(t,sol) returns real vector ns by nk ]
+%       .d2Gdyds [ handle @(t,int) returns real vector ns by ny ]
+%           The derivative of dGds wrt y at the scalar time point t.
+%       .d2Gdkds [ handle @(t,int) returns real vector ns by nk ]
 %           The derivative of dGds wrt k at the scalar time point t.
-%       .d2Gdqds [ handle @(t,sol) returns real vector ns by ns ]
+%       .d2Gdqds [ handle @(t,int) returns real vector ns by ns ]
 %           The derivative of dGds wrt q at the scalar time point t.
-%       .d2Gdhds [ handle @(t,sol) returns real vector ns by nh ]
+%       .d2Gdhds [ handle @(t,int) returns real vector ns by nh ]
 %           The derivative of dGds wrt h at the scalar time point t.
-%       .d2Gdxdq [ handle @(t,sol) returns real vector nq by nx ]
-%           The derivative of dGdq wrt x at the scalar time point t.
-%       .d2Gdkdq [ handle @(t,sol) returns real vector nq by nk ]
+%       .d2Gdydq [ handle @(t,int) returns real vector nq by ny ]
+%           The derivative of dGdq wrt y at the scalar time point t.
+%       .d2Gdkdq [ handle @(t,int) returns real vector nq by nk ]
 %           The derivative of dGdq wrt k at the scalar time point t.
-%       .d2Gdsdq [ handle @(t,sol) returns real vector nq by ns ]
+%       .d2Gdsdq [ handle @(t,int) returns real vector nq by ns ]
 %           The derivative of dGdq wrt s at the scalar time point t.
-%       .d2Gdhdq [ handle @(t,sol) returns real vector nq by nh ]
+%       .d2Gdhdq [ handle @(t,int) returns real vector nq by nh ]
 %           The derivative of dGdq wrt h at the scalar time point t.
-%       .d2Gdxdh [ handle @(t,sol) returns real vector nh by nx ]
-%           The derivative of dGdh wrt x at the scalar time point t.
-%       .d2Gdkdh [ handle @(t,sol) returns real vector nh by nk ]
+%       .d2Gdydh [ handle @(t,int) returns real vector nh by ny ]
+%           The derivative of dGdh wrt y at the scalar time point t.
+%       .d2Gdkdh [ handle @(t,int) returns real vector nh by nk ]
 %           The derivative of dGdh wrt k at the scalar time point t.
-%       .d2Gdsdh [ handle @(t,sol) returns real vector nh by ns ]
+%       .d2Gdsdh [ handle @(t,int) returns real vector nh by ns ]
 %           The derivative of dGdh wrt s at the scalar time point t.
-%       .d2Gdqdh [ handle @(t,sol) returns real vector nh by nq ]
+%       .d2Gdqdh [ handle @(t,int) returns real vector nh by nq ]
 %           The derivative of dGdh wrt q at the scalar time point t.
 %
 %       The following are defined for information-theory-based structures.
-%       .p [ handle @(sol) returns real scalar ]
+%       .p [ handle @(int) returns real scalar ]
 %           The likelihood function for this information objective.
-%       .logp [ handle @(sol) returns real scalar ]
+%       .logp [ handle @(int) returns real scalar ]
 %           The log likelihood for this information objective.
-%       .F [ handle @(sol) 
+%       .F [ handle @(int) 
 %            returns symmetric positive semidefinite matrix nT by nT ]
-%           Returns the Fisher information matrix for the simulation
+%           Returns the Fisher information matrix for the integration
 %           provided
-%       .Fn [ handle @(sol,T) 
-%             returns symmetric positive semidefinite matrix nT by nT ]
-%           The Fisher information matrix normalized into log parameter
-%           space according to active parameters T.
-%
-%       The following are defined for data objective functions only.
-%       .AddData [ handle @(sol) returns objective struct scalar ]
-%           Use the simulation to sample data and add it to the objective
 
 % (c) 2015 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
@@ -186,7 +177,6 @@ obj.d2Gdhdq = @d2Gdhdq;
 obj.p = @p;
 obj.logp = @logp;
 obj.F = @F;
-obj.Fn = @Fn;
 
 % Copy the objective structure
 obj = repmat(obj, dims);
@@ -303,10 +293,6 @@ function val = logp(int)
 val = 0;
 end
 function val = F(int)
-nT = int.nT;
-val = zeros(nT,nT);
-end
-function val = Fn(int)
 nT = int.nT;
 val = zeros(nT,nT);
 end

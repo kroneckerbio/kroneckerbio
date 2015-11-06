@@ -1,4 +1,30 @@
 function obs = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, name)
+%observationLinearWeightedSumOfSquares Create an observation scheme for a
+%   list of points, whose uncertainty is a Gaussian distribution with a
+%   mean of the true value and standard deviation that is an arbitrary
+%   function of the true value.
+%
+%   obs = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, 
+%                                               name)
+%
+%   Inputs
+%   outputlist: [ positive integer vector n ]
+%       The indexes of the outputs for each measurement.
+%   timelist: [ nonnegative vector n ]
+%       The times for each measurement
+%   sd: [ handle @(t,i,y) returns positive ]
+%       The standard deviation function that takes the time, the index, and
+%       the true value and returns the standard deviation of the
+%       measurement.
+%   name: [ string ]
+%       An arbitrary name for the observation scheme
+%
+%   Outputs
+%   obs: [ observation scheme structure ]
+
+% (c) 2015 David R Hagen
+% This work is released under the MIT license.
+
 % Clean up inputs
 if nargin < 4
     name = '';
