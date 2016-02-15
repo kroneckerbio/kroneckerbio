@@ -41,16 +41,16 @@ m = AddOutput(m, 'y1', 'x1');
 m = AddOutput(m, 'y2', '2*x1 + 3.5*x2');
 m = AddOutput(m, 'y3', 'k1*x1');
 m = AddOutput(m, 'y4', 'exp(k2*x2)');
-m = AddOutput(m, 'y5', '"v1.x0"'); % make sure to double-quote qualified compartment.species since they contain a dot, an otherwise invalid character
-m = AddOutput(m, 'y6', '"v2.x0"');
+m = AddOutput(m, 'y5', 'v1.x0');
+m = AddOutput(m, 'y6', 'v2.x0');
 
 % Demonstrate rates as arbitrary expressions
 m = AddReaction(m, 'r00', 'x1', {'x3', 'x4'}, 'k1*x5');
 m = AddReaction(m, 'r01', 'x1', {'x3', 'x4'}, 'k1 + k2');
 m = AddReaction(m, 'r02', 'x1', {'x3', 'x4'}, 'k1/(k2^2 + x1^2)');
 m = AddReaction(m, 'r03', 'x1', {'x3', 'x4'}, 'k1*x0/(k2^2 + u2^2)', '', 'v1');
-m = AddReaction(m, 'r04', 'x1', {'x3', 'x4'}, 'k1*"v1.x0"/(k2^2 + u2^2)');
-m = AddReaction(m, 'r05', 'x1', {'x3', 'x4'}, 'k1*"v1.x0"/(k2^2 + u2^2)', '', 'v1');
+m = AddReaction(m, 'r04', 'x1', {'x3', 'x4'}, 'k1*v1.x0/(k2^2 + u2^2)');
+m = AddReaction(m, 'r05', 'x1', {'x3', 'x4'}, 'k1*v1.x0/(k2^2 + u2^2)', '', 'v1');
 m = AddReaction(m, 'r06', 'x1', {'x3', 'x4'}, 'exp(k1 + 1.4*u3)');
 m = AddReaction(m, 'r1', {}, {}, 'k1');
 m = AddReaction(m, 'r2', {}, 'x3', 'k1');

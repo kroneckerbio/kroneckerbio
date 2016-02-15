@@ -3,7 +3,7 @@
 %   noise approximation to make sure they work.
 
 %% Load equilibrium experiment A + B <-> C
-m = LoadModelMassAction('Equilibrium.txt');
+m = LoadModelMassAction('../Testing/Equilibrium.txt');
 
 %% Construct experiment
 con = experimentInitialValue(m, [], [], [], 'InitialValueExperiment');
@@ -24,8 +24,7 @@ ylabel('Amount')
 sim2 = SimulateSensitivity(m, con, tF);
 
 %% Simulate Curvature
-opts.UseSeeds = [];
-sim3 = SimulateCurvature(m, con, tF, opts);
+sim3 = SimulateCurvature(m, con, tF);
 
 %% Simulate Linear Noise Approximation
 obs = observationAll(tF);

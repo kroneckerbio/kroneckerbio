@@ -1,5 +1,3 @@
-% TODO: currently outdated - fix
-
 % Global
 opts = [];
 opts.UseModelSeeds = false;
@@ -22,10 +20,10 @@ opts.NeedFit = false;
 
 %% Load topologies
 % Four models of the One-Step MAPK pathway
-mDKDP = LoadModel('../Models/Ferrell_MAPK_DKDP.txt');
-mDKPP = LoadModel('../Models/Ferrell_MAPK_DKPP.txt');
-mPKDP = LoadModel('../Models/Ferrell_MAPK_PKDP.txt');
-mPKPP = LoadModel('../Models/Ferrell_MAPK_PKPP.txt');
+mDKDP = LoadModel('Ferrell_MAPK_DKDP.txt');
+mDKPP = LoadModel('Ferrell_MAPK_DKPP.txt');
+mPKDP = LoadModel('Ferrell_MAPK_PKDP.txt');
+mPKPP = LoadModel('Ferrell_MAPK_PKPP.txt');
 
 m = [mDKDP; mDKPP; mPKDP; mPKPP];
 
@@ -46,7 +44,7 @@ outputlist = vec(repmat(outputs', [numel(lintimes),1]));
 timelist = repmat(lintimes, [numel(outputs),1]);
 
 % obj = objectiveWeightedSumOfSquaresNonNeg(outputlist, timelist, sd, [], 'Fitting Data');
-% obs = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, 'Fitting Data');
+obs = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, 'Fitting Data');
 % obj = obs.Objective([]);
 
 % Create test data
@@ -55,9 +53,9 @@ for i = 1:nTop
     sims{i} = SimulateSystem(m(i), con, tF);
 end
 
-sim = SimulateSelect(m(1), con, lintimes, opts);
+sim = SimulateSystem(m(1), con, obs, opts);
 rand_state = rng(1);
-obj = obj.AddData(sim.sol);
+obj = obs.Objective(sim.measurements);
 rng(rand_state);
 
 clear n
@@ -81,7 +79,7 @@ for i = 1:nTop
 end
 
 %% Create prior objectives
-objPrior = Gzero(nTop);
+objPrior = objectiveZero(nTop);
 for i = 1:nTop
     objPrior(i) = objectiveLogNormalPriorOnKineticParameters(mux{i}, Vx{i});
 end
@@ -103,4 +101,4 @@ pmy = TopologyProbability(m, con, obj, objPrior, [], [], optsTop);
 
 %% Optimal experimental design for topology uncertainty
 target = @entropy;
-[best, data] = BestTopologyExperiment(m, con, obj, objPrior, [], [], [con;con], [obj,obj], target, optsTop);
+[best, data] = BestTopologyExperiment(m, con, obj, objPrior, [], [], [], [con;con], [obj,obj], target, optsTop);
