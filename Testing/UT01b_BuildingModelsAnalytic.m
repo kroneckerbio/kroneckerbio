@@ -138,7 +138,7 @@ a.verifyError(@()AddReaction(m, '', 'v1.x1.y1', {}, 'k*x1'), 'KroneckerBio:fixRe
 
 a.verifyError(@()AddReaction(m, '', 'v1.x1"y1', {}, 'k*x1'), 'KroneckerBio:fixReactionSpecies:InvalidNameDoubleQuotes')
 
-test = AddReaction(m, '', 'v1.x1', {}, 'k*"v1.x1"');
+test = AddReaction(m, '', 'v1.x1', {}, 'k*v1.x1');
 test = FinalizeModel(test);
 a.verifyEqual(test.nr, 1) % no error on finalization
 
@@ -150,11 +150,11 @@ test = AddReaction(m, '', {}, 'x1', 'k*x1', '', 'v1');
 test = FinalizeModel(test);
 a.verifyEqual(test.nr, 1)
 
-test = AddReaction(m, '', 'x1', {}, 'k*"v1.x1"', '', 'v1');
+test = AddReaction(m, '', 'x1', {}, 'k*v1.x1', '', 'v1');
 test = FinalizeModel(test);
 a.verifyEqual(test.nr, 1)
 
-test = AddReaction(m, '', 'x1', {}, 'k*"v2.x2"', '', 'v1');
+test = AddReaction(m, '', 'x1', {}, 'k*v2.x2', '', 'v1');
 test = FinalizeModel(test);
 a.verifyEqual(test.nr, 1)
 
@@ -167,7 +167,7 @@ a.verifyError(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:MissingUnquali
 test = AddReaction(m, '', 'x1', {}, 'k*x1');
 a.verifyError(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:AmbiguousSpeciesName')
 
-test = AddReaction(m, '', 'x1', {}, 'k*"v1.x1"');
+test = AddReaction(m, '', 'x1', {}, 'k*v1.x1');
 a.verifyError(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:AmbiguousSpeciesName')
 
 test = AddReaction(m, '', 'x1', {}, 'k*x2', '', 'v1');
@@ -298,19 +298,19 @@ m = FinalizeModel(m);
 
 test = addStatesAsOutputs(m);
 a.verifyEqual(strcat('v1.', {m.States.Name}), {test.Outputs.Name})
-a.verifyEqual(strcat('"v1.', {m.States.Name}, '"'), {test.Outputs.Expression})
+a.verifyEqual(strcat('v1.', {m.States.Name}), {test.Outputs.Expression})
 
 test = addStatesAsOutputs(m, false);
 a.verifyEqual({m.States.Name}, {test.Outputs.Name})
 
 test = addInputsAsOutputs(m);
 a.verifyEqual(strcat('v1.', {m.Inputs.Name}), {test.Outputs.Name})
-a.verifyEqual(strcat('"v1.', {m.Inputs.Name}, '"'), {test.Outputs.Expression})
+a.verifyEqual(strcat('v1.', {m.Inputs.Name}), {test.Outputs.Expression})
 
 test = addInputsAsOutputs(m, false);
 a.verifyEqual({m.Inputs.Name}, {test.Outputs.Name})
 
 test = addRulesAsOutputs(m);
 a.verifyEqual({m.Rules.Name}, {test.Outputs.Name})
-a.verifyEqual(strcat('"', {m.Rules.Name}, '"'), {test.Outputs.Expression})
+a.verifyEqual({m.Rules.Name}, {test.Outputs.Expression})
 end

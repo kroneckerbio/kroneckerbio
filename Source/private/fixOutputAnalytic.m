@@ -1,7 +1,7 @@
 function expression = fixOutputAnalytic(expression)
 
 if ischar(expression)
-    % pass
+    warnAboutQuotedFullName(expression)
 elseif isnumeric(expression) && isscalar(expression)
     expression = num2str(expression);
 else
