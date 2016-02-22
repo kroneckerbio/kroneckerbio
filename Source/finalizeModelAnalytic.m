@@ -51,7 +51,13 @@ function m = finalizeModelAnalytic(m, opts)
 %           construction and can take significant amount of time to
 %           complete, so it is recommended in most cases to use no
 %           simplification.
-%           
+%       .Inf2Big [ true | {false} ]
+%           Whether to convert infinity values to large values in functions.
+%           This is technically incorrect but needed for some models.
+%       .Nan2Zero [ true | {false} ]
+%           Whether to convert NaN values to zeros in functions. This is
+%           technically incorrect but needed for some models where removable
+%           discontinuities aren't properly removed analytically.
 %
 %   Outputs
 %   m: [ Model.Analytic ]
@@ -75,6 +81,8 @@ default_opts.UseMEX                    = false;
 default_opts.MEXDirectory              = defaultMEXdirectory;
 default_opts.EvaluateExternalFunctions = true; % needed for calls to power() and other functions
 default_opts.SimplifyMethod            = '';
+default_opts.Inf2Big                   = false;
+default_opts.Nan2Zero                  = false;
 
 opts = mergestruct(default_opts, opts);
 
@@ -884,7 +892,7 @@ if verbose; fprintf('done.\n'); end
             case 'efficient'
                 
                 string_rep = symbolic2string(dsym, num, dens);
-                fun = string2fun(string_rep, num, dens);
+                fun = string2fun(string_rep, num, dens, opts.Inf2Big, opts.Nan2Zero);
                 
             case 'mex'
 
@@ -892,7 +900,7 @@ if verbose; fprintf('done.\n'); end
                 % aren't called very many times
                 if strcmp(num,'x')
                     string_rep = symbolic2string(dsym, num, dens);
-                    fun = string2fun(string_rep, num, dens);
+                    fun = string2fun(string_rep, num, dens, opts.Inf2Big, opts.Nan2Zero);
                     return
                 end
                 
@@ -1208,7 +1216,7 @@ else
 end
 end
 
-function fun = string2fun(string_rep, num, dens)
+function fun = string2fun(string_rep, num, dens, use_inf2big, use_nan2zero)
 % Note that string2fun is a subfunction instead of a nested function to
 % prevent the anonymous functions created here from saving copies of
 % the primary function workspace variables.
@@ -1229,8 +1237,20 @@ else
     sparsestr = {'sparse(' ')'};
 end
 
+if use_inf2big
+    infstr = {'inf2big(' ')'};
+else
+    infstr = {'' ''};
+end
+
+if use_nan2zero
+    nanstr = {'nan2zero(' ')'};
+else
+    nanstr = {'' ''};
+end
+
 % Set up the function handle
-fun = eval(['@(' inputargstr ') ' sparsestr{1} string_rep sparsestr{2}]);
+fun = eval(['@(' inputargstr ') ' infstr{1} nanstr{1} sparsestr{1} string_rep sparsestr{2} nanstr{2} infstr{2}]);
 
 % Convert function to and from function handle to ensure that
 % MATLAB recognizes and stores the workspace for the anonymous

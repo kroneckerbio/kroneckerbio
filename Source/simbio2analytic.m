@@ -1,4 +1,5 @@
 function m = simbio2analytic(simbio)
+% Convert Matlab SimBiology model to kroneckerbio analytic model
 
 m = InitializeModelAnalytic(simbio.name);
 

@@ -10,7 +10,7 @@ m1 = LoadModelSbmlAnalytic('enzyme-catalysis-basic.xml', opts);
 m1 = FinalizeModel(m1);
 
 %% More complicated model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts.UseNames = true;
+opts.ICsAsSeeds = true;
 m2 = LoadModelSbmlAnalytic('../Models/Brown_EGFNGF.xml', opts);
 
 % Add test outputs

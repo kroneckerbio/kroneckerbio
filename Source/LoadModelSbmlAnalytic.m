@@ -12,6 +12,9 @@ function m = LoadModelSbmlAnalytic(sbml, opts)
 %       	Print progress to command window
 %       .Validate [ logical scalar {false} ]
 %           Whether to use libSBML's model validation tool
+%       .ICsAsSeeds [ {true} | false ]
+%           Whether to make all state initial conditions seeds or hardcode
+%           initial conditions.
 %
 %   Outputs
 %   m: [ Model.Analytic struct ]
@@ -47,6 +50,7 @@ end
 % Default options
 opts_.Verbose = 0;
 opts_.Validate = false;
+opts_.ICsAsSeeds = false;
 
 opts = mergestruct(opts_, opts);
 
@@ -62,6 +66,6 @@ end
 
 if verbose; fprintf('done.\n'); end
 
-m = sbml2analytic(sbml);
+m = sbml2analytic(sbml, opts);
 
 end
