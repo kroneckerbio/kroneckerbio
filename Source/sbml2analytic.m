@@ -6,7 +6,7 @@ end
 
 % Default options
 opts_ = [];
-opts_.ICsAsSeeds = true;
+opts_.ICsAsSeeds = false;
 
 opts = mergestruct(opts_, opts);
 
@@ -196,9 +196,9 @@ for ixu = 1:nxu
     if xu_is_inputs(ixu)
         m = AddInput(m, xu_names{ixu}, vxu_names{ixu}, xu_values{ixu});
     else
-        if opts.ICsAsSeeds
+        if opts.ICsAsSeeds && ~xu_is_expression(ixu)
             seed_name_ixu = [vxu_names{ixu}, '_', xu_names{ixu}, '_0'];
-            m = AddState(m, xu_names{ixu}, vxu_names{ixu}, seed_name_ixu);
+            m = AddState(m, xu_names{ixu}, vxu_names{ixu}, ['"' seed_name_ixu '"']);
             m = AddSeed(m, seed_name_ixu, xu_values{ixu});
         else
             m = AddState(m, xu_names{ixu}, vxu_names{ixu}, xu_values{ixu});

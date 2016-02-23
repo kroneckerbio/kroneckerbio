@@ -13,8 +13,8 @@ function m = LoadModelSbmlAnalytic(sbml, opts)
 %       .Validate [ logical scalar {false} ]
 %           Whether to use libSBML's model validation tool
 %       .ICsAsSeeds [ {true} | false ]
-%           Whether to make all state initial conditions seeds or hardcode
-%           initial conditions.
+%           Whether to make all state initial conditions seeds (that aren't
+%           substituted rults) or hardcode initial conditions.
 %
 %   Outputs
 %   m: [ Model.Analytic struct ]
