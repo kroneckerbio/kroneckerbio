@@ -42,6 +42,5 @@ T06_Parameter_Uncertainty;
 end
 
 function testT07(a)
-% broken, hasn't been updated
 T07_Topology_Uncertainty;
 end

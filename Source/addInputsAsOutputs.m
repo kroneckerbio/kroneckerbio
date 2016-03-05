@@ -12,18 +12,36 @@ if nargin < 2
     include_compartment = true;
 end
 
-if include_compartment
-    full_names = vec(strcat({m.Inputs(1:m.nu).Compartment}, '.', {m.Inputs(1:m.nu).Name}));
+if is(m, 'Model.MassActionAmount')
+    for i = 1:m.nu
+        if include_compartment
+            name = [m.Inputs(i).Compartment '.' m.Inputs(i).Name];
+        else
+            name = m.Inputs(i).Name;
+        end
+        
+        m = AddOutput(m, name, name);
+    end
+elseif is(m, 'Model.Analytic')
+    for i = 1:m.nu
+        if include_compartment
+            name = [m.Inputs(i).Compartment '.' m.Inputs(i).Name];
+            expression = [quoteIfInvalid(m.Inputs(i).Compartment) '.' quoteIfInvalid(m.Inputs(i).Name)];
+        else
+            name = m.Inputs(i).Name;
+            expression = quoteIfInvalid(m.Inputs(i).Name);
+        end
+        
+        m = AddOutput(m, name, expression);
+    end
 else
-    full_names = vec({m.Inputs(1:m.nu).Name});
+    error('KroneckerBio:AddOutput:m', 'm must be a model')
 end
 
-for i = 1:numel(full_names)
-    if is(m, 'Model.MassActionAmount')
-        m = AddOutput(m, full_names{i});
-    elseif is(m, 'Model.Analytic')
-        m = AddOutput(m, full_names{i}, ['"' full_names{i} '"']); % quotes around expressions with potentially invalid names
-    else
-        error('KroneckerBio:AddOutput:m', 'm must be a model')
-    end
+end
+
+function name = quoteIfInvalid(name)
+if ~isValidIdentifier(name)
+    name = ['"' name '"'];
+end
 end

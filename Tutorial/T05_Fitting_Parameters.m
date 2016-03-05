@@ -4,7 +4,7 @@
 %   Demonstrates optional global optimization routines
 
 %% Load equilibrium experiment A + B <-> C
-m = LoadModelMassAction('Equilibrium.txt');
+m = LoadModelMassAction('../Testing/Equilibrium.txt');
 
 %% Construct experiment
 con = experimentInitialValue(m, [], [], [], 'InitialValueExperiment');

@@ -1,10 +1,10 @@
 function [m, con, obs, obj, opts, objPrior] = mapk_models()
 %% Load topologies
 % Four models of the One-Step MAPK pathway
-mDKDP = LoadModel('../Models/Ferrell_MAPK_DKDP.txt');
-mDKPP = LoadModel('../Models/Ferrell_MAPK_DKPP.txt');
-mPKDP = LoadModel('../Models/Ferrell_MAPK_PKDP.txt');
-mPKPP = LoadModel('../Models/Ferrell_MAPK_PKPP.txt');
+mDKDP = LoadModel('../Tutorial/Ferrell_MAPK_DKDP.txt');
+mDKPP = LoadModel('../Tutorial/Ferrell_MAPK_DKPP.txt');
+mPKDP = LoadModel('../Tutorial/Ferrell_MAPK_PKDP.txt');
+mPKPP = LoadModel('../Tutorial/Ferrell_MAPK_PKPP.txt');
 
 m = [mDKDP; mDKPP; mPKDP; mPKPP];
 
