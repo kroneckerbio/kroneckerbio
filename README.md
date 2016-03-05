@@ -12,6 +12,6 @@ Installation
 
 KroneckerBio is written entirely in Matlab. No compilation is necessary. Simply download the entire source of the [most recent stable release](https://github.com/kroneckerbio/kroneckerbio/archive/stable.zip). Once the toolbox is downloaded, run the `InitKronecker.m` Matlab script. This script simply adds several KroneckerBio folders to the Matlab path so that the functions are available.
 
-At the moment, KroneckerBio has a brief tutorial that covers the basics of model building and import, simulation, and fitting. The `T0x` scripts in the `Testing` folder cover a broad range of common uses of toolbox. The help sections of each Matlab function should be mostly up-to-date.
+At the moment, KroneckerBio has a brief tutorial that covers the basics of model building and import, simulation, and fitting. The `T0x` scripts in the `Tutorial` folder cover a broad range of common uses of toolbox. The help sections of each Matlab function should be mostly up-to-date.
 
 In addition to the tutorial, email the lead developer [David Hagen](`david@drhagen.com`) for help in using KroneckerBio. Bugs can also be reported to him or in the GitHub issues tab.

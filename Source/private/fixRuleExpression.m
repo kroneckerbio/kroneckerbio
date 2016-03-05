@@ -1,7 +1,7 @@
 function expression = fixRuleExpression(expression)
 
 if ischar(expression)
-    % pass
+    warnAboutQuotedFullName(expression)
 else
     error('fixRuleExpression: invalid rule expression')
 end

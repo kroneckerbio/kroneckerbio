@@ -1165,7 +1165,7 @@ function assert_no_ambiguous_species(expressions, ambiguous_names, type)
 try
     temp = @(input,i)transmute(input, ambiguous_names, type, i); % Matlab bug-ception
     for i = 1:numel(expressions)
-        expressions{i} = regexp(expressions{i}, '("[^"]*"|\<[A-Za-z_][A-Za-z0-9_]*\>)(?@temp($1,i))');
+        expressions{i} = regexp(expressions{i}, '((("[^"]*")|(\<[A-Za-z_][A-Za-z0-9_]*\>))(\.(("[^"]*")|(\<[A-Za-z_][A-Za-z0-9_]*\>)))?)(?@temp($1,i))');
     end
 catch ME % Matlab flaw: regexp swallows user-generated exception
    if (strcmp(ME.identifier,'MATLAB:REGEXP:EvaluationError'))
@@ -1179,13 +1179,11 @@ end
 end
 
 function transmute(input, ambiguous_names, type, i) % Matlab bug prevents this from being local to previous function
-if input(1) == '"'
-    % Quoted branch
-    index = lookupmember(input(2:end-1), ambiguous_names);
-else
-    % Identifier branch
-    index = lookupmember(input, ambiguous_names);
-end
+% Remove quote characters
+stripped_input = strrep(input, '"', '');
+
+index = lookupmember(stripped_input, ambiguous_names);
+    
 assert(index == 0, 'KroneckerBio:AmbiguousSpeciesName', 'The species "%s" used in %s #%i is ambiguous because there are several species in the model with that name', input, type, i)
 end
 

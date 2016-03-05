@@ -30,21 +30,19 @@ m3 = FinalizeModel(m3);
 
 %% Bigger mass action model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Warning: loading as a massaction model is slow
-m4 = LoadModelSbmlAnalytic('../Models/Chen2009_ErbB_A431.xml', opts);
+m4 = LoadModelSbmlAnalytic('Chen2009_ErbB_A431.xml', opts);
 m4 = FinalizeModel(m4, opts);
 % m4 = LoadModelSbmlMassAction('../Models/Chen2009_ErbB_A431.xml', opts);
 % m4 = FinalizeModel(m4);
 
 %% Load SimBiology model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-opts = [];
-opts.Verbose = 2;
-load('simple_massaction_simbio_model.mat')
+load('../Testing/simple_massaction_simbio_model.mat')
 
 % Test SimBio -> analytic model
-m5 = LoadModelSimBioAnalytic(simbiomodel, opts);
-m5 = FinalizeModel(m5, opts);
+m5 = LoadModelSimBioAnalytic(simbiomodel);
+m5 = FinalizeModel(m5);
 
 % Test SimBio -> massaction model
-m6 = LoadModelSimBioMassAction(simbiomodel, opts);
+m6 = LoadModelSimBioMassAction(simbiomodel);
 m6 = FinalizeModel(m5);
 
