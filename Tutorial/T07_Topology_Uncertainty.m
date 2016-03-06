@@ -1,3 +1,6 @@
+%% T07 Topology Uncertainty
+
+%% Settings
 % Global
 opts = [];
 opts.UseModelSeeds = false;
@@ -19,11 +22,13 @@ opts.Restart = 0;
 opts.NeedFit = false;
 
 %% Load topologies
+current_path = fileparts(mfilename('fullpath'));
+
 % Four models of the One-Step MAPK pathway
-mDKDP = LoadModel('Ferrell_MAPK_DKDP.txt');
-mDKPP = LoadModel('Ferrell_MAPK_DKPP.txt');
-mPKDP = LoadModel('Ferrell_MAPK_PKDP.txt');
-mPKPP = LoadModel('Ferrell_MAPK_PKPP.txt');
+mDKDP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_DKDP.txt'));
+mDKPP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_DKPP.txt'));
+mPKDP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_PKDP.txt'));
+mPKPP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_PKPP.txt'));
 
 m = [mDKDP; mDKPP; mPKDP; mPKPP];
 
@@ -93,10 +98,11 @@ end
 
 clear i optsFit
 
+return % Return early because the next step takes too long...
+
 %% Topological probabilities
 optsTop = opts;
 optsTop.UseParams = {1:m(1).nk; 1:m(2).nk; 1:m(3).nk; 1:m(4).nk};
-optsTop.TargetTol = 0.5; % Bad tolerance to make this go faster
 pmy = TopologyProbability(m, con, obj, objPrior, [], [], optsTop);
 
 %% Optimal experimental design for topology uncertainty

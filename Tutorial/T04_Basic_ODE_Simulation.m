@@ -1,9 +1,11 @@
+%% T04 Basic ODE Simulation
 % Run a simple simulation and plot the results.
 % Do some additional analysis: sensitivity and curvature calculation, and linear
 %   noise approximation to make sure they work.
 
 %% Load equilibrium experiment A + B <-> C
-m = LoadModelMassAction('../Testing/Equilibrium.txt');
+current_path = fileparts(mfilename('fullpath'));
+m = LoadModelMassAction(fullfile(current_path, '../Testing/Equilibrium.txt'));
 
 %% Construct experiment
 con = experimentInitialValue(m, [], [], [], 'InitialValueExperiment');

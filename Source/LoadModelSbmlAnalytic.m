@@ -33,6 +33,9 @@ function m = LoadModelSbmlAnalytic(sbml, opts)
 %   into Kronecker rules.
 %   - Rate rules are converted to reactions with a single product.
 %   - The ID of a component is used if the component has no name.
+%   - opts.Verbose > 0 will enable interactive validation when using
+%   TranslateSBML. Disable interactive behavior in scripts by decreasing
+%   the verbosity.
 %
 %   Limitations
 %   - Not all Simbiology features are compatible with this converter. This
