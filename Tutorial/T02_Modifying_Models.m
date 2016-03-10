@@ -1,3 +1,4 @@
+%% T02 Modifying Models
 % After model finalization, components can be removed and additional components
 %   can be added.
 % Remember to finalized the modified model.

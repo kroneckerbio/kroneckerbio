@@ -20,4 +20,13 @@ for i = 1:numel(compatibility_files)
     end
 end
 
-disp('KroneckerBio v0.5.0');
+% Grab and display version
+VERSION_ = importdata('VERSION');
+VERSION = VERSION_{1};
+[status, cmdout] = system('git rev-parse HEAD');
+if status == 0
+    COMMIT = [' based on commit ' cmdout(1:7)];
+else
+    COMMIT = '';
+end
+disp(['KroneckerBio v' VERSION COMMIT]);

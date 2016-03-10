@@ -1,3 +1,4 @@
+%% T01a Building a Massaction Model
 % Build a massaction model, demonstrating different ways of calling the
 %   component-adding functions.
 % Components can be added in any order. Checks are done when the model is
