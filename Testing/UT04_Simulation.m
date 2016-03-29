@@ -159,6 +159,19 @@ a.verifyEqual(size(sim.xe,1), m.nx)
 a.verifyEqual(size(sim.ye,1), m.ny)
 end
 
+function testDoseList(a)
+[m, ~, ~, opts] = dose_model();
+
+dos = doseList(m, [4;3;2], [2;4;5], [2;1;1]);
+con = experimentInitialValue(m, [], [], dos);
+
+obs = observationSelect([4, 6]);
+
+sim0 = SimulateSystem(m, con, obs, opts);
+
+a.verifyEqual(sim0.y, [0, 0; 3, 5; 4 4])
+end
+
 function testIntegrationFailure(a)
 m = InitializeModelAnalytic('infinity');
 m = AddCompartment(m, 'v', 3, 1);

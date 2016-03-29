@@ -31,7 +31,7 @@ function dos = Dose(m, d, schedule, h, dddh, d2ddh2)
 %   supplied for the derivatives. If h is specified and nonempty, functions
 %   requiring these derivatives will crash.
 
-% (c) 2015 David R Hagen
+% (c) 2016 David R Hagen
 % This work is released under the MIT license.
 
 if nargin < 6
@@ -44,9 +44,17 @@ if nargin < 6
     end
 end
 
+if isempty(dddh)
+    dddh = @dddh_fun;
+end
+if isempty(d2ddh2)
+    d2ddh2 = @d2ddh2_fun;
+end
+
 % m
 assert(is(m, 'Model'), 'KroneckerBio:Dose:m', 'm must be a Model')
 m = keepfields(m, {'Type', 'ns'});
+ns = m.ns;
 
 % d
 assert(isfunction(d) && nargin(d) == 2, 'KroneckerBio:Dose:d', 'd must be a function handle acceptiong 2 arguments')
@@ -77,5 +85,13 @@ dos.Update = @update;
     function dos_out = update(h)
         assert(numel(h) == nh, 'KroneckerBio:Dose:Update:h', 'h must be a vector of length nh')
         dos_out = Dose(m, d, schedule, h, dddh, d2ddh2);
+    end
+
+    function val = dddh_fun(t,q)
+        val = sparse(ns,nh);
+    end
+
+    function val = d2ddh2_fun(t,q)
+        val = sparse(ns,nh*nh);
     end
 end
