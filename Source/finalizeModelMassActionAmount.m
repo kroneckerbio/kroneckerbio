@@ -253,7 +253,7 @@ for ix = 1:nx
         end
         
         dx0dsEntries(ndx0dsEntries,:) = [ix, seed_index];
-        dx0dsValues(ndx0dsEntries) = 1;
+        dx0dsValues(ndx0dsEntries)    = seed_value{i, 2};
     end
 end
 
