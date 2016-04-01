@@ -14,9 +14,13 @@ function D = FiniteObjectiveGradient(m, con, obj, opts)
 %       The KroneckerBio model that will be simulated
 %   con: [ experiment struct vector ]
 %       The experimental conditions under which the model will be simulated
-%   obj: [ objective struct matrix ]
+%   obj: [ objective struct matrix n_obj by n_con ]
 %       The objective structures defining the objective functions to be
-%       evaluated.
+%       evaluated. Note that this matrix must have a number of columns
+%       equal to numel(con) (e.g. one objective for each experimental
+%       condition is a row vector and multiple objective structures for
+%       a single experimental conditions is a column vector).
+%   opts: [ options struct scalar {} ]
 %       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
 %           Which kinetic parameters the gradient will be calculated on
 %       .UseSeeds [ logical matrix nx by nCon | logical vector nx |
@@ -96,25 +100,25 @@ opts.Verbose = max(opts.Verbose-1,0);
 nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-nCon = numel(con);
+
+% Ensure structures are proper sizes
+[con, n_con] = fixCondition(con);
+[obj, n_obj] = fixObjective(obj, n_con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseICs is a logical matrix
-[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, nCon);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
 % Ensure UseControls is a cell vector of logical vectors
-[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, nCon, cat(1,con.nq));
-[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, nCon, cat(1,con.nh));
+[opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
+[opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
 nT = nTk + nTs + nTq + nTh;
 
 % Store starting parameter sets
 T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-
-% Refresh conditions and objectives
-con = refreshCon(m, con);
 
 % Fix integration type
 [opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(con, obj);
@@ -123,7 +127,7 @@ con = refreshCon(m, con);
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 1, opts.continuous, nx, nCon);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 1, opts.continuous, nx, n_con);
 
 %% Loop through conditions
 D = zeros(nT,1);

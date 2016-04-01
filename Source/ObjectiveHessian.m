@@ -1,16 +1,20 @@
 function H = ObjectiveHessian(m, con, obj, opts)
 %ObjectiveHessian Evaluate the hessian of a set of objective functions
 %
-%   D = ObjectiveHessian(m, con, obj, opts)
+%   H = ObjectiveHessian(m, con, obj, opts)
 %
 %   Inputs
 %   m: [ model struct scalar ]
 %       The KroneckerBio model that will be simulated
 %   con: [ experiment struct vector ]
 %       The experimental conditions under which the model will be simulated
-%   obj: [ objective struct matrix ]
+%   obj: [ objective struct matrix n_obj by n_con ]
 %       The objective structures defining the objective functions to be
-%       evaluated.
+%       evaluated. Note that this matrix must have a number of columns
+%       equal to numel(con) (e.g. one objective for each experimental
+%       condition is a row vector and multiple objective structures for
+%       a single experimental conditions is a column vector).
+%   opts: [ options struct scalar {} ]
 %       .UseModelSeeds [ logical scalar {false} ]
 %           Indicates that the model's seed parameters should be used
 %           instead of those of the experimental conditions
@@ -87,7 +91,10 @@ opts.Verbose = max(opts.Verbose-1,0);
 nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-n_con = numel(con);
+
+% Ensure structures are proper sizes
+[con, n_con] = fixCondition(con);
+[obj, n_obj] = fixObjective(obj, n_con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
@@ -100,9 +107,6 @@ n_con = numel(con);
 [opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
 nT = nTk + nTs + nTq + nTh;
-
-% Refresh conditions and objectives
-con = refreshCon(m, con);
 
 % Fix integration type
 [opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(con, obj);

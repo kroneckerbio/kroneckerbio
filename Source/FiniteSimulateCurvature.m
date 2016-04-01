@@ -88,8 +88,10 @@ opts.Verbose = max(opts.Verbose-1,0);
 % Constants
 nx = m.nx;
 nk = m.nk;
-n_con = numel(con);
-n_obs = size(obs,1);
+
+% Ensure structures are proper sizes
+[con, n_con] = fixCondition(con);
+[obs, n_obs] = fixObservation(obs, n_con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
@@ -103,17 +105,11 @@ n_obs = size(obs,1);
 
 nT = nTk + nTx + nTq + nTh;
 
-% Refresh conditions
-con = refreshCon(m, con);
-
 % RelTol
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
 opts.AbsTol = fixAbsTol(opts.AbsTol, 2, false(n_con,1), nx, n_con, false, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-
-% Fix observations
-obs = fixObservation(con, obs);
 
 %% Run integration for each experiment
 sim = emptystruct(n_con, 'Type', 'Name', 't', 'y', 'x', 'dxdT', 'dudT', 'dydT', 'd2xdT2', 'd2udT2', 'd2ydT2', 'ie', 'te', 'xe', 'ue', 'ye', 'dxedT', 'duedT', 'dyedT', 'd2xedT2', 'd2uedT2', 'd2yedT2', 'int');

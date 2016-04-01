@@ -27,7 +27,7 @@ function con = experimentInitialValue(m, s, inp, dos, name)
 %
 %   For the meanings of the fields of con see "help experimentZero"
 
-% (c) 2015 David R Hagen, David Flowers, & Bruce Tidor
+% (c) 2016 David R Hagen, David Flowers, & Bruce Tidor
 % This work is released under the MIT license.
 
 if nargin < 5
@@ -119,8 +119,8 @@ u_t = @(t) u_tq(t,q);
 
 % Determine if u is vectorized, and fix if not
 try
-    testut = u_t([1 2]);
-    assert(size(testut) == [nu,2])
+    testut = u_t([1, 2]);
+    assert(isequal(size(testut), [nu,2]))
 catch
     u_t = @ut_vectorized;
 end

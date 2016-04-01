@@ -20,10 +20,6 @@ end
 assert(nargin >= 2, 'KroneckerBio:SimulateMfk:TooFewInputs', 'SimulateMfk requires at least 2 input arguments')
 assert(isscalar(m), 'KroneckerBio:SimulateMfk:MoreThanOneModel', 'The model structure must be scalar')
 
-% Constants
-nx = m.nx;
-nCon = numel(con);
-
 % Default options
 defaultOpts.Verbose        = 1;
 
@@ -32,27 +28,30 @@ defaultOpts.AbsTol         = NaN;
 defaultOpts.UseModelICs    = false;
 defaultOpts.UseModelInputs = false;
 
-defaultOpts.V0             = zeros(nx);
+defaultOpts.V0             = zeros(m.nx);
 
 opts = mergestruct(defaultOpts, opts);
 
 verbose = logical(opts.Verbose);
 opts.Verbose = max(opts.Verbose-1,0);
 
-% Refresh conditions
-con = refreshCon(m, con);
+% Constants
+nx = m.nx;
+
+% Ensure structures are proper sizes
+[con, n_con] = fixCondition(con);
 
 % RelTol
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 1, false(nCon,1), nx + nx*nx, nCon);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 1, false(n_con,1), nx + nx*nx, n_con);
 
 %% Run integration for each experiment
-sim(nCon) = struct('Type', [], 'Name', [], 't', [], 'y', [], 'x', [], 'sol', []);
+sim(n_con) = struct('Type', [], 'Name', [], 't', [], 'y', [], 'x', [], 'sol', []);
 intOpts = opts;
 
-for iCon = 1:nCon
+for iCon = 1:n_con
     % Modify opts structure
     intOpts.AbsTol = opts.AbsTol{iCon};
 
@@ -76,7 +75,7 @@ switch (nargout)
         % Save the hold state of the figure
         holdState = ishold;
         % Draw each result
-        for iCon = 1:nCon
+        for iCon = 1:n_con
             plotExperiment(m, sim(iCon));
             hold on;
         end

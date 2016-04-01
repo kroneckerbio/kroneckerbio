@@ -82,7 +82,10 @@ opts = mergestruct(defaultOpts, opts);
 nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-n_con = numel(con);
+
+% Ensure structures are proper sizes
+[con, n_con] = fixCondition(con);
+[obj, n_obj] = fixObjective(obj, n_con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
@@ -95,9 +98,6 @@ n_con = numel(con);
 [opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
 nT = nTk + nTs + nTq + nTh;
-
-% Refresh conditions and objectives
-con = refreshCon(m, con);
 
 % Fix integration type
 [opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(con, obj);

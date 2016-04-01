@@ -72,6 +72,26 @@ x_ss_predose = sim.x(0) - dose_t0;
 a.verifyEqual(x_ss_predose, sim_sscheck.x(tbig), 'AbsTol', 1e-7)
 end
 
+function testSimulateSimpleSteadyStateStartingAtSteadyState(a)
+
+simpleopts.steadyState = true;
+[m, con, unused, opts, con_sscheck] = simple_model(simpleopts);
+
+% Set all parameters to zero so that model is inactive and all sets of
+% states are steady states
+m = m.Update(zeros(size(m.k)));
+
+% Simulate steady state experiment
+sim = SimulateSystem(m, con, 6, opts);
+
+% Verify steady state works correctly by comparing to initial value
+% Dosing adds to states at t=0, which won't be reflected in the steady
+% state. Subtract off the dose.
+dose_t0 = m.x0(con.d(0)) - m.x0(zeros(m.ns,1));
+x_ss_predose = sim.x(0) - dose_t0;
+a.verifyEqual(x_ss_predose, m.x0(m.s), 'AbsTol', 1e-7)
+end
+
 function testSimulateEvent(a)
 [m, con, ~, opts] = simple_model();
 eve1 = eventDropsBelow(m, 10, 15);
@@ -137,6 +157,19 @@ sim = SimulateSystem(m, con, obs, opts);
 a.verifyEqual(size(sim.ue,1), m.nu)
 a.verifyEqual(size(sim.xe,1), m.nx)
 a.verifyEqual(size(sim.ye,1), m.ny)
+end
+
+function testDoseList(a)
+[m, ~, ~, opts] = dose_model();
+
+dos = doseList(m, [4;3;2], [2;4;5], [2;1;1]);
+con = experimentInitialValue(m, [], [], dos);
+
+obs = observationSelect([4, 6]);
+
+sim0 = SimulateSystem(m, con, obs, opts);
+
+a.verifyEqual(sim0.y, [0, 0; 3, 5; 4 4])
 end
 
 function testIntegrationFailure(a)

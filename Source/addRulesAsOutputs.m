@@ -8,14 +8,23 @@ function m = addRulesAsOutputs(m)
 % (c) 2015 David R Hagen
 % This work is released under the MIT license.
 
-full_names = vec({m.Rules(1:m.nz).Name});
-
-for i = 1:numel(full_names)
-    if is(m, 'Model.MassActionAmount')
-        error('KroneckerBio:AddRule:MassActionAmount', 'Rules are not implemented for massaction models')
-    elseif is(m, 'Model.Analytic')
-        m = AddOutput(m, full_names{i}, ['"' full_names{i} '"']); % quotes around expressions with potentially invalid names
-    else
-        error('KroneckerBio:AddOutput:m', 'm must be a model')
+if is(m, 'Model.MassActionAmount')
+    error('KroneckerBio:AddRule:MassActionAmount', 'Rules are not implemented for massaction models')
+elseif is(m, 'Model.Analytic')
+    for i = 1:m.nz
+        name = m.Rules(i).Name;
+        expression = quoteIfInvalid(m.Rules(i).Name);
+        
+        m = AddOutput(m, name, expression);
     end
+else
+    error('KroneckerBio:AddOutput:m', 'm must be a model')
+end
+
+end
+
+function name = quoteIfInvalid(name)
+if ~isValidIdentifier(name)
+    name = ['"' name '"'];
+end
 end

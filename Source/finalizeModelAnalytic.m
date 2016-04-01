@@ -51,7 +51,13 @@ function m = finalizeModelAnalytic(m, opts)
 %           construction and can take significant amount of time to
 %           complete, so it is recommended in most cases to use no
 %           simplification.
-%           
+%       .Inf2Big [ true | {false} ]
+%           Whether to convert infinity values to large values in functions.
+%           This is technically incorrect but needed for some models.
+%       .Nan2Zero [ true | {false} ]
+%           Whether to convert NaN values to zeros in functions. This is
+%           technically incorrect but needed for some models where removable
+%           discontinuities aren't properly removed analytically.
 %
 %   Outputs
 %   m: [ Model.Analytic ]
@@ -75,6 +81,8 @@ default_opts.UseMEX                    = false;
 default_opts.MEXDirectory              = defaultMEXdirectory;
 default_opts.EvaluateExternalFunctions = true; % needed for calls to power() and other functions
 default_opts.SimplifyMethod            = '';
+default_opts.Inf2Big                   = false;
+default_opts.Nan2Zero                  = false;
 
 opts = mergestruct(default_opts, opts);
 
@@ -659,15 +667,17 @@ if verbose; fprintf('   ...done.\n'); end
 %% Set up model structure
 
 % Clear unnecessary variables from scope
-clear SymModel vSyms kSyms sSyms qSyms xuSyms xSyms uSyms ...
-    vStrs kStrs sStrs qStrs xuStrs xStrs uStrs ...
-    xNamesFull uNamesFull vxNames vuNames ...
-    C1Entries C1Values C2Entries C2Values cEntries cValues ...
-    nC1Entries nC2Entries ncEntries defaultOpts opts ...
-    addlength currentLength iExpr ind match nAdd nExpr uAddInd sys_string ...
-    i iv ik is iq iu ix ir iy ...
-    rstates rinputs rparams statesubs inputsubs paramssubs rstatesi rinputsi rparamsi...
-    uqi qsinui nonzero_map sizes symbolic2stringmethod...
+clear v z ...
+    t_syms v_syms k_syms s_syms x_syms u_syms z_syms y_syms S_sym ...
+    t_strs v_strs k_strs s_strs x_strs u_strs z_strs y_strs all_ids ...
+    v_names k_names s_names xu_names x_names u_names r_names y_names z_names ...
+    xu_full_names x_full_names u_full_names vx_names vu_names all_names ambiguous_names ...
+    unique_xu_names unique_x_names unique_u_names ...
+    S_entries i_S j_S size_S Sxu val_S ...
+    substitutable_exps substitutable_ids ...
+    x0hask x0hass rhask rhasu rhasx yhask yhasu yhasx x0str rstr ystr nonzero_map sizes ...
+    default_opts opts symbolic2stringmethod simplifyMethod ...
+    i j ixu ir ind n_subs species ...
     thistime defaultMEXdirectory
 
 m.dv = dv;
@@ -677,8 +687,6 @@ m.u  = u;
 
 m.vxInd = vxInd;
 m.vuInd = vuInd;
-
-clear vNames kNames sNames uNames xNames rNames yNames yMembers yValues
 
 m.f         = setfun_rf(f,k);
 
@@ -884,7 +892,7 @@ if verbose; fprintf('done.\n'); end
             case 'efficient'
                 
                 string_rep = symbolic2string(dsym, num, dens);
-                fun = string2fun(string_rep, num, dens);
+                fun = string2fun(string_rep, num, dens, opts.Inf2Big, opts.Nan2Zero);
                 
             case 'mex'
 
@@ -892,7 +900,7 @@ if verbose; fprintf('done.\n'); end
                 % aren't called very many times
                 if strcmp(num,'x')
                     string_rep = symbolic2string(dsym, num, dens);
-                    fun = string2fun(string_rep, num, dens);
+                    fun = string2fun(string_rep, num, dens, opts.Inf2Big, opts.Nan2Zero);
                     return
                 end
                 
@@ -1157,7 +1165,7 @@ function assert_no_ambiguous_species(expressions, ambiguous_names, type)
 try
     temp = @(input,i)transmute(input, ambiguous_names, type, i); % Matlab bug-ception
     for i = 1:numel(expressions)
-        expressions{i} = regexp(expressions{i}, '("[^"]*"|\<[A-Za-z_][A-Za-z0-9_]*\>)(?@temp($1,i))');
+        expressions{i} = regexp(expressions{i}, '((("[^"]*")|(\<[A-Za-z_][A-Za-z0-9_]*\>))(\.(("[^"]*")|(\<[A-Za-z_][A-Za-z0-9_]*\>)))?)(?@temp($1,i))');
     end
 catch ME % Matlab flaw: regexp swallows user-generated exception
    if (strcmp(ME.identifier,'MATLAB:REGEXP:EvaluationError'))
@@ -1171,13 +1179,11 @@ end
 end
 
 function transmute(input, ambiguous_names, type, i) % Matlab bug prevents this from being local to previous function
-if input(1) == '"'
-    % Quoted branch
-    index = lookupmember(input(2:end-1), ambiguous_names);
-else
-    % Identifier branch
-    index = lookupmember(input, ambiguous_names);
-end
+% Remove quote characters
+stripped_input = strrep(input, '"', '');
+
+index = lookupmember(stripped_input, ambiguous_names);
+    
 assert(index == 0, 'KroneckerBio:AmbiguousSpeciesName', 'The species "%s" used in %s #%i is ambiguous because there are several species in the model with that name', input, type, i)
 end
 
@@ -1208,7 +1214,7 @@ else
 end
 end
 
-function fun = string2fun(string_rep, num, dens)
+function fun = string2fun(string_rep, num, dens, use_inf2big, use_nan2zero)
 % Note that string2fun is a subfunction instead of a nested function to
 % prevent the anonymous functions created here from saving copies of
 % the primary function workspace variables.
@@ -1229,8 +1235,20 @@ else
     sparsestr = {'sparse(' ')'};
 end
 
+if use_inf2big
+    infstr = {'inf2big(' ')'};
+else
+    infstr = {'' ''};
+end
+
+if use_nan2zero
+    nanstr = {'nan2zero(' ')'};
+else
+    nanstr = {'' ''};
+end
+
 % Set up the function handle
-fun = eval(['@(' inputargstr ') ' sparsestr{1} string_rep sparsestr{2}]);
+fun = eval(['@(' inputargstr ') ' infstr{1} nanstr{1} sparsestr{1} string_rep sparsestr{2} nanstr{2} infstr{2}]);
 
 % Convert function to and from function handle to ensure that
 % MATLAB recognizes and stores the workspace for the anonymous

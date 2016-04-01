@@ -55,6 +55,10 @@ if nargin < 7
     end
 end
 
+if isempty(reverse)
+    reverse = '';
+end
+
 if isempty(compartment)
     compartment = '';
 end
@@ -66,7 +70,9 @@ end
 reactants = fixReactionSpecies(reactants);
 products  = fixReactionSpecies(products);
 
-% Standardize reaction rate expressions - do nothing - just paste in
+% Standardize reaction rate expressions
+warnAboutQuotedFullName(forward)
+warnAboutQuotedFullName(reverse)
 
 % Add separate reactions for forward and reverse (if applicable)
 if ~isempty(forward)

@@ -12,6 +12,9 @@ function m = LoadModelSbmlAnalytic(sbml, opts)
 %       	Print progress to command window
 %       .Validate [ logical scalar {false} ]
 %           Whether to use libSBML's model validation tool
+%       .ICsAsSeeds [ {true} | false ]
+%           Whether to make all state initial conditions seeds (that aren't
+%           substituted rults) or hardcode initial conditions.
 %
 %   Outputs
 %   m: [ Model.Analytic struct ]
@@ -30,6 +33,9 @@ function m = LoadModelSbmlAnalytic(sbml, opts)
 %   into Kronecker rules.
 %   - Rate rules are converted to reactions with a single product.
 %   - The ID of a component is used if the component has no name.
+%   - opts.Verbose > 0 will enable interactive validation when using
+%   TranslateSBML. Disable interactive behavior in scripts by decreasing
+%   the verbosity.
 %
 %   Limitations
 %   - Not all Simbiology features are compatible with this converter. This
@@ -47,6 +53,7 @@ end
 % Default options
 opts_.Verbose = 0;
 opts_.Validate = false;
+opts_.ICsAsSeeds = false;
 
 opts = mergestruct(opts_, opts);
 
@@ -62,6 +69,6 @@ end
 
 if verbose; fprintf('done.\n'); end
 
-m = sbml2analytic(sbml);
+m = sbml2analytic(sbml, opts);
 
 end

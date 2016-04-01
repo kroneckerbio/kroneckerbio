@@ -17,10 +17,8 @@ verifyDerivatives(a, m);
 end
 
 %% More comprehensive advanced model loading
-function testBasicSBMLLoading(a)
-opts = [];
-opts.UseNames = true;
-m = LoadModelSbmlAnalytic('test.xml', opts);
+function testBasicSbmlLoading(a)
+m = LoadModelSbmlAnalytic('test.xml');
 m = FinalizeModel(m);
 
 a.verifyEqual(m.nv, 1);
@@ -33,7 +31,23 @@ a.verifyEqual(m.nz, 0);
 verifyDerivatives(a, m);
 end
 
-function testEnzymeSBMLLoading(a)
+function testBasicSbmlLoadingWithSeeds(a)
+opts = [];
+opts.ICsAsSeeds = true;
+m = LoadModelSbmlAnalytic('test.xml', opts);
+m = FinalizeModel(m);
+
+a.verifyEqual(m.nv, 1);
+a.verifyEqual(m.nk, 3);
+a.verifyEqual(m.ns, 1);
+a.verifyEqual(m.nu, 3);
+a.verifyEqual(m.nx, 1);
+a.verifyEqual(m.nr, 3);
+a.verifyEqual(m.nz, 0);
+verifyDerivatives(a, m);
+end
+
+function testEnzymeSbmlLoading(a)
 m = LoadModelSbmlAnalytic('enzyme-catalysis-basic.xml');
 
 m = AddOutput(m, 'complex', '"E:S"');
@@ -96,7 +110,7 @@ a.verifyEqual(m.d2x0dkds([4;5]), sparse([2],[3],[1],10,3))
 a.verifyEqual(m.d2x0dsdk([4;5]), sparse([12],[1],[1],15,2))
 end
 
-function testSimpleMassActionSBMLLoading(a)
+function testSimpleMassActionSbmlLoading(a)
 warning('off', 'symbolic2massaction:repeatedSpeciesNames'); % suppress warning for repeated species C
 m = LoadModelSbmlMassAction('simple_massaction.xml');
 warning('on', 'symbolic2massaction:repeatedSpeciesNames'); % reenable warning for continued session
@@ -106,7 +120,7 @@ m = FinalizeModel(m);
 verifyDerivatives(a, m);
 end
 
-function testSimpleMassActionAsAnalyticSBMLLoading(a)
+function testSimpleMassActionAsAnalyticSbmlLoading(a)
 opts = [];
 opts.EvaluateExternalFunctions = true; % simple_massaction has x^2 terms, and power needs to be evaluated
 m = LoadModelSbmlAnalytic('simple_massaction.xml');

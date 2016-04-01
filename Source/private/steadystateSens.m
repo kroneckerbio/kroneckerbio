@@ -15,11 +15,18 @@ nT  = nTk + nTs + nTq + nTh;
 order = 1;
 ic = extractICs(m,con,opts,order);
 
-% Integrate [f; dfdT] over time
-sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.private.BasalDiscontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, @(cum_sol)true);
+% Check if already at steady state
+ssvalue = eve(0, ic);
+atSteadyState = ssvalue == 0;
 
-% Return steady-state value
-ic = sol.ye;
+% If not at steady state, integrate until at steady state
+if ~atSteadyState
+    % Integrate [f; dfdT] over time
+    sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.private.BasalDiscontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT), [], eve, @(cum_sol)true);
+    
+    % Return steady-state value
+    ic = sol.ye;
+end
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

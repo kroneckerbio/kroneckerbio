@@ -1,5 +1,6 @@
-% TODO: currently outdated - fix
+%% T07 Topology Uncertainty
 
+%% Settings
 % Global
 opts = [];
 opts.UseModelSeeds = false;
@@ -21,11 +22,13 @@ opts.Restart = 0;
 opts.NeedFit = false;
 
 %% Load topologies
+current_path = fileparts(mfilename('fullpath'));
+
 % Four models of the One-Step MAPK pathway
-mDKDP = LoadModel('../Models/Ferrell_MAPK_DKDP.txt');
-mDKPP = LoadModel('../Models/Ferrell_MAPK_DKPP.txt');
-mPKDP = LoadModel('../Models/Ferrell_MAPK_PKDP.txt');
-mPKPP = LoadModel('../Models/Ferrell_MAPK_PKPP.txt');
+mDKDP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_DKDP.txt'));
+mDKPP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_DKPP.txt'));
+mPKDP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_PKDP.txt'));
+mPKPP = LoadModel(fullfile(current_path, 'Ferrell_MAPK_PKPP.txt'));
 
 m = [mDKDP; mDKPP; mPKDP; mPKPP];
 
@@ -45,9 +48,7 @@ con = experimentInitialValue(mDKDP, [], [], [], 'InitialValueExperiment');
 outputlist = vec(repmat(outputs', [numel(lintimes),1]));
 timelist = repmat(lintimes, [numel(outputs),1]);
 
-% obj = objectiveWeightedSumOfSquaresNonNeg(outputlist, timelist, sd, [], 'Fitting Data');
-% obs = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, 'Fitting Data');
-% obj = obs.Objective([]);
+obs = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, 'Fitting Data');
 
 % Create test data
 sims = cell(1,nTop);
@@ -55,9 +56,9 @@ for i = 1:nTop
     sims{i} = SimulateSystem(m(i), con, tF);
 end
 
-sim = SimulateSelect(m(1), con, lintimes, opts);
+sim = SimulateSystem(m(1), con, obs, opts);
 rand_state = rng(1);
-obj = obj.AddData(sim.sol);
+obj = obs.Objective(sim.measurements);
 rng(rand_state);
 
 clear n
@@ -81,7 +82,7 @@ for i = 1:nTop
 end
 
 %% Create prior objectives
-objPrior = Gzero(nTop);
+objPrior = objectiveZero(nTop);
 for i = 1:nTop
     objPrior(i) = objectiveLogNormalPriorOnKineticParameters(mux{i}, Vx{i});
 end
@@ -91,10 +92,13 @@ for i = 1:nTop
     mstart = Update(m(i), zeros(m(i).nk,1) + 1e-1);
     optsFit = opts;
     optsFit.UseParams = 1:m(i).nk;
+    optsFit.TolOptim = 1e-1; % Bad tolerance to make fits finish faster
     m(i) = FitObjective(mstart, con, [obj; objPrior(i)], optsFit);
 end
 
 clear i optsFit
+
+return % Return early because the next step takes too long...
 
 %% Topological probabilities
 optsTop = opts;
@@ -103,4 +107,4 @@ pmy = TopologyProbability(m, con, obj, objPrior, [], [], optsTop);
 
 %% Optimal experimental design for topology uncertainty
 target = @entropy;
-[best, data] = BestTopologyExperiment(m, con, obj, objPrior, [], [], [con;con], [obj,obj], target, optsTop);
+[best, data] = BestTopologyExperiment(m, con, obj, objPrior, [], [], [], [con;con], [obj,obj], target, optsTop);

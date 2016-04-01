@@ -1,58 +1,62 @@
-function [H, All] = FiniteObjectiveHessian(m, con, obj, opts)
-%FiniteObjectiveHessian Compute the hessian of an objective function by
-%   the finite difference approximation
+function H = FiniteObjectiveHessian(m, con, obj, opts)
+%FiniteObjectiveHessian Evaluate the hessian of a set of objective
+%   functions using the finite difference approximation
 %
-%   Mathematically: H = dG/dp2 or H = dG/dlnp2
+%   H = FiniteObjectiveHessian(m, con, obj, opts)
 %
-%   [H, All] = FiniteObjectiveHessian(m, con, obj, opts)
+%   Inputs
+%   m: [ model struct scalar ]
+%       The KroneckerBio model that will be simulated
+%   con: [ experiment struct vector ]
+%       The experimental conditions under which the model will be simulated
+%   obj: [ objective struct matrix n_obj by n_con ]
+%       The objective structures defining the objective functions to be
+%       evaluated. Note that this matrix must have a number of columns
+%       equal to numel(con) (e.g. one objective for each experimental
+%       condition is a row vector and multiple objective structures for
+%       a single experimental conditions is a column vector).
+%   opts: [ options struct scalar {} ]
+%       .UseModelSeeds [ logical scalar {false} ]
+%           Indicates that the model's seed parameters should be used
+%           instead of those of the experimental conditions
+%       .UseModelInputs [ logical scalar {false} ]
+%           Indicates that the model's inputs should be used instead of
+%           those of the experimental conditions
+%       .UseParams [ logical vector nk | positive integer vector {1:nk} ]
+%           Which kinetic parameters the gradient will be calculated on
+%       .UseSeeds [ logical matrix nx by nCon | logical vector nx |
+%                   positive integer vector {[]} ]
+%           Which seed parameters the gradient will be calculated on
+%       .UseControls [ cell vector nCon of logical vectors or positive 
+%                      integer vectors | logical vector nq | positive 
+%                      integer vector {[]} ]
+%           Which input control parameters the gradient will be calculated
+%           on
+%     	.ObjWeights [ real matrix nObj by nCon {ones(nObj,nCon)} ]
+%           Applies a post evaluation weight on each objective function
+%           in terms of how much it will contribute to the final objective
+%           function value
+%       .Normalized [ logical scalar {true} ]
+%           Indicates if the gradient should be computed in log parameters
+%           space
+%    	.UseAdjoint [ logical scalar {false} ]
+%           Indicates whether the gradient should be calculated via the
+%           adjoint method or the forward method.
+%       .RelTol [ nonnegative scalar {1e-6} ]
+%           Relative tolerance of the integration
+%       .AbsTol [ cell vector of nonnegative vectors | nonnegative vector |
+%                 nonegative scalar {1e-9} ]
+%           Absolute tolerance of the integration. If a cell vector is
+%           provided, a different AbsTol will be used for each experiment.
+%       .Verbose [ nonnegative integer scalar {1} ]
+%           Bigger number displays more progress information
 %
-%   Inputs:
-%       m    - The KroneckerBio model that will be simulated
-%       con  - A structure vector of the experimental conditions under
-%              which the hessian will be evaluated
-%       obj  - A structure array of the objective functions under which the
-%              hessian will be evaluated. Each row of obj is matched to the
-%              corresponding entry in con
-%       opts - Optional function options
-%           .useParams   - Vector of indexes indicating the rate constants
-%                          whose sensitivities will be considered
-%           .useICs      - Vector of indexes indicating the initial
-%                          concentrations whose sensitivities will be
-%                          considered
-%           .UseModelICs - Boolean that determines whether to use the
-%                          initial concentrations of the model or the
-%                          conditions. Default = true
-%           .Normalized  - Boolean that determines if the simple hessian or
-%                          the normalized hessian will be computed. The
-%                          normalized hessian is normalized with respect to
-%                          the values of the parameters. Default = true
-%           .ComplexStep - Scalar boolean. If set to true, use an
-%                           imaginary finite difference step. This has the
-%                           advantage of not requiring the subtraction of
-%                           two large numbers, increasing the stability of
-%                           the result, but comes at the cost of larger
-%                           computational cost from evaluating expressions
-%                           with complex numbers. If set to false (the
-%                           default), a real finite difference step is
-%                           used.
-%           .Verbose     - Print progress to command window
-%   Outputs:
-%       H = FiniteObjectiveHessian(m, con, obj, ...)
-%           H - The hessian as an array
-%
-%       [H, All] = FiniteObjectiveHessian(m, con, obj, ...)
-%           All - The hessian is the sum of hessians from all experiements,
-%           but All returns the hessians in a size(obj) cell array
-%
-%   Additional info:
-%   - The experimental condition vector can also be a cell vector
-%   - The objective function array can also be a cell array. Empty entries 
-%   in the cell array and entries in the structure array with empty
-%   values are ignored. This way, conditions can have different numbers of
-%   objective functions associated with them.
+%   Outputs
+%       H: [ real vector nT ]
+%           The sum of all objective function hessians
 
 % (c) 2015 David R Hagen and Bruce Tidor
-% This software is released under the GNU GPLv2 or later.
+% This work is released under the MIT license.
 
 %% Work-up
 % Clean up inputs
@@ -90,7 +94,10 @@ opts.Verbose = max(opts.Verbose-1,0);
 nx = m.nx;
 ns = m.ns;
 nk = m.nk;
-n_con = numel(con);
+
+% Ensure structures are proper sizes
+[con, n_con] = fixCondition(con);
+[obj, n_obj] = fixObjective(obj, n_con);
 
 % Ensure UseParams is logical vector
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
@@ -106,9 +113,6 @@ nT = nTk + nTs + nTq + nTh;
 
 % Store starting parameter sets
 T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
-
-% Refresh conditions and objectives
-con = refreshCon(m, con);
 
 % Fix integration type
 [opts.continuous, opts.complex, opts.tGet] = fixIntegrationType(con, obj);

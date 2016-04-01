@@ -78,20 +78,16 @@ opts.Verbose = max(opts.Verbose-1,0);
 
 % Constants
 nx = m.nx;
-n_con = numel(con);
-n_obs = size(obs,1);
 
-% Refresh conditions
-con = refreshCon(m, con);
+% Ensure structures are proper sizes
+[con, n_con] = fixCondition(con);
+[obs, n_obs] = fixObservation(obs, n_con);
 
 % RelTol
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
 opts.AbsTol = fixAbsTolLna(opts.AbsTol, 1, false(n_con,1), nx, n_con);
-
-% Fix observations
-obs = fixObservation(con, obs);
 
 %% Run integration for each experiment
 sim = emptystruct([n_obs,n_con]);
