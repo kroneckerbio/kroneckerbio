@@ -137,7 +137,9 @@ reactiontable = {
     };
 
 nr = size(reactiontable,1);
+if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
 r = sym(reactiontable(:,3));
+if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
 
 % Get indices of reactants and products in each reaction
 getspeciesindices = @(x)intersect(x,xuNames,'stable');
@@ -172,7 +174,9 @@ yNames = outputtable(:,1);
 yStrings = outputtable(:,1);
 sm.yNames = yNames;
 sm.yStrings = yStrings;
+if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
 sm.y = sym(yStrings);
+if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
 y = sm.y;
 
 ny = length(y);

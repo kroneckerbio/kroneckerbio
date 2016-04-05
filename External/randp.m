@@ -35,8 +35,13 @@ function X = randp(P,varargin) ;
 % 1.2 (aug 2006) - fixed bug when called with scalar argument P
 % 2.0 (feb 2009) - use HISTC for creating the integers (faster and simplier than
 %                  previous algorithm)
+%     (apr 2016) - Update nargchk to narginchk to fix scheduled deprecation
 
-error(nargchk(1,Inf,nargin)) ;
+if verLessThan('matlab', '9.0')
+    error(nargchk(1,Inf,nargin));
+else
+    narginchk(1,Inf);
+end
 
 try
     X = rand(varargin{:}) ;    

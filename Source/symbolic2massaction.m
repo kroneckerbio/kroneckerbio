@@ -203,7 +203,10 @@ for i = 1:nr
     reactants = sym(reactants);
     products = sym(products);
     
+    if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
     rate = sym(name2id(rate, allNames, allIDs, xuvNames));
+    if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
+    
     rate = evaluateExternalFunctions(rate, allIDs); % for resolving "power" function
     
     % Extract variables in the rate - Note: vars cell array of strings is in

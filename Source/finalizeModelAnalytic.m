@@ -200,11 +200,13 @@ z  = substituteQuotedExpressions(z, all_names, all_ids);
 r  = substituteQuotedExpressions(r, all_names, all_ids);
 y  = substituteQuotedExpressions(y, all_names, all_ids);
 
+if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
 v  = sym(v);
 x0 = sym(x0);
 z  = sym(z);
 r  = sym(r);
 y  = sym(y);
+if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
 
 %% Substitute in expressions
 % Everything that is substitutable

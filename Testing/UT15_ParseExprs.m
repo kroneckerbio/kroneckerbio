@@ -40,6 +40,8 @@ end
 end
 
 function testName2ID(a)
+if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
+
 [names, ids, xuvNames, values] = sampleData;
 sids = sym(ids);
 
@@ -67,6 +69,8 @@ b4 = name2id(a4, names, ids, xuvNames);
 c4 = values(10)*values(1) + pi*1.15*exp(values(21));
 d4 = double(subs(sym(b4), sids, values));
 a.verifyEqual(c4 ,d4, 'RelTol', 0.001);
+
+if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
 end
 
 function [names, ids, xuvNames, values] = sampleData
