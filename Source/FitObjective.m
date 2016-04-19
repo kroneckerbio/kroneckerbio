@@ -435,11 +435,6 @@ end
         % Integrate sensitivities or use adjoint to get objective gradient
         if nargout == 2
             [G, D] = computeObjGrad(m, con, obj, intOpts);
-            
-            % Normalize gradient
-            if opts.Normalized
-                D = vec(D) .* T;
-            end
         end
     end
 
