@@ -96,6 +96,7 @@ tF = obj.tF;
     nExperiments, nTotalTimePoints);
 
 opts = mergestruct(opts, fitopts);
+opts.ParallelizeExperiments = true;
 
 testfun = @test;
 
@@ -103,7 +104,7 @@ testfun = @test;
         % Tests whether parallel and serial FitObjective give the same
         % solution
         [mfit_parallel, confit_parallel, G_parallel, D_parallel] = ...
-            FitObjectiveParallel(m, repmat(con,nExperiments,1), obj, opts);
+            FitObjective(m, repmat(con,nExperiments,1), obj, opts);
 
         [mfit, confit, G, D] = FitObjective(m, repmat(con,nExperiments,1), obj, opts);
 

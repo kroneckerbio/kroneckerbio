@@ -108,6 +108,16 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 %           provided, a different AbsTol will be used for each experiment.
 %       .Verbose [ nonnegative integer scalar {1} ]
 %           Bigger number displays more progress information
+%       .ParallelizeExperiments [ logical scalar {false} ]
+%           Set to true to parallelize local optimization over the
+%           experiments. The optimization will use the current parallel
+%           pool, if one is available, or initialize a parallel pool in the
+%           default cluster, if Parallel Toolbox preferences are set to
+%           allow initialization of parallel pools on calling of parallel
+%           keywords. If no pool is available and cannot be initialized,
+%           the optimization will run serially. This option has no effect
+%           on global optimization; set opts.GlobalOpts.UseParallel to true
+%           to parallelize global optimization.
 %       .GlobalOptimization [ logical scalar {false} ]
 %           Use global optimization in addition to fmincon
 %       .GlobalOpts [ options struct scalar {} ]
@@ -171,6 +181,8 @@ defaultOpts.MaxStepSize      = 1;
 defaultOpts.Algorithm        = 'active-set';
 defaultOpts.MaxIter          = 1000;
 defaultOpts.MaxFunEvals      = 5000;
+
+defaultOpts.ParallelizeExperiments = false;
 
 defaultOpts.GlobalOptimization = false;
 defaultOpts.GlobalOpts         = [];
@@ -311,6 +323,89 @@ That = T0;
 Gbest = inf;
 Tbest = T0;
 
+% Check for parallel toolbox if parallel optimization is specified
+if opts.ParallelizeExperiments && isempty(ver('distcomp'))
+    warning('KroneckerBio:FitObjective:ParallelToolboxMissing', ...
+        ['opts.ParallelizeExperiments requires the Parallel '...
+        'Computing toolbox. Reverting to serial evaluation.'])
+    opts.ParallelizeExperiments = false;
+end
+
+% Disable experiment parallelization if global optimization is desired
+if opts.GlobalOptimization && opts.ParallelizeExperiments
+    warning('KroneckerBio:FitObjective:GlobalOptimizationParallelExperimentsNotSupported', ...
+        ['Both opts.GlobalOptimization and opts.ParallelizeExperiments ' ...
+        'were set to true. Disabling parallelized experiments.'])
+    opts.ParallelizeExperiments = false;
+end
+
+% Initialize a parallel pool, or get the current one.
+% Disable experiment parallelization if no pool can be initialized.
+if opts.ParallelizeExperiments
+    
+    p = gcp();
+    if isempty(p)
+        warning('KroneckerBio:FitObjective:NoParallelPool', ...
+            ['opts.ParallelizeExperiments was set to true, ' ...
+            'but no parallel pool could be initialized. '...
+            'Reverting to serial optimization.']);
+        opts.ParallelizeExperiments = false;
+    else
+        NumWorkers = p.NumWorkers;
+    end
+    
+end
+
+if opts.ParallelizeExperiments
+    % Split experiments into worker groups
+    nCon = numel(con);
+    baseNumPerWorker = floor(nCon/NumWorkers);
+    remainder = nCon - baseNumPerWorker*NumWorkers;
+    numPerWorker = repmat(baseNumPerWorker, NumWorkers, 1);
+    numPerWorker(1:remainder) = numPerWorker(1:remainder) + 1;
+    icon_worker = cell(NumWorkers, 1);
+    endi = 0;
+    for ii = 1:NumWorkers
+        starti = endi+1;
+        endi = sum(numPerWorker(1:ii));
+        icon_worker{ii} = (starti:endi)';
+    end
+    
+    % Determine which parameters are fit by which experiments
+    T_experiment = zeros(nT, 1);
+    T_experiment(1:nTk) = 0;
+    nTs_con = sum(opts.UseSeeds,1);
+    nTq_con = cellfun(@sum, opts.UseInputControls(:)');
+    nTh_con = cellfun(@sum, opts.UseDoseControls(:)');
+    nT_con = {nTs_con, nTq_con, nTh_con};
+    endi = nTk;
+    for i_type = 1:3
+        for j_con = 1:nCon
+            starti = endi + 1;
+            endi = endi + nT_con{i_type}(j_con);
+            T_experiment(starti:endi) = j_con;
+        end
+    end
+    
+    % Generate objective function parts for each worker
+    slave_objectives = cell(1,NumWorkers);
+    for ii = 1:NumWorkers
+        slave_objectives{ii} = generateSlaveObjective(m, con, obj, opts, intOpts, T_experiment, icon_worker{ii});
+    end
+    
+    % Distribute slave objective functions to workers
+    spmd
+        slave_objectives = codistributed(slave_objectives);
+    end
+    
+    fminconObjective = @parallelExperimentObjective;
+    
+else
+    
+    fminconObjective = @serialObjective;
+    
+end
+
 for iRestart = 1:opts.Restart+1
     % Init abort parameters
     aborted = false;
@@ -351,7 +446,7 @@ for iRestart = 1:opts.Restart+1
     else
         
         if opts.Verbose; fprintf('Beginning gradient descent...\n'); end
-        [That, G, exitflag, ~, ~, D] = fmincon(@objective, That, [], [], opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], localOpts);
+        [That, G, exitflag, ~, ~, D] = fmincon(fminconObjective, That, [], [], opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], localOpts);
         
     end
     
@@ -407,10 +502,24 @@ end
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% Objective function for fmincon %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [G, D] = objective(T)
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Halt optimization on terminal goal %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function stop = isTerminalObj(x, optimValues, state)
+        if optimValues.fval  < opts.TerminalObj
+            aborted = true;
+            Tabort = x;
+            stop = true;
+        else
+            stop = false;
+        end
+    end
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Serial objective function %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    function [G, D] = serialObjective(T)
         % Reset answers
         G = 0;
         D = zeros(nT,1);
@@ -437,17 +546,133 @@ end
         end
     end
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% Halt optimization on terminal goal %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function stop = isTerminalObj(x, optimValues, state)
-        if optimValues.fval  < opts.TerminalObj
-            aborted = true;
-            Tabort = x;
-            stop = true;
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Master parallel experiment objective function %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    function [G,D] = parallelExperimentObjective(T)
+        
+        if nargout < 2
+            
+            spmd
+                this_slave_objective = getLocalPart(slave_objectives);
+                G_d = this_slave_objective{1}(T);
+            end
+            
         else
-            stop = false;
+            
+            spmd
+                this_slave_objective = getLocalPart(slave_objectives);
+                [G_d, D_d] = this_slave_objective{1}(T);
+            end
+           
+            % Sum slave objective function gradients to get total gradient
+            D = zeros(numel(T),1);
+            for wi = 1:NumWorkers
+                D = D + D_d{wi};
+            end
+            
         end
+        
+        % Sum slave objective function values to get total value
+        G = 0;
+        for wi = 1:NumWorkers
+            G = G + G_d{wi};
+        end
+        
+    end
+
+end
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Slave objective function generator %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function objectivefun = generateSlaveObjective(m, con, obj, opts, intOpts, T_experiment, i_cons)
+% T_experiment:
+%   nT-by-1 vector of experiment indices indicating which experiment fits
+%   each parameter. 0 indicates model parameter fit by all experiments.
+% i_cons:
+%   Vector of experimental indices to be simulated by the slave function.
+
+    nT = numel(T_experiment);
+    
+    % If worker has no experiments assigned, assign a 0-valued objective
+    % function to it
+    if isempty(i_cons)
+        % Clear variables to avoid wasting memory in closure
+        clear m con obj opts intOpts T_experiment
+        
+        objectivefun = @emptyobjective;
+        
+        return
+    end
+
+    % Get information on which parameters need to be used for the worker's
+    % experiments
+    TisWorker = T_experiment == 0 | any(bsxfun(@eq, T_experiment, i_cons(:)'), 2);
+
+    % Filter down input arguments to those relevant to the worker
+    con = con(i_cons);
+    obj = obj(:, i_cons);
+    opts.UseSeeds = opts.UseSeeds(:,i_cons);
+    opts.UseInputControls = opts.UseInputControls(i_cons);
+    opts.UseDoseControls = opts.UseDoseControls(i_cons);
+    opts.ObjWeights = opts.ObjWeights(:,i_cons);
+    if iscell(opts.AbsTol)
+        opts.AbsTol = opts.AbsTol(i_cons);
+    end
+    intOpts.UseSeeds = intOpts.UseSeeds(:,i_cons);
+    intOpts.UseInputControls = intOpts.UseInputControls(i_cons);
+    intOpts.UseDoseControls = intOpts.UseDoseControls(i_cons);
+    intOpts.ObjWeights = intOpts.ObjWeights(:,i_cons);
+    if iscell(intOpts.AbsTol)
+        intOpts.AbsTol = intOpts.AbsTol(i_cons);
+    end
+    
+    % Return worker-specific objective function
+    objectivefun = @objective;
+
+    function [G, D] = objective(T)
+    % Slave objective function
+        
+        % Get portion of T that is relevant to the worker
+        T_worker = T(TisWorker);
+        
+        % Reset answers
+        G = 0;
+        D_worker = zeros(numel(T_worker),1);
+        
+        % Unnormalize
+        if opts.Normalized
+            T_worker = exp(T_worker);
+        else
+            % If fmincon chooses values that violate the lower bounds, force them to be equal to the lower bounds
+            T_worker(T_worker < opts.LowerBound) = opts.LowerBound(T_worker < opts.LowerBound);
+        end
+        
+        % Update parameter sets
+        [m, con] = updateAll(m, con, T_worker, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+        
+        % Integrate system to get objective function value
+        if nargout <= 1
+            G = computeObj(m, con, obj, intOpts);
+        end
+        
+        % Integrate sensitivities or use adjoint to get objective gradient
+        if nargout == 2
+            [G, D_worker] = computeObjGrad(m, con, obj, intOpts);
+        end
+        
+        % Assign back to vector sized for all workers
+        D = zeros(nT, 1);
+        D(TisWorker) = D_worker;
+    end
+
+    function [G, D] = emptyobjective(T)
+        % Function to use if worker has no experiments assigned to it
+        G = 0;
+        D = zeros(nT, 1);
     end
 
 end
