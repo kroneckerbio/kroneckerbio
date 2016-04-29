@@ -1,4 +1,4 @@
-function [obj, opts, mVariant, conVariant] = getRandomExperimentFittingData(m, con, opts, tF, nExperiments, nTotalDataPoints)
+function [obj, opts, mVariant, conVariant] = randomExperimentFittingData(m, con, opts, tF, nExperiments, nTotalDataPoints)
 % Generate random experiments for testing objective-based Kronecker
 % functions with multiple experiments
 % 
@@ -150,7 +150,7 @@ end
 
 % Simulate new experiments to get measurement values
 % Random noise is added according to sd when calling sim.measurements
-sim = SimulateSystem(m, conVariant, obs, opts);
+sim = SimulateSystem(mVariant, conVariant, obs, opts);
 measurements = {sim.measurements};
 
 % Create objective functions
