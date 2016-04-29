@@ -106,6 +106,7 @@ testfun = @test;
         [mfit_parallel, confit_parallel, G_parallel, D_parallel] = ...
             FitObjective(m, repmat(con,nExperiments,1), obj, opts);
 
+        opts.ParallelizeExperiments = false;
         [mfit, confit, G, D] = FitObjective(m, repmat(con,nExperiments,1), obj, opts);
 
         testEqual = @(par, ser, message) a.verifyEqual(par, ser,...
