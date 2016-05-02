@@ -141,7 +141,7 @@ obj = pastestruct(objectiveZero, obj);
         nTs = nnz(sol.UseSeeds);
         VTbars = Vsbar(sol.UseSeeds,sol.UseSeeds);
 
-        if int.Normalized
+        if sol.Normalized
             Tbars = sbar(sol.UseSeeds);
             VTbars = spdiags(Tbars.^(-1),0,nTs,nTs) * VTbars * spdiags(Tbars.^(-1),0,nTs,nTs);
         end
