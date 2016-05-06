@@ -241,36 +241,31 @@ for i = 1:n
 end
 end
 
-function [dydT, sigma] = evaluate_grad(outputlist, timelist, discrete_times, sd, int)
+function [dydT, sigma, dsigmady] = evaluate_grad(outputlist, timelist, discrete_times, sd, int)
 n = numel(outputlist);
 nT = int.nT;
-nx = int.nx;
+ny = int.ny;
 
-x_all = int.x;
-u_all = int.u;
 y_all = int.y;
-dxdT_all = int.dxdT;
+dydT_all = int.dydT;
 
 % Get dydT for every point
 dydT = zeros(n, nT);
 sigma = zeros(n,1);
+dsigmady = zeros(n,1);
 for i = 1:n
     ind = find(discrete_times == timelist(i), 1);
     t_i = timelist(i);
-    x_i = x_all(:,ind);
-    u_i = u_all(:,ind);
-    dxdT_i = reshape(dxdT_all(:,ind), nx,nT); %x_T
-    dydx_i = int.dydx(timelist(i), x_i, u_i);
-    dydx_i = dydx_i(outputlist(i),:);
     
     % Compute this y
     y_i = y_all(outputlist(i),ind);
     
     % Compute dy/dT
-    dydT(i,:) = dydx_i * dxdT_i;
+    dydT_temp = reshape(dydT_all(:,ind), ny, nT);
+    dydT(i,:) = dydT_temp(outputlist(i),:);
     
     % Compute expected V matrix
-    sigma(i) = sd(t_i, outputlist(i), y_i);
+    [sigma(i), dsigmady(i)] = sd(t_i, outputlist(i), y_i);
 end
 end
 
@@ -279,12 +274,25 @@ function val = F(outputlist, timelist, discrete_times, sd, sol)
 n = numel(outputlist);
 
 % Evaluate solution
-[dydT, sigma] = evaluate_grad(outputlist, timelist, discrete_times, sd, sol);
+[dydT, sigma, dsigmady] = evaluate_grad(outputlist, timelist, discrete_times, sd, sol);
+dsigmadT = diag(dsigmady)*dydT;
+dCovdsigma = 2*diag(sigma);
+dCovdT = dCovdsigma*dsigmadT;
+nT = size(dydT,2);
 
 % Assemble variance matrix
 V = spdiags(sigma.^2,0,n,n);
 
 % Fisher information matrix
-val = dydT.' * (V \ dydT);
+covarTerm = zeros(nT);
+diagCovInv = diag(sigma.^-2);
+for m = 1:nT
+    dCovdT_m = diag(dCovdT(:,m));
+    for n = 1:nT
+        dCovdT_n = diag(dCovdT(:,n));
+        covarTerm(m,n) = 1/2*trace(diagCovInv*dCovdT_m*diagCovInv*dCovdT_n);
+    end
+end
+val = dydT.' * (V \ dydT) + covarTerm;
 val = symmat(val);
 end
