@@ -622,6 +622,8 @@ function objectivefun = generateSlaveObjective(m, con, obj, opts, intOpts, T_exp
     if iscell(opts.AbsTol)
         opts.AbsTol = opts.AbsTol(i_cons);
     end
+    opts.LowerBound = opts.LowerBound(TisWorker);
+    opts.UpperBound = opts.UpperBound(TisWorker);
     intOpts.UseSeeds = intOpts.UseSeeds(:,i_cons);
     intOpts.UseInputControls = intOpts.UseInputControls(i_cons);
     intOpts.UseDoseControls = intOpts.UseDoseControls(i_cons);
@@ -629,6 +631,8 @@ function objectivefun = generateSlaveObjective(m, con, obj, opts, intOpts, T_exp
     if iscell(intOpts.AbsTol)
         intOpts.AbsTol = intOpts.AbsTol(i_cons);
     end
+    intOpts.LowerBound = intOpts.LowerBound(TisWorker);
+    intOpts.UpperBound = intOpts.UpperBound(TisWorker);
     
     % Return worker-specific objective function
     objectivefun = @objective;
