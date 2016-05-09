@@ -94,20 +94,20 @@ for i_con = 1:n_con
             Hq_i = spdiags(ints(i_obj).q,0,con(i_con).nq,con(i_con).nq) * Hq_i * spdiags(ints(i_obj).q,0,con(i_con).nq,con(i_con).nq) + spdiags(Dq_i,0,con(i_con).nq,con(i_con).nq);
             Hh_i = spdiags(ints(i_obj).h,0,con(i_con).nh,con(i_con).nh) * Hh_i * spdiags(ints(i_obj).h,0,con(i_con).nh,con(i_con).nh) + spdiags(Dh_i,0,con(i_con).nh,con(i_con).nh);
         end
-        H_disc_i = [Hk_i(opts.UseParams,opts.UseParams), zeros(nTk,nT-nTk);
-                    zeros(nTs,nTk), Hs_i(UseSeeds_i,UseSeeds_i), zeros(nTs,nTq+nTh);
-                    zeros(nTq,nTk+nTs), Hq_i(UseInputControls_i,UseInputControls_i), zeros(nTq,nTh);
-                    zeros(nTh,nT-nTh), Hh_i(UseDoseControls_i,UseDoseControls_i)];
+        H_disc_i = [Hk_i(opts.UseParams,opts.UseParams), zeros(nTk,inT-nTk);
+                    zeros(inTs,nTk), Hs_i(UseSeeds_i,UseSeeds_i), zeros(inTs,inTq+inTh);
+                    zeros(inTq,nTk+inTs), Hq_i(UseInputControls_i,UseInputControls_i), zeros(inTq,inTh);
+                    zeros(inTh,inT-inTh), Hh_i(UseDoseControls_i,UseDoseControls_i)];
         
         n_disc = numel(discrete_times_all{i_obj});
         for i_disc = 1:n_disc
             ti = discrete_times_all{i_obj}(i_disc);
             if obj(i_obj).Complex
-                dydT_i = reshape(ints(i_obj).dydT(ti), ny,nT);
-                d2ydT2_i = reshape(ints(i_obj).d2ydT2(ti), ny,nT*nT);
+                dydT_i = reshape(ints(i_obj).dydT(ti), ny,inT);
+                d2ydT2_i = reshape(ints(i_obj).d2ydT2(ti), ny,inT*inT);
             else
-                dydT_i = reshape(ints(i_obj).dydT(:,i_disc), ny,nT);
-                d2ydT2_i = reshape(ints(i_obj).d2ydT2(:,i_disc), ny,nT*nT);
+                dydT_i = reshape(ints(i_obj).dydT(:,i_disc), ny,inT);
+                d2ydT2_i = reshape(ints(i_obj).d2ydT2(:,i_disc), ny,inT*inT);
             end
             
             dGdy_i = row(obj(i_obj,i_con).dGdy(ti, ints(i_obj)));
@@ -117,7 +117,7 @@ for i_con = 1:n_con
             D_disc_i = D_disc_i + vec(dGdy_i * dydT_i); % _y * y_T -> _T -> T_
             
             % H = (d2Gdy2(t) *{y.y} dydT(t) *{y.y}) dydT(t) + dGdy *{y.y} d2ydT2 + d2GdT2
-            H_disc_i = H_disc_i + dydT_i.' * d2Gdy2_i * dydT_i + reshape(dGdy_i * d2ydT2_i, nT,nT); % (y_T -> T_y) * y_y * y_T -> T_T
+            H_disc_i = H_disc_i + dydT_i.' * d2Gdy2_i * dydT_i + reshape(dGdy_i * d2ydT2_i, inT,inT); % (y_T -> T_y) * y_y * y_T -> T_T
         end
         
         D_disc = D_disc + opts.ObjWeights(i_obj,i_con) * D_disc_i;

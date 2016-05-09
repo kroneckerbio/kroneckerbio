@@ -68,9 +68,37 @@ function testObjectiveHessianSimpleAnalytic(a)
 verifyHessian(a, m, con, obj, opts)
 end
 
+function testObjectiveHessianMichaelisMentenMultipleExperiments(a)
+[m, con, obj, opts] = michaelis_menten_model();
+
+con = repmat(con,2,1);
+obj = repmat(obj,1,2);
+opts.UseSeeds = repmat(logical(opts.UseSeeds),1,2);
+opts.UseSeeds(opts.UseSeeds(:,2),2) = false(size(opts.UseSeeds(:,2)));
+opts.UseInputControls = repmat({logical(opts.UseInputControls)},2,1);
+opts.UseInputControls{2} = false(size(opts.UseInputControls{1}));
+opts.UseDoseControls = repmat({logical(opts.UseDoseControls)},2,1);
+opts.UseDoseControls{2} = false(size(opts.UseDoseControls{1}));
+opts.AbsTol = 1e-9;
+
+verifyHessian(a, m, con, obj, opts)
+end
+
 function verifyHessian(a, m, con, obj, opts)
 opts.ComplexStep = true;
-nT = nnz(opts.UseParams)+nnz(opts.UseSeeds)+nnz(opts.UseInputControls)+nnz(opts.UseDoseControls);
+nTk = nnz(opts.UseParams);
+nTs = nnz(opts.UseSeeds);
+if iscell(opts.UseInputControls)
+    nTq = sum(cellfun(@nnz, opts.UseInputControls));
+else
+    nTq = nnz(opts.UseInputControls);
+end
+if iscell(opts.UseDoseControls)
+    nTh = sum(cellfun(@nnz, opts.UseDoseControls));
+else
+    nTh = nnz(opts.UseDoseControls);
+end
+nT = nTk + nTs + nTq + nTh;
 
 opts.Normalized = false;
 Hfwd = ObjectiveHessian(m, con, obj, opts);
