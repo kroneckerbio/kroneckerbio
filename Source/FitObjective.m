@@ -379,20 +379,22 @@ for iRestart = 1:opts.Restart+1
     
     % Jump parameters before restarting
     % Retain the deterministic nature of fitting by fixing the stream
-    rng_state = rng;
-    prodThat = prod(That); % model fingerprint
-    rng(mod(prodThat/eps(prodThat)*iRestart,2^32));
-    if opts.Normalized
-        That = Tbest + randn(nT,1) .* vec(opts.RestartJump(iRestart,G));
-    else
-        That = exp(log(Tbest) + randn(nT,1) .* vec(opts.RestartJump(iRestart,G)));
-    end
-    rng(rng_state);
-    
-    % Prevent jumps from leaving bounds
-    while any(That < opts.LowerBound) || any(That > opts.UpperBound)
-        That(That < opts.LowerBound) = 2*(opts.LowerBound(That < opts.LowerBound)) - That(That < opts.LowerBound);
-        That(That > opts.UpperBound) = 2*(opts.UpperBound(That > opts.UpperBound)) - That(That > opts.UpperBound);
+    if iRestart < opts.Restart + 1
+        rng_state = rng;
+        prodThat = prod(That); % model fingerprint
+        rng(mod(prodThat/eps(prodThat)*iRestart,2^32));
+        if opts.Normalized
+            That = Tbest + randn(nT,1) .* vec(opts.RestartJump(iRestart,G));
+        else
+            That = exp(log(Tbest) + randn(nT,1) .* vec(opts.RestartJump(iRestart,G)));
+        end
+        rng(rng_state);
+        
+        % Prevent jumps from leaving bounds
+        while any(That < opts.LowerBound) || any(That > opts.UpperBound)
+            That(That < opts.LowerBound) = 2*(opts.LowerBound(That < opts.LowerBound)) - That(That < opts.LowerBound);
+            That(That > opts.UpperBound) = 2*(opts.UpperBound(That > opts.UpperBound)) - That(That > opts.UpperBound);
+        end
     end
 end
 

@@ -9,14 +9,14 @@ end
 
 % Check inputs
 n = numel(sbar);
-assert(ismatrix(Vsbar) && all(size(Vsbar) == [n,n]), 'KroneckerBio:objectiveNormalizedNormalPriorOnKineticParameters:Vsize', 'Input "Vsbar" must be a square matrix of numel(sbar)')
+assert(ismatrix(Vsbar) && all(size(Vsbar) == [n,n]), 'KroneckerBio:objectiveNormalizedNormalPriorOnSeedParameters:Vsize', 'Input "Vsbar" must be a square matrix of numel(sbar)')
 
 if isempty(name)
 	name = 'NormalizedNormalPriorOnSeedParameters';
 end
 
 % Objective structure
-obj.Type = 'Objective.Information.NormalizedNormalPriorOnKineticParameters';
+obj.Type = 'Objective.Information.NormalizedNormalPriorOnSeedParameters';
 obj.Name = name;
 
 obj.Continuous    = false;

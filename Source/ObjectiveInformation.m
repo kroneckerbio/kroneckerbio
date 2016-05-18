@@ -206,7 +206,7 @@ for i_con = 1:n_con
     
     % h parameters are different
     Thind = nnz(cat(1,opts.UseDoseControls{1:i_con-1}));
-    linInd(nTk+inTs+inTq+1:nTk+inTs+inTq+inTh) = nTk+nTs+nTq+Thind+1:nTk+nTs+nTq+Thind+inTq;
+    linInd(nTk+inTs+inTq+1:nTk+inTs+inTq+inTh) = nTk+nTs+nTq+Thind+1:nTk+nTs+nTq+Thind+inTh;
 
     % Reshape Fi
     Fout = zeros(nT,nT);
