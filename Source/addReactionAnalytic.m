@@ -1,7 +1,7 @@
 function m = addReactionAnalytic(m, name, reactants, products, forward, reverse, compartment)
 %AddReaction Add a reaction to a Model.Analytic
 %
-%   m = AddReaction(m, name, reactants, products, kForward, kReverse, compartment)
+%   m = AddReaction(m, name, reactants, products, forward, reverse, compartment)
 %
 %   A reaction is a conversion of zero or more reactant species into zero
 %   or more product species associated with a rate expression. The reverse
@@ -28,9 +28,9 @@ function m = addReactionAnalytic(m, name, reactants, products, forward, reverse,
 %       model, unless a reaction compartment is supplied.
 %   products: [ cell array of strings | string | empty ]
 %       A list of species names produced by this reaction. Like reactants.
-%   kForward: [ string ]
+%   forward: [ string ]
 %       Expression for forward reaction rate
-%   kReverse: [ string | empty {''} ]
+%   reverse: [ string | empty {''} ]
 %       Expression for reverse reaction rate
 %   compartment: [ string | empty {''} ]
 %       A compartment name.
@@ -71,8 +71,8 @@ reactants = fixReactionSpecies(reactants);
 products  = fixReactionSpecies(products);
 
 % Standardize reaction rate expressions
-warnAboutQuotedFullName(forward)
-warnAboutQuotedFullName(reverse)
+forward = fixRateExpressionAnalytic(forward);
+reverse = fixRateExpressionAnalytic(reverse);
 
 % Add separate reactions for forward and reverse (if applicable)
 if ~isempty(forward)

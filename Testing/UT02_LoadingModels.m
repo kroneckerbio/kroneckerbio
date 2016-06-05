@@ -53,7 +53,7 @@ m = LoadModelSbmlAnalytic('enzyme-catalysis-basic.xml');
 m = AddOutput(m, 'complex', '"E:S"');
 m = AddOutput(m, 'product', '"S#P"');
 m = AddOutput(m, 'modified_product', '1.5*"S#P"');
-m = AddOutput(m, 'random_y', '"E:S" + sqrt("S")');
+m = AddOutput(m, 'random_y', '"E:S" + sqrt(S)');
 
 a.verifyEqual(m.ny, 4);
 a.verifyEqual(m.Outputs(1).Name, 'complex');

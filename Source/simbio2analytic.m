@@ -193,20 +193,21 @@ end
 end
 
 function expressions = clean_simbio_expression(expressions)
-% Assume Simbiology models cannot contain brackets in their names. These
-% are special characters. Find all identifiers that are exclosed between
-% brackets and replace the brackets with quotes.
+% Assume Simbiology models cannot contain brackets or dots in their names.
+% These are special characters. Find all identifiers that are exclosed
+% between brackets and enclose the entire species in quotes.
+
+% Only match the species that have brackets
+identifier = '(\<[A-Za-z_][A-Za-z0-9_]*\>)';
+quoted = '(\[[^\[\]]*\])';
+name = ['(' quoted '|' identifier ')'];
+species = ['(' quoted '(\.' name ')?)|(' identifier '\.' quoted ')'];
 
 temp = @transmute; % Matlab bug can't find local functions
-expressions = regexprep(expressions, '(\[[^\[\]]*\])', '${temp($1)}');
+expressions = regexprep(expressions, species, '${temp($1)}');
 
     function output = transmute(input)
-        if input(1) == '['
-            % Quoted branch
-            output = ['"' input(2:end-1) '"'];
-        else
-            % Dot branch
-            output = ['"' input '"'];
-        end
+        % Strip simbio quotes, add kronecker quotes
+        output = ['"' input(~ismember(input, '[]')) '"'];
     end
 end

@@ -173,11 +173,34 @@ a.verifyError(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:AmbiguousSpeci
 test = AddReaction(m, '', 'x1', {}, 'k*x2', '', 'v1');
 a.verifyError(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:MissingSpeciesInReactionCompartment')
 
-test = AddReaction(m, '', 'x2', {}, 'k*"x2"', '', 'v1');
+test = AddReaction(m, '', 'x2', {}, 'k*x2', '', 'v1');
 a.verifyError(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:MissingSpeciesInReactionCompartment')
 
-test = AddReaction(m, '', 'x1', {}, 'k*"x1"', '', 'v3');
+test = AddReaction(m, '', 'x1', {}, 'k*x1', '', 'v3');
 a.verifyError(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:MissingReactionCompartment')
+end
+
+function testExtraQuotesWarnings(a)
+m = InitializeModelAnalytic();
+m = AddCompartment(m, 'v1-', 3, 1);
+m = AddCompartment(m, 'v2', 3, 1);
+m = AddState(m, 'x1*', 'v1');
+m = AddState(m, 'x2', 'v1');
+m = AddParameter(m, 'k', 4);
+
+a.verifyWarning(@()AddReaction(m, '', 'x1*', '', 'k*"v1-"."x1*"'), 'KroneckerBio:UnnecessaryQuotedSpecies')
+a.verifyWarningFree(@()AddReaction(m, '', 'x1*', '', 'k*"v1-.x1*"'))
+a.verifyWarning(@()AddReaction(m, '', 'x2', '', 'k*"v2.x2"'), 'KroneckerBio:UnnecessaryQuotedSpecies')
+a.verifyWarning(@()AddReaction(m, '', 'x2', '', 'k*"v2"."x2"'), 'KroneckerBio:UnnecessaryQuotedSpecies')
+a.verifyWarningFree(@()AddReaction(m, '', 'x2', '', 'k*v2.x2'))
+a.verifyWarningFree(@()AddReaction(m, '', 'x1*', '', 'k*"x1*"'))
+a.verifyWarning(@()AddReaction(m, '', 'x2', '', 'k*"x2"'), 'KroneckerBio:UnnecessaryQuotedSpecies')
+a.verifyWarningFree(@()AddReaction(m, '', 'x2', '', 'k*x2'))
+
+% Not bothering to check all combinations because they all call the same code
+a.verifyWarning(@()AddCompartment(m, 'v3', 3, '"v1-"."x1*"'), 'KroneckerBio:UnnecessaryQuotedSpecies')
+a.verifyWarning(@()AddRule(m, 'z1', 'k*k*"v1-"."x1*"'), 'KroneckerBio:UnnecessaryQuotedSpecies')
+a.verifyWarning(@()AddOutput(m, 'z1', 'k*k*"v1-"."x1*"'), 'KroneckerBio:UnnecessaryQuotedSpecies')
 end
 
 function testAddReactionsWithEmptyNames(a)

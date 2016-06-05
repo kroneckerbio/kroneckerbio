@@ -1,9 +1,9 @@
-function expr = fixRateExpressionAnalytic(expr)
+function expression = fixRateExpressionAnalytic(expression)
 
-if isempty(expr) || (isnumeric(expr) && isscalar(expr) && expr == 0)
-    expr = '';
-elseif ischar(expr)
-    % pass
+if isempty(expression) || (isnumeric(expression) && isscalar(expression) && expression == 0)
+    expression = '';
+elseif ischar(expression)
+    warnAboutQuotedFullName(expression)
 else
-    error('fixRateExpressionAnalytic: invalid rate expression')
+    error('KroneckerBio:Reaction:forward_reverse', 'Invalid rate expression')
 end

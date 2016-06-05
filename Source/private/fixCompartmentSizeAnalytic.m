@@ -9,5 +9,5 @@ elseif isnumeric(size) && isscalar(size)
     end
     size = num2str(size);
 else
-    error('fixCompartmentSizeAnalytic: invalid compartment size')
+    error('KroneckerBio:Compartment:size', 'Invalid compartment size')
 end
