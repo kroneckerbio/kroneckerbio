@@ -14,4 +14,4 @@ KroneckerBio is written entirely in Matlab. No compilation is necessary. Simply 
 
 At the moment, KroneckerBio has a brief tutorial that covers the basics of model building and import, simulation, and fitting. The `T0x` scripts in the `Tutorial` folder cover a broad range of common uses of toolbox. The help sections of each Matlab function should be mostly up-to-date.
 
-In addition to the tutorial, email the lead developer [David Hagen](`david@drhagen.com`) for help in using KroneckerBio. Bugs can also be reported to him or in the GitHub issues tab.
+In addition to the tutorial, ask a question on the [mailing list](https://groups.google.com/forum/#!forum/kroneckerbio-users) for help in using KroneckerBio. Bugs can also be reported here or in the issues tab of the [GitHub repository](https://github.com/kroneckerbio/kroneckerbio).
