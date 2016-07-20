@@ -311,282 +311,287 @@ nonzero_map('xk') = x0hask;
 if verbose; fprintf('\n'); end
 
 %% Generate derivatives of desired order
+d = [];
 if order >= 1
     % Gradient of r with respect to x
     if verbose; fprintf('Calculating drdx...'); end
-    drdx = calculate_derivative(r, x_syms, 'r', {'x'});
+    d.rdx = calculate_derivative(r, x_syms, 'r', {'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to u
     if verbose; fprintf('Calculating drdu...'); end
-    drdu = calculate_derivative(r, u_syms, 'r', {'u'});
+    d.rdu = calculate_derivative(r, u_syms, 'r', {'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of r with respect to k
     if verbose; fprintf('Calculating drdk...'); end
-    drdk = calculate_derivative(r, k_syms, 'r', {'k'});
+    d.rdk = calculate_derivative(r, k_syms, 'r', {'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to x
     if verbose; fprintf('Calculating dfdx...'); end
-    dfdx = S_sym*drdx;
+    d.fdx = S_sym*d.rdx;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to u
     if verbose; fprintf('Calculating dfdu...'); end
-    dfdu = S_sym*drdu;
+    d.fdu = S_sym*d.rdu;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of f with respect to k
     if verbose; fprintf('Calculating dfdk...'); end
-    dfdk = S_sym*drdk;
+    d.fdk = S_sym*d.rdk;
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to x
     if verbose; fprintf('Calculating dydx...'); end
-    dydx = calculate_derivative(y, x_syms, 'y', {'x'});
+    d.ydx = calculate_derivative(y, x_syms, 'y', {'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to u
     if verbose; fprintf('Calculating dydu...'); end
-    dydu = calculate_derivative(y, u_syms, 'y', {'u'});
+    d.ydu = calculate_derivative(y, u_syms, 'y', {'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of y with respect to k
     if verbose; fprintf('Calculating dydk...'); end
-    dydk = calculate_derivative(y, k_syms, 'y', {'k'});
+    d.ydk = calculate_derivative(y, k_syms, 'y', {'k'});
     if verbose; fprintf('Done.\n'); end
-
+    
     % Gradient of x0 with respect to s
     if verbose; fprintf('Calculating dx0ds...'); end
-    dx0ds = calculate_derivative(x0, s_syms, 'x', {'s'});
+    d.x0ds = calculate_derivative(x0, s_syms, 'x', {'s'});
     if verbose; fprintf('Done.\n'); end
-
+    
     % Gradient of x0 with respect to k
     if verbose; fprintf('Calculating dx0k...'); end
-    dx0dk = calculate_derivative(x0, k_syms, 'x', {'k'});
+    d.x0dk = calculate_derivative(x0, k_syms, 'x', {'k'});
     if verbose; fprintf('Done.\n'); end
 else
-    drdx = '';
-    drdk = '';
-    dfdx = '';
-    dfdk = '';
-    dydx = '';
-    dydu = '';
-    dydk = '';
-    dx0ds = '';
-    dx0k = '';
+    d.rdx = '';
+    d.rdu = '';
+    d.rdk = '';
+    d.fdx = '';
+    d.fdu = '';
+    d.fdk = '';
+    d.ydx = '';
+    d.ydu = '';
+    d.ydk = '';
+    d.x0ds = '';
+    d.x0dk = '';
 end
 
+d2 = [];
 if order >= 2
     % Gradient of drdx with respect to x
     if verbose; fprintf('Calculating d2rdx2...'); end
-    d2rdx2 = calculate_derivative(drdx, x_syms, 'r', {'x','x'});
+    d2.rdx2 = calculate_derivative(d.rdx, x_syms, 'r', {'x','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to u
     if verbose; fprintf('Calculating d2rdu2...'); end
-    d2rdu2 = calculate_derivative(drdu, u_syms, 'r', {'u','u'});
+    d2.rdu2 = calculate_derivative(d.rdu, u_syms, 'r', {'u','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to x
     if verbose; fprintf('Calculating d2rdxdu...'); end
-    d2rdxdu = calculate_derivative(drdu, x_syms, 'r', {'u','x'});
+    d2.rdxdu = calculate_derivative(d.rdu, x_syms, 'r', {'u','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdx with respect to u
     if verbose; fprintf('Calculating d2rdudx...'); end
-    d2rdudx = calculate_derivative(drdx, u_syms, 'r', {'x','u'});
+    d2.rdudx = calculate_derivative(d.rdx, u_syms, 'r', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to k
     if verbose; fprintf('Calculating d2rdk2...'); end
-    d2rdk2 = calculate_derivative(drdk, k_syms, 'r', {'k','k'});
+    d2.rdk2 = calculate_derivative(d.rdk, k_syms, 'r', {'k','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdx with respect to k
     if verbose; fprintf('Calculating d2rdkdx...'); end
-    d2rdkdx = calculate_derivative(drdx, k_syms, 'r', {'x','k'});
+    d2.rdkdx = calculate_derivative(d.rdx, k_syms, 'r', {'x','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdu with respect to k
     if verbose; fprintf('Calculating d2rdkdu...'); end
-    d2rdkdu = calculate_derivative(drdu, k_syms, 'r', {'u','k'});
+    d2.rdkdu = calculate_derivative(d.rdu, k_syms, 'r', {'u','k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to x
     if verbose; fprintf('Calculating d2rdxdk...'); end
-    d2rdxdk = calculate_derivative(drdk, x_syms, 'r', {'k','x'});
+    d2.rdxdk = calculate_derivative(d.rdk, x_syms, 'r', {'k','x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of drdk with respect to u
     if verbose; fprintf('Calculating d2rdudk...'); end
-    d2rdudk = calculate_derivative(drdk, u_syms, 'r', {'k','u'});
+    d2.rdudk = calculate_derivative(d.rdk, u_syms, 'r', {'k','u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to x
     if verbose; fprintf('Calculating d2fdx2...'); end
-    d2fdx2 = S_sym*reshape_derivative(d2rdx2, [nr nx*nx], 'r', {'x' 'x'});
-    d2fdx2 = reshape_derivative(d2fdx2, [nx*nx nx], 'f', {'x' 'x'});
+    d2.fdx2 = S_sym*reshape_derivative(d2.rdx2, [nr nx*nx], 'r', {'x' 'x'});
+    d2.fdx2 = reshape_derivative(d2.fdx2, [nx*nx nx], 'f', {'x' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to u
     if verbose; fprintf('Calculating d2fdu2...'); end
-    d2fdu2 = S_sym*reshape_derivative(d2rdu2, [nr,nu*nu], 'r', {'u' 'u'});
-    d2fdu2 = reshape_derivative(d2fdu2, [nx*nu,nu], 'f', {'u' 'u'});
+    d2.fdu2 = S_sym*reshape_derivative(d2.rdu2, [nr,nu*nu], 'r', {'u' 'u'});
+    d2.fdu2 = reshape_derivative(d2.fdu2, [nx*nu,nu], 'f', {'u' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to x
     if verbose; fprintf('Calculating d2fdxdu...'); end
-    d2fdxdu = S_sym*reshape_derivative(d2rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
-    d2fdxdu = reshape_derivative(d2fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
+    d2.fdxdu = S_sym*reshape_derivative(d2.rdxdu, [nr,nu*nx], 'r', {'u' 'x'});
+    d2.fdxdu = reshape_derivative(d2.fdxdu, [nx*nu,nx], 'f', {'u' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to u
     if verbose; fprintf('Calculating d2fdudx...'); end
-    d2fdudx = S_sym*reshape_derivative(d2rdudx, [nr,nx*nu], 'r', {'x' 'u'});
-    d2fdudx = reshape_derivative(d2fdudx, [nx*nx,nu], 'f', {'x' 'u'});
+    d2.fdudx = S_sym*reshape_derivative(d2.rdudx, [nr,nx*nu], 'r', {'x' 'u'});
+    d2.fdudx = reshape_derivative(d2.fdudx, [nx*nx,nu], 'f', {'x' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to k
     if verbose; fprintf('Calculating d2fdk2...'); end
-    d2fdk2 = S_sym*reshape_derivative(d2rdk2, [nr,nk*nk], 'r', {'k' 'k'});
-    d2fdk2 = reshape_derivative(d2fdk2, [nx*nk,nk], 'f', {'k' 'k'});
+    d2.fdk2 = S_sym*reshape_derivative(d2.rdk2, [nr,nk*nk], 'r', {'k' 'k'});
+    d2.fdk2 = reshape_derivative(d2.fdk2, [nx*nk,nk], 'f', {'k' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdx with respect to k
     if verbose; fprintf('Calculating d2fdkdx...'); end
-    d2fdkdx = S_sym*reshape_derivative(d2rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
-    d2fdkdx = reshape_derivative(d2fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
+    d2.fdkdx = S_sym*reshape_derivative(d2.rdkdx, [nr,nx*nk], 'r', {'x' 'k'});
+    d2.fdkdx = reshape_derivative(d2.fdkdx, [nx*nx,nk], 'f', {'x' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdu with respect to k
     if verbose; fprintf('Calculating d2fdkdu...'); end
-    d2fdkdu = S_sym*reshape_derivative(d2rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
-    d2fdkdu = reshape_derivative(d2fdkdu, [nx*nu,nk], 'f',{'u' 'k'});
+    d2.fdkdu = S_sym*reshape_derivative(d2.rdkdu, [nr,nu*nk], 'r',{'u' 'k'});
+    d2.fdkdu = reshape_derivative(d2.fdkdu, [nx*nu,nk], 'f',{'u' 'k'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to x
     if verbose; fprintf('Calculating d2fdxdk...'); end
-    d2fdxdk = S_sym*reshape_derivative(d2rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
-    d2fdxdk = reshape_derivative(d2fdxdk, [nx*nk,nx], 'f',{'k' 'x'});
+    d2.fdxdk = S_sym*reshape_derivative(d2.rdxdk, [nr,nk*nx], 'r',{'k' 'x'});
+    d2.fdxdk = reshape_derivative(d2.fdxdk, [nx*nk,nx], 'f',{'k' 'x'});
     if verbose; fprintf('Done.\n'); end
     
     % Gradient of dfdk with respect to u
     if verbose; fprintf('Calculating d2fdudk...'); end
-    d2fdudk = S_sym*reshape_derivative(d2rdudk, [nr,nk*nu], 'r',{'k' 'u'});
-    d2fdudk = reshape_derivative(d2fdudk, [nx*nk,nu], 'f',{'k' 'u'});
+    d2.fdudk = S_sym*reshape_derivative(d2.rdudk, [nr,nk*nu], 'r',{'k' 'u'});
+    d2.fdudk = reshape_derivative(d2.fdudk, [nx*nk,nu], 'f',{'k' 'u'});
     if verbose; fprintf('Done.\n'); end
     
     % Output's second derivatives
     if verbose; fprintf('Calculating d2ydx2...'); end
-    d2ydx2 = calculate_derivative(dydx, x_syms, 'y', {'x','x'});
+    d2.ydx2 = calculate_derivative(d.ydx, x_syms, 'y', {'x','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydu2...'); end
-    d2ydu2 = calculate_derivative(dydu, u_syms, 'y', {'u','u'});
+    d2.ydu2 = calculate_derivative(d.ydu, u_syms, 'y', {'u','u'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydk2...'); end
-    d2ydk2 = calculate_derivative(dydk, k_syms, 'y', {'k','k'});
+    d2.ydk2 = calculate_derivative(d.ydk, k_syms, 'y', {'k','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydudx...'); end
-    d2ydudx = calculate_derivative(dydx, u_syms, 'y', {'x','u'});
+    d2.ydudx = calculate_derivative(d.ydx, u_syms, 'y', {'x','u'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydkdx...'); end
-    d2ydkdx = calculate_derivative(dydx, k_syms, 'y', {'x','k'});
+    d2.ydkdx = calculate_derivative(d.ydx, k_syms, 'y', {'x','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydxdu...'); end
-    d2ydxdu = calculate_derivative(dydu, x_syms, 'y', {'u','x'});
+    d2.ydxdu = calculate_derivative(d.ydu, x_syms, 'y', {'u','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydkdu...'); end
-    d2ydkdu = calculate_derivative(dydu, k_syms, 'y', {'u','k'});
+    d2.ydkdu = calculate_derivative(d.ydu, k_syms, 'y', {'u','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydxdk...'); end
-    d2ydxdk = calculate_derivative(dydk, x_syms, 'y', {'k','x'});
+    d2.ydxdk = calculate_derivative(d.ydk, x_syms, 'y', {'k','x'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2ydudk...'); end
-    d2ydudk = calculate_derivative(dydk, u_syms, 'y', {'k','u'});
+    d2.ydudk = calculate_derivative(d.ydk, u_syms, 'y', {'k','u'});
     if verbose; fprintf('Done.\n'); end
-
+    
     if verbose; fprintf('Calculating d2x0ds2...'); end
-    d2x0ds2 = calculate_derivative(dx0ds, s_syms, 'x', {'s','s'});
+    d2.x0ds2 = calculate_derivative(d.x0ds, s_syms, 'x', {'s','s'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2x0dk2...'); end
-    d2x0dk2 = calculate_derivative(dx0dk, k_syms, 'x', {'k','k'});
+    d2.x0dk2 = calculate_derivative(d.x0dk, k_syms, 'x', {'k','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2x0dkds...'); end
-    d2x0dkds = calculate_derivative(dx0ds, k_syms, 'x', {'s','k'});
+    d2.x0dkds = calculate_derivative(d.x0ds, k_syms, 'x', {'s','k'});
     if verbose; fprintf('Done.\n'); end
     
     if verbose; fprintf('Calculating d2x0dsdk...'); end
-    d2x0dsdk = calculate_derivative(dx0dk, s_syms, 'x', {'k','s'});
+    d2.x0dsdk = calculate_derivative(d.x0dk, s_syms, 'x', {'k','s'});
     if verbose; fprintf('Done.\n'); end
 else
-    d2rdx2  = '';
-    d2rdu2  = '';
-    d2rdxdu = '';
-    d2rdudx = '';
-    d2rdk2  = '';
-    d2rdkdx = '';
-    d2rdkdu = '';
-    d2rdxdk = '';
-    d2rdudk = '';
-    d2fdx2  = '';
-    d2fdu2  = '';
-    d2fdxdu = '';
-    d2fdudx = '';
-    d2fdk2  = '';
-    d2fdkdx = '';
-    d2fdkdu = '';
-    d2fdxdk = '';
-    d2fdudk = '';
-    d2ydx2 = '';
-    d2ydu2 = '';
-    d2ydk2 = '';
-    d2ydudx = '';
-    d2ydkdx = '';
-    d2ydxdu = '';
-    d2ydkdu = '';
-    d2ydxdk = '';
-    d2ydudk = '';
-    d2x0ds2 = '';
-    d2x0dk2 = '';
-    d2x0dkds = '';
-    d2x0dsdk = '';
+    d2.rdx2  = '';
+    d2.rdu2  = '';
+    d2.rdxdu = '';
+    d2.rdudx = '';
+    d2.rdk2  = '';
+    d2.rdkdx = '';
+    d2.rdkdu = '';
+    d2.rdxdk = '';
+    d2.rdudk = '';
+    d2.fdx2  = '';
+    d2.fdu2  = '';
+    d2.fdxdu = '';
+    d2.fdudx = '';
+    d2.fdk2  = '';
+    d2.fdkdx = '';
+    d2.fdkdu = '';
+    d2.fdxdk = '';
+    d2.fdudk = '';
+    d2.ydx2 = '';
+    d2.ydu2 = '';
+    d2.ydk2 = '';
+    d2.ydudx = '';
+    d2.ydkdx = '';
+    d2.ydxdu = '';
+    d2.ydkdu = '';
+    d2.ydxdk = '';
+    d2.ydudk = '';
+    d2.x0ds2 = '';
+    d2.x0dk2 = '';
+    d2.x0dkds = '';
+    d2.x0dsdk = '';
 end
 
+d3 = [];
 if order >= 3
-    %Gradient of d2rdx2 with respect to x
-    d3rdx3 = calculate_derivative(d2rdx2, x_syms, 'r', {'x','x','x'});
+    % Gradient of d2rdx2 with respect to x
+    d3.rdx3 = calculate_derivative(d2.rdx2, x_syms, 'r', {'x','x','x'});
     
-    %Gradient of d2rdx2 with respect to k
-    d3rdkdx2 = calculate_derivative(d2rdx2, k_syms, 'r', {'x','x','k'});
+    % Gradient of d2rdx2 with respect to k
+    d3.rdkdx2 = calculate_derivative(d2.rdx2, k_syms, 'r', {'x','x','k'});
     
-    %Gradient of d2fdx2 with respect to x
-    d3fdx3 = S_sym*reshape_derivative(d3rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
-    d3fdx3 = reshape_derivative(d3fdx3, [xn*nx*nx,nx], 'f',{'x' 'x' 'x'});
+    % Gradient of d2fdx2 with respect to x
+    d3.fdx3 = S_sym*reshape_derivative(d3.rdx3, [nr,nx*nx*nx], 'r',{'x' 'x' 'x'});
+    d3.fdx3 = reshape_derivative(d3.fdx3, [xn*nx*nx,nx], 'f',{'x' 'x' 'x'});
     
-    %Gradient of d2fdx2 with respect to k
-    d3fdkdx2 = S_sym*reshape_derivative(d3rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
-    d3fdkdx2 = reshape_derivative(d3fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
+    % Gradient of d2fdx2 with respect to k
+    d3.fdkdx2 = S_sym*reshape_derivative(d3.rdkdx2, [nr,nx*nx*nk], 'r',{'x' 'x' 'k'});
+    d3.fdkdx2 = reshape_derivative(d3.fdkdx2, [nx*nx*nx,nk], 'f',{'x' 'x' 'k'});
     
     % Gradient of d2x0ds2 with respect to s
-    d3x0ds3 = calculate_derivative(d2x0ds2, s_syms, 'x', {'s','s','s'});
+    d3.x0ds3 = calculate_derivative(d2.x0ds2, s_syms, 'x', {'s','s','s'});
 else
-    d3rdx3   = '';
-    d3rdkdx2 = '';
-    d3fdx3   = '';
-    d3fdkdx2 = '';
-    d3x0ds3  = '';
+    d3.rdx3   = '';
+    d3.rdkdx2 = '';
+    d3.fdx3   = '';
+    d3.fdkdx2 = '';
+    d3.x0ds3  = '';
 end
 
 %% Convert symbolic expressions to function handles
@@ -604,83 +609,80 @@ y        = symbolic2function(y, 'y', {});
 x0       = symbolic2function(x0, 'x', {});
 
 if order >= 1
-    dfdx     = symbolic2function(dfdx, 'f', 'x');
-    dfdu     = symbolic2function(dfdu, 'f', 'u');
-    dfdk     = symbolic2function(dfdk, 'f', 'k');
-
-    drdx     = symbolic2function(drdx, 'r', 'x');
-    drdu     = symbolic2function(drdu, 'r', 'u');
-    drdk     = symbolic2function(drdk, 'r', 'k');
+    d.fdx     = symbolic2function(d.fdx, 'f', 'x');
+    d.fdu     = symbolic2function(d.fdu, 'f', 'u');
+    d.fdk     = symbolic2function(d.fdk, 'f', 'k');
     
-    dydx     = symbolic2function(dydx, 'y', 'x');
-    dydu     = symbolic2function(dydu, 'y', 'u');
-    dydk     = symbolic2function(dydk, 'y', 'k');
+    d.rdx     = symbolic2function(d.rdx, 'r', 'x');
+    d.rdu     = symbolic2function(d.rdu, 'r', 'u');
+    d.rdk     = symbolic2function(d.rdk, 'r', 'k');
     
-    dx0ds    = symbolic2function(dx0ds, 'x', 's');
-    dx0dk    = symbolic2function(dx0dk, 'x', 'k');
+    d.ydx     = symbolic2function(d.ydx, 'y', 'x');
+    d.ydu     = symbolic2function(d.ydu, 'y', 'u');
+    d.ydk     = symbolic2function(d.ydk, 'y', 'k');
+    
+    d.x0ds    = symbolic2function(d.x0ds, 'x', 's');
+    d.x0dk    = symbolic2function(d.x0dk, 'x', 'k');
 end
 
 if order >= 2
-    d2fdx2   = symbolic2function(d2fdx2, 'f', {'x' 'x'});
-    d2fdu2   = symbolic2function(d2fdu2, 'f', {'u' 'u'});
-    d2fdk2   = symbolic2function(d2fdk2, 'f', {'k' 'k'});
-    d2fdudx  = symbolic2function(d2fdudx, 'f', {'x' 'u'});
-    d2fdxdu  = symbolic2function(d2fdxdu, 'f', {'u' 'x'});
-    d2fdkdx  = symbolic2function(d2fdkdx, 'f', {'x' 'k'});
-    d2fdxdk  = symbolic2function(d2fdxdk, 'f', {'k' 'x'});
-    d2fdkdu  = symbolic2function(d2fdkdu, 'f', {'u' 'k'});
-    d2fdudk  = symbolic2function(d2fdudk, 'f', {'k' 'u'});
-
-    d2rdx2   = symbolic2function(d2rdx2, 'r', {'x' 'x'});
-    d2rdu2   = symbolic2function(d2rdu2, 'r', {'u' 'u'});
-    d2rdxdu  = symbolic2function(d2rdxdu, 'r', {'u' 'x'});
-    d2rdudx  = symbolic2function(d2rdudx, 'r', {'x' 'u'});
-    d2rdk2   = symbolic2function(d2rdk2, 'r', {'k' 'k'});
-    d2rdkdx  = symbolic2function(d2rdkdx, 'r', {'x' 'k'});
-    d2rdkdu  = symbolic2function(d2rdkdu, 'r', {'u' 'k'});
-    d2rdxdk  = symbolic2function(d2rdxdk, 'r', {'k' 'x'});
-    d2rdudk  = symbolic2function(d2rdudk, 'r', {'k' 'u'});
+    d2.fdx2   = symbolic2function(d2.fdx2, 'f', {'x' 'x'});
+    d2.fdu2   = symbolic2function(d2.fdu2, 'f', {'u' 'u'});
+    d2.fdk2   = symbolic2function(d2.fdk2, 'f', {'k' 'k'});
+    d2.fdudx  = symbolic2function(d2.fdudx, 'f', {'x' 'u'});
+    d2.fdxdu  = symbolic2function(d2.fdxdu, 'f', {'u' 'x'});
+    d2.fdkdx  = symbolic2function(d2.fdkdx, 'f', {'x' 'k'});
+    d2.fdxdk  = symbolic2function(d2.fdxdk, 'f', {'k' 'x'});
+    d2.fdkdu  = symbolic2function(d2.fdkdu, 'f', {'u' 'k'});
+    d2.fdudk  = symbolic2function(d2.fdudk, 'f', {'k' 'u'});
     
-    d2ydx2   = symbolic2function(d2ydx2,  'y', {'x' 'x'});
-    d2ydu2   = symbolic2function(d2ydu2,  'y', {'u' 'u'});
-    d2ydk2   = symbolic2function(d2ydk2,  'y', {'k' 'k'});
-    d2ydudx  = symbolic2function(d2ydudx, 'y', {'x' 'u'});
-    d2ydkdx  = symbolic2function(d2ydkdx, 'y', {'x' 'k'});
-    d2ydxdu  = symbolic2function(d2ydxdu, 'y', {'u' 'x'});
-    d2ydkdu  = symbolic2function(d2ydkdu, 'y', {'u' 'k'});
-    d2ydxdk  = symbolic2function(d2ydxdk, 'y', {'k' 'x'});
-    d2ydudk  = symbolic2function(d2ydudk, 'y', {'k' 'u'});
+    d2.rdx2   = symbolic2function(d2.rdx2, 'r', {'x' 'x'});
+    d2.rdu2   = symbolic2function(d2.rdu2, 'r', {'u' 'u'});
+    d2.rdxdu  = symbolic2function(d2.rdxdu, 'r', {'u' 'x'});
+    d2.rdudx  = symbolic2function(d2.rdudx, 'r', {'x' 'u'});
+    d2.rdk2   = symbolic2function(d2.rdk2, 'r', {'k' 'k'});
+    d2.rdkdx  = symbolic2function(d2.rdkdx, 'r', {'x' 'k'});
+    d2.rdkdu  = symbolic2function(d2.rdkdu, 'r', {'u' 'k'});
+    d2.rdxdk  = symbolic2function(d2.rdxdk, 'r', {'k' 'x'});
+    d2.rdudk  = symbolic2function(d2.rdudk, 'r', {'k' 'u'});
     
-    d2x0ds2  = symbolic2function(d2x0ds2, 'x', {'s' 's'});
-    d2x0dk2  = symbolic2function(d2x0dk2, 'x', {'k' 'k'});
-    d2x0dkds = symbolic2function(d2x0dkds, 'x', {'s' 'k'});
-    d2x0dsdk = symbolic2function(d2x0dsdk, 'x', {'k' 's'});
+    d2.ydx2   = symbolic2function(d2.ydx2,  'y', {'x' 'x'});
+    d2.ydu2   = symbolic2function(d2.ydu2,  'y', {'u' 'u'});
+    d2.ydk2   = symbolic2function(d2.ydk2,  'y', {'k' 'k'});
+    d2.ydudx  = symbolic2function(d2.ydudx, 'y', {'x' 'u'});
+    d2.ydkdx  = symbolic2function(d2.ydkdx, 'y', {'x' 'k'});
+    d2.ydxdu  = symbolic2function(d2.ydxdu, 'y', {'u' 'x'});
+    d2.ydkdu  = symbolic2function(d2.ydkdu, 'y', {'u' 'k'});
+    d2.ydxdk  = symbolic2function(d2.ydxdk, 'y', {'k' 'x'});
+    d2.ydudk  = symbolic2function(d2.ydudk, 'y', {'k' 'u'});
+    
+    d2.x0ds2  = symbolic2function(d2.x0ds2, 'x', {'s' 's'});
+    d2.x0dk2  = symbolic2function(d2.x0dk2, 'x', {'k' 'k'});
+    d2.x0dkds = symbolic2function(d2.x0dkds, 'x', {'s' 'k'});
+    d2.x0dsdk = symbolic2function(d2.x0dsdk, 'x', {'k' 's'});
 end
 
 if order >= 3
-    d3fdx3   = symbolic2function(d3fdx3, 'f', {'x' 'x' 'x'});
-    d3fdkdx2 = symbolic2function(d3fdkdx2, 'f', {'x' 'x' 'k'});
+    d3.fdx3   = symbolic2function(d3.fdx3, 'f', {'x' 'x' 'x'});
+    d3.fdkdx2 = symbolic2function(d3.fdkdx2, 'f', {'x' 'x' 'k'});
     
-    d3x0ds3  = symbolic2function(d3x0ds3, 'x', {'s' 's' 's'});
+    d3.x0ds3  = symbolic2function(d3.x0ds3, 'x', {'s' 's' 's'});
 end
 
 if verbose; fprintf('   ...done.\n'); end
 
 %% Set up model structure
 
-% Clear unnecessary variables from scope
-clear v z ...
-    t_syms v_syms k_syms s_syms x_syms u_syms z_syms y_syms S_sym ...
-    t_strs v_strs k_strs s_strs x_strs u_strs z_strs y_strs all_ids ...
-    v_names k_names s_names xu_names x_names u_names r_names y_names z_names ...
-    xu_full_names x_full_names u_full_names vx_names vu_names all_names ambiguous_names ...
-    unique_xu_names unique_x_names unique_u_names ...
-    S_entries i_S j_S size_S Sxu val_S ...
-    substitutable_exps substitutable_ids ...
-    x0hask x0hass rhask rhasu rhasx yhask yhasu yhasx x0str rstr ystr nonzero_map sizes ...
-    default_opts opts symbolic2stringmethod simplifyMethod ...
-    i j ixu ir ind n_subs species ...
-    thistime defaultMEXdirectory
+% Clear unnecessary symbolic variables from scope
+%   This is needed to suppress warnings when model is loaded into a workspace
+%   w/o the symbolic toolbox, such as when deployed with mcc
+varStruct = whos;
+varNames = {varStruct.name};
+varClasses = {varStruct.class};
+symVarNames = varNames(ismember(varClasses, 'sym'));
+for i = 1:length(symVarNames)
+    clear(symVarNames{i});
+end
 
 m.dv = dv;
 m.k  = k;
@@ -693,171 +695,93 @@ m.vuInd = vuInd;
 m.f         = setfun_rf(f,k);
 
 if order >= 1
-    m.dfdx      = setfun_rf(dfdx,k);
-    m.dfdk      = setfun_rf(dfdk,k);
-    m.dfdu      = setfun_rf(dfdu,k);
+    m.dfdx      = setfun_rf(d.fdx,k);
+    m.dfdk      = setfun_rf(d.fdk,k);
+    m.dfdu      = setfun_rf(d.fdu,k);
 end
 
 if order >= 2
-    m.d2fdx2    = setfun_rf(d2fdx2,k);
-    m.d2fdu2    = setfun_rf(d2fdu2,k);
-    m.d2fdk2    = setfun_rf(d2fdk2,k);
-    m.d2fdudx   = setfun_rf(d2fdudx,k);
-    m.d2fdxdu   = setfun_rf(d2fdxdu,k);
-    m.d2fdkdx   = setfun_rf(d2fdkdx,k);
-    m.d2fdkdu   = setfun_rf(d2fdkdu,k);
-    m.d2fdxdk   = setfun_rf(d2fdxdk,k);
-    m.d2fdudk   = setfun_rf(d2fdudk,k);
+    m.d2fdx2    = setfun_rf(d2.fdx2,k);
+    m.d2fdu2    = setfun_rf(d2.fdu2,k);
+    m.d2fdk2    = setfun_rf(d2.fdk2,k);
+    m.d2fdudx   = setfun_rf(d2.fdudx,k);
+    m.d2fdxdu   = setfun_rf(d2.fdxdu,k);
+    m.d2fdkdx   = setfun_rf(d2.fdkdx,k);
+    m.d2fdkdu   = setfun_rf(d2.fdkdu,k);
+    m.d2fdxdk   = setfun_rf(d2.fdxdk,k);
+    m.d2fdudk   = setfun_rf(d2.fdudk,k);
 end
 
 if order >= 3
-    m.d3fdx3    = setfun_rf(d3fdx3,k);
-    m.d3fdkdx2  = setfun_rf(d3fdkdx2,k);
+    m.d3fdx3    = setfun_rf(d3.fdx3,k);
+    m.d3fdkdx2  = setfun_rf(d3.fdkdx2,k);
 end
 
 m.S = S;
 m.r = setfun_rf(r,k);
 
 if order >= 1
-    m.drdx      = setfun_rf(drdx,k);
-    m.drdk      = setfun_rf(drdk,k);
-    m.drdu      = setfun_rf(drdu,k);
+    m.drdx      = setfun_rf(d.rdx,k);
+    m.drdk      = setfun_rf(d.rdk,k);
+    m.drdu      = setfun_rf(d.rdu,k);
 end
 
 if order >= 2
-    m.d2rdx2    = setfun_rf(d2rdx2,k);
-    m.d2rdu2    = setfun_rf(d2rdu2,k);
-    m.d2rdk2    = setfun_rf(d2rdk2,k);
-    m.d2rdudx   = setfun_rf(d2rdudx,k);
-    m.d2rdxdu   = setfun_rf(d2rdxdu,k);
-    m.d2rdkdx   = setfun_rf(d2rdkdx,k);
-    m.d2rdkdu   = setfun_rf(d2rdkdu,k);
-    m.d2rdxdk   = setfun_rf(d2rdxdk,k);
-    m.d2rdudk   = setfun_rf(d2rdudk,k);
+    m.d2rdx2    = setfun_rf(d2.rdx2,k);
+    m.d2rdu2    = setfun_rf(d2.rdu2,k);
+    m.d2rdk2    = setfun_rf(d2.rdk2,k);
+    m.d2rdudx   = setfun_rf(d2.rdudx,k);
+    m.d2rdxdu   = setfun_rf(d2.rdxdu,k);
+    m.d2rdkdx   = setfun_rf(d2.rdkdx,k);
+    m.d2rdkdu   = setfun_rf(d2.rdkdu,k);
+    m.d2rdxdk   = setfun_rf(d2.rdxdk,k);
+    m.d2rdudk   = setfun_rf(d2.rdudk,k);
 end
 
 m.y = setfun_y(y,true,k,ny);
 
 if order >= 1
-    m.dydx      = setfun_y(dydx,false,k,ny);
-    m.dydu      = setfun_y(dydu,false,k,ny);
-    m.dydk      = setfun_y(dydk,false,k,ny);
+    m.dydx      = setfun_y(d.ydx,false,k,ny);
+    m.dydu      = setfun_y(d.ydu,false,k,ny);
+    m.dydk      = setfun_y(d.ydk,false,k,ny);
 end
 
 if order >= 2
-    m.d2ydx2    = setfun_y(d2ydx2,false,k,ny);
-    m.d2ydu2    = setfun_y(d2ydu2,false,k,ny);
-    m.d2ydk2    = setfun_y(d2ydk2,false,k,ny);
-    m.d2ydudx   = setfun_y(d2ydudx,false,k,ny);
-    m.d2ydkdx   = setfun_y(d2ydkdx,false,k,ny);
-    m.d2ydxdu   = setfun_y(d2ydxdu,false,k,ny);
-    m.d2ydkdu   = setfun_y(d2ydkdu,false,k,ny);
-    m.d2ydxdk   = setfun_y(d2ydxdk,false,k,ny);
-    m.d2ydudk   = setfun_y(d2ydudk,false,k,ny);
+    m.d2ydx2    = setfun_y(d2.ydx2,false,k,ny);
+    m.d2ydu2    = setfun_y(d2.ydu2,false,k,ny);
+    m.d2ydk2    = setfun_y(d2.ydk2,false,k,ny);
+    m.d2ydudx   = setfun_y(d2.ydudx,false,k,ny);
+    m.d2ydkdx   = setfun_y(d2.ydkdx,false,k,ny);
+    m.d2ydxdu   = setfun_y(d2.ydxdu,false,k,ny);
+    m.d2ydkdu   = setfun_y(d2.ydkdu,false,k,ny);
+    m.d2ydxdk   = setfun_y(d2.ydxdk,false,k,ny);
+    m.d2ydudk   = setfun_y(d2.ydudk,false,k,ny);
 end
 
 m.x0            = setfun_x0(x0,k);
 
 if order >= 1
-    m.dx0ds     = setfun_x0(dx0ds,k);
-    m.dx0dk     = setfun_x0(dx0dk,k);
+    m.dx0ds     = setfun_x0(d.x0ds,k);
+    m.dx0dk     = setfun_x0(d.x0dk,k);
 end
 
 if order >= 2
-    m.d2x0ds2   = setfun_x0(d2x0ds2,k);
-    m.d2x0dk2   = setfun_x0(d2x0dk2,k);
-    m.d2x0dkds  = setfun_x0(d2x0dkds,k);
-    m.d2x0dsdk  = setfun_x0(d2x0dsdk,k);
+    m.d2x0ds2   = setfun_x0(d2.x0ds2,k);
+    m.d2x0dk2   = setfun_x0(d2.x0dk2,k);
+    m.d2x0dkds  = setfun_x0(d2.x0dkds,k);
+    m.d2x0dsdk  = setfun_x0(d2.x0dsdk,k);
 end
 
 if order >= 3
-    m.d3x0ds3   = setfun_x0(d3x0ds3);
+    m.d3x0ds3   = setfun_x0(d3.x0ds3);
 end
 
-m.Ready  = true;
-m.Update = @update;
+m = final(m, x0, f, r, y, d, d2, d3, order);
 
 if verbose; fprintf('done.\n'); end
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% Update function %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    function varargout = update(newk) % TODO: Why is this varargout?
-        % Apply changes
-        k = newk;
-        
-        k_assign = num2cell(k);
-        [m.Parameters.Value] = k_assign{:};
-        
-        m.k  = k;
-        
-        % Update function handles
-        m.x0            = setfun_x0(x0,k);
-        m.f             = setfun_rf(f,k);
-        m.r             = setfun_rf(r,k);
-        m.y             = setfun_y(y,true,k,ny);
-        
-        if order >= 1
-            m.dx0ds     = setfun_x0(dx0ds,k);
-            m.dx0dk     = setfun_x0(dx0dk,k);
-            m.dfdx      = setfun_rf(dfdx,k);
-            m.dfdk      = setfun_rf(dfdk,k);
-            m.dfdu      = setfun_rf(dfdu,k);
-            m.drdx      = setfun_rf(drdx,k);
-            m.drdk      = setfun_rf(drdk,k);
-            m.drdu      = setfun_rf(drdu,k);
-            m.dydx      = setfun_y(dydx,false,k,ny);
-            m.dydu      = setfun_y(dydu,false,k,ny);
-            m.dydk      = setfun_y(dydk,false,k,ny);
-        end
-        
-        if order >= 2
-            m.d2x0ds2   = setfun_x0(d2x0ds2,k);
-            m.d2x0dk2   = setfun_x0(d2x0dk2,k);
-            m.d2x0dkds  = setfun_x0(d2x0dkds,k);
-            m.d2x0dsdk  = setfun_x0(d2x0dsdk,k);
-            m.d2fdx2    = setfun_rf(d2fdx2,k);
-            m.d2fdu2    = setfun_rf(d2fdu2,k);
-            m.d2fdk2    = setfun_rf(d2fdk2,k);
-            m.d2fdudx   = setfun_rf(d2fdudx,k);
-            m.d2fdxdu   = setfun_rf(d2fdxdu,k);
-            m.d2fdkdx   = setfun_rf(d2fdkdx,k);
-            m.d2fdkdu   = setfun_rf(d2fdkdu,k);
-            m.d2fdxdk   = setfun_rf(d2fdxdk,k);
-            m.d2fdudk   = setfun_rf(d2fdudk,k);
-            m.d2rdx2    = setfun_rf(d2rdx2,k);
-            m.d2rdu2    = setfun_rf(d2rdu2,k);
-            m.d2rdk2    = setfun_rf(d2rdk2,k);
-            m.d2rdudx   = setfun_rf(d2rdudx,k);
-            m.d2rdxdu   = setfun_rf(d2rdxdu,k);
-            m.d2rdkdx   = setfun_rf(d2rdkdx,k);
-            m.d2rdkdu   = setfun_rf(d2rdkdu,k);
-            m.d2rdxdk   = setfun_rf(d2rdxdk,k);
-            m.d2rdudk   = setfun_rf(d2rdudk,k);
-            m.d2ydx2    = setfun_y(d2ydx2,false,k,ny);
-            m.d2ydu2    = setfun_y(d2ydu2,false,k,ny);
-            m.d2ydk2    = setfun_y(d2ydk2,false,k,ny);
-            m.d2ydudx   = setfun_y(d2ydudx,false,k,ny);
-            m.d2ydkdx   = setfun_y(d2ydkdx,false,k,ny);
-            m.d2ydxdu   = setfun_y(d2ydxdu,false,k,ny);
-            m.d2ydkdu   = setfun_y(d2ydkdu,false,k,ny);
-            m.d2ydxdk   = setfun_y(d2ydxdk,false,k,ny);
-            m.d2ydudk   = setfun_y(d2ydudk,false,k,ny);
-        end
-        
-        if order >= 3
-            m.d3fdx3    = setfun_rf(d3fdx3,k);
-            m.d3fdkdx2  = setfun_rf(d3fdkdx2,k);
-        end
-        
-        m.Update = @update;
-        
-        varargout{1} = m;
-    end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%
 %%%% Helper functions %%%%
@@ -1160,6 +1084,94 @@ if verbose; fprintf('done.\n'); end
             permutednztoadd = permute(nztoadd,permutedims);
             nzout = bsxfun(@and,nzout,permutednztoadd);
         end
+    end
+end
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%
+%%%%% Update function %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function m = final(m, x0, f, r, y, d, d2, d3, order)
+
+k = m.k;
+ny = m.ny;
+
+% Update function handles
+m.x0            = setfun_x0(x0,k);
+m.f             = setfun_rf(f,k);
+m.r             = setfun_rf(r,k);
+m.y             = setfun_y(y,true,k,ny);
+
+if order >= 1
+    m.dx0ds     = setfun_x0(d.x0ds,k);
+    m.dx0dk     = setfun_x0(d.x0dk,k);
+    m.dfdx      = setfun_rf(d.fdx,k);
+    m.dfdk      = setfun_rf(d.fdk,k);
+    m.dfdu      = setfun_rf(d.fdu,k);
+    m.drdx      = setfun_rf(d.rdx,k);
+    m.drdk      = setfun_rf(d.rdk,k);
+    m.drdu      = setfun_rf(d.rdu,k);
+    m.dydx      = setfun_y(d.ydx,false,k,ny);
+    m.dydu      = setfun_y(d.ydu,false,k,ny);
+    m.dydk      = setfun_y(d.ydk,false,k,ny);
+end
+
+if order >= 2
+    m.d2x0ds2   = setfun_x0(d2.x0ds2,k);
+    m.d2x0dk2   = setfun_x0(d2.x0dk2,k);
+    m.d2x0dkds  = setfun_x0(d2.x0dkds,k);
+    m.d2x0dsdk  = setfun_x0(d2.x0dsdk,k);
+    m.d2fdx2    = setfun_rf(d2.fdx2,k);
+    m.d2fdu2    = setfun_rf(d2.fdu2,k);
+    m.d2fdk2    = setfun_rf(d2.fdk2,k);
+    m.d2fdudx   = setfun_rf(d2.fdudx,k);
+    m.d2fdxdu   = setfun_rf(d2.fdxdu,k);
+    m.d2fdkdx   = setfun_rf(d2.fdkdx,k);
+    m.d2fdkdu   = setfun_rf(d2.fdkdu,k);
+    m.d2fdxdk   = setfun_rf(d2.fdxdk,k);
+    m.d2fdudk   = setfun_rf(d2.fdudk,k);
+    m.d2rdx2    = setfun_rf(d2.rdx2,k);
+    m.d2rdu2    = setfun_rf(d2.rdu2,k);
+    m.d2rdk2    = setfun_rf(d2.rdk2,k);
+    m.d2rdudx   = setfun_rf(d2.rdudx,k);
+    m.d2rdxdu   = setfun_rf(d2.rdxdu,k);
+    m.d2rdkdx   = setfun_rf(d2.rdkdx,k);
+    m.d2rdkdu   = setfun_rf(d2.rdkdu,k);
+    m.d2rdxdk   = setfun_rf(d2.rdxdk,k);
+    m.d2rdudk   = setfun_rf(d2.rdudk,k);
+    m.d2ydx2    = setfun_y(d2.ydx2,false,k,ny);
+    m.d2ydu2    = setfun_y(d2.ydu2,false,k,ny);
+    m.d2ydk2    = setfun_y(d2.ydk2,false,k,ny);
+    m.d2ydudx   = setfun_y(d2.ydudx,false,k,ny);
+    m.d2ydkdx   = setfun_y(d2.ydkdx,false,k,ny);
+    m.d2ydxdu   = setfun_y(d2.ydxdu,false,k,ny);
+    m.d2ydkdu   = setfun_y(d2.ydkdu,false,k,ny);
+    m.d2ydxdk   = setfun_y(d2.ydxdk,false,k,ny);
+    m.d2ydudk   = setfun_y(d2.ydudk,false,k,ny);
+end
+
+if order >= 3
+    m.d3fdx3    = setfun_rf(d3.fdx3,k);
+    m.d3fdkdx2  = setfun_rf(d3.fdkdx2,k);
+end
+
+m.Ready = true;
+m.Update = @Update;
+
+    function mout = Update(k)
+        % Copy existing model
+        mout = m;
+        
+        % Apply changes
+        mout.k = k;
+        
+        % Distribute values
+        if m.nk >= 1
+            k = num2cell(k);
+            [mout.Parameters.Value] = k{:};
+        end
+        
+        % Rebuild model
+        mout = final(mout, x0, f, r, y, d, d2, d3, order);
     end
 end
 
