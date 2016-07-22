@@ -28,6 +28,8 @@ Thind = nTk+nTs+nTq; % Stores the position in D where the first h parameter goes
 
 if opts.Verbose; disp('Integrating adjoint...'); end
 for i_con = 1:n_con
+    if opts.Verbose; fprintf('Experiment %d\n', i_con); end
+    
     if verboseAll; tic; end
     opts_i = opts;
     
@@ -244,8 +246,8 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             
             % Sum continuous objective functions
             dgdx = zeros(nx,1);
-            for i = 1:n_obj
-                dgdx = dgdx + dydx_i.' * opts.ObjWeights(i,i_con)*obj(i,i_con).dgdy(t,y_i);
+            for i = nonzeroobjs
+                dgdx = dgdx + dydx_i.' * (opts.ObjWeights(i,i_con)*obj(i,i_con).dgdy(t,y_i));
             end
             
             val = [dgdx; zeros(inT,1)] - [dfdx(t,x_i,u_i).'; dfdT(t,x_i,u_i).'] * l;
@@ -269,7 +271,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             dydk_i = dydk(t, x_i, u_i);
             dGdx = zeros(nx,1);
             dGdT = zeros(inT,1);
-            for i = 1:n_obj
+            for i = nonzeroobjs
                 dGdy = obj(i,i_con).dGdy(t, int_sys(i));
                 dGdx = dGdx + dydx_i.' * opts.ObjWeights(i,i_con)*dGdy;
                 dGdk = dydk_i.' * dGdy;
@@ -360,7 +362,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             
             % Sum continuous objective functions
             g = 0;
-            for i = 1:n_obj
+            for i = nonzeroobjs
                 g = g + opts.ObjWeights(i) * obj(i).g(t,x,ui);
             end
             
@@ -374,7 +376,7 @@ if opts.Verbose; fprintf('Summary: |dGdT| = %g\n', norm(D)); end
             
             % Sum continuous objective gradients
             dgdx = zeros(1,nx);
-            for i = 1:n_obj
+            for i = nonzeroobjs
                 dgdx = dgdx + opts.ObjWeights(i) * vec(obj(i).dgdx(t,x,ui)).';
             end
             
