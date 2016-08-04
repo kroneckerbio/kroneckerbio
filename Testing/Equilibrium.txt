@@ -19,4 +19,4 @@ kon  5
 koff 3
 
 % Reactions
-a b c 0 kon koff On,Off
+a b c 0 kon koff On Off

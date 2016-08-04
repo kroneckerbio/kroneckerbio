@@ -23,13 +23,14 @@ if ischar(name)
 end
 
 if iscell(name)
-    if numel(name)
-        name1 = name{1};
-        name2 = name{1};
-    elseif numel(name)
-        name1 = name{1};
-        name2 = name{2};
-    else
-        error('KroneckerBio:fixReactionName:TooManyNames', 'The name of reaction %s was given as a cell array, but there are more than two entries, the maximum', name)
+    switch numel(name)
+        case 1
+            name1 = name{1};
+            name2 = name{1};
+        case 2
+            name1 = name{1};
+            name2 = name{2};
+        otherwise
+            error('KroneckerBio:fixReactionName:TooManyNames', 'The name of reaction %s was given as a cell array, but there are more than two entries, the maximum', name{1})
     end
 end

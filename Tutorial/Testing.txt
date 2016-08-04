@@ -28,9 +28,13 @@
 
 # Lines of the compartment section follow this format:
 #Name  Dim  Volume
-v1     3    1e-6
+v1     3    1e-6 # comments that appear after a '#' are ignored
 v2     2    1.2e-4
 v3     1    1e-3
+  
+# Compartment volumes can be a constant term plus a linear combination of
+#   states and inputs
+v4     3    1 x1=1.2 u1=1.3
 
 # As it stands right now, names can be arbitrary strings. You should avoid 
 # starting the name with
@@ -64,11 +68,20 @@ x2
 x3  s1
 x4  s2
 
+# The initial amount can be a linear combination of seed parameters. Seeds are
+# separated by spaces, with default coefficient 1
+x5  s1 s2
+
+# Non-unity coefficients for seeds can be set with an equals sign. Make sure
+# there are no spaces between the seed and coefficient. Also, a constant term
+# can be added.
+x6  s1=1.4 s2=1.5 1.6
+
 % States v2
-x6 
+x7 
 
 % States v3
-x7 1
+x8 1
 
 # The Inputs header (starting with a "%") is the same as the Staes header
 # because inputs are assigned to compartments just like states
@@ -83,7 +96,6 @@ x7 1
 u4     2
 u5     5
 
-
 # Output headers do not take any additional parameters
 % Outputs
 
@@ -92,7 +104,7 @@ u5     5
 y1    x1=1
 
 # Value is a set of species names combined with equal signs and 
-# numbers, seperated by commas. The default number is 1, so the following 
+# numbers, seperated by spaces. The default number is 1, so the following 
 # is identical to the previous line.
 # y1 x1
 
@@ -100,15 +112,18 @@ y1    x1=1
 y2 x1 x2
 y3 x4 u5
 
-# Values do not have to be integers
+# Values don't have to be 1
 y4 x3=1.2
+
+# Multiple non-unity values are allowed. Also, a constant term can be added.
+y5 x1=1.5 x2=2.5 3.5 # this is a comment
 
 # The Parameters section is the simplest section. There are no additional
 # parameters in the header.
 % Parameters
 #Name Value
 k1    1
-k2 1.3e-4
+k2    1.3e-4
 
 # The Seeds section is just as simple as the Parameters. There are no additional
 # parameters in the header.
