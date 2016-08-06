@@ -248,6 +248,8 @@ opts.AbsTol = GoodAbsTol(m, con, sd, opts);
                 val = [h(1); 0; 0];
             elseif t <= border3
                 val = [h(2)*h(3)+h(3); 0; 0];
+            else
+                val = zeros(nh,1);
             end
         else
             val = zeros(nh, 1);

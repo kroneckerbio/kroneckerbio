@@ -18,7 +18,7 @@ if ~atSteadyState
     % Integrate f over time
     %     accumulateOdeFwdSimp(der, jac, t0, tF, ic, discontinuities, t_get, nonnegative, RelTol, AbsTol, delta, events, is_finished)
     sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.private.BasalDiscontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
-
+    
     % Return steady-state value
     ic = sol.ye;
 end

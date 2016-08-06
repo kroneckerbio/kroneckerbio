@@ -60,7 +60,7 @@ for i_con = 1:n_con
     
     % * Integrate to steady-state
     if con(i_con).SteadyState
-        ssSol = integrateSteadystateSys(m, con(i_con), opts_i);
+        ssSol = steadystateSysComp(m, con(i_con), opts_i);
         ic = ssSol.ye(:,end);
     else
         order = 0;

@@ -1,4 +1,4 @@
-function sol = integrateSteadystateSys(m, con, opts)
+function sol = steadystateSysComp(m, con, opts)
 
 % Constants
 nx = m.nx;
@@ -9,14 +9,30 @@ nx = m.nx;
 order = 0;
 ic = extractICs(m,con,opts,order);
 
+% Check if already at steady state
+ssvalue = eve(0, ic);
+atSteadyState = ssvalue == 0;
+
+if atSteadyState
+    tF = 0;
+else
+    tF = inf;
+end
+
 % Integrate f over time
 %     accumulateOdeFwdComp(der, jac, t0, tF, ic, discontinuities, nonnegative, RelTol, AbsTol, delta, events, is_finished)
-sol = accumulateOdeFwdComp(der, jac, 0, inf, ic, con.private.BasalDiscontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
+sol = accumulateOdeFwdComp(der, jac, 0, tF, ic, con.private.BasalDiscontinuities, 1:nx, opts.RelTol, opts.AbsTol(1:nx), [], eve, @(cum_sol)true);
 sol.u = con.u;
 sol.k = m.k;
 sol.s = con.s;
 sol.q = con.q;
 sol.h = con.h;
+
+if atSteadyState
+    % Add event fields so that functions expecting them can use them
+    sol.ye = sol.y(:,1);
+    sol.xe = 0;
+end
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

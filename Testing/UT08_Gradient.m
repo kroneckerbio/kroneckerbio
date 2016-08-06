@@ -26,6 +26,21 @@ simpleopts.steadyState = true;
 verifyGradient(a, m, con, obj, opts)
 end
 
+function testObjectiveGradientSimpleSteadyStateStartingAtSteadyState(a)
+simpleopts.steadyState = true;
+[m, con, obj, opts] = simple_model(simpleopts);
+
+% Set k, q, and s to zero so that model is inactive in the basal
+% simulation and the starting state is a steady state
+newk = repmat(1e-9, size(m.k));
+m = m.Update(newk);
+newq = repmat(1e-9, size(con.q));
+news = repmat(1e-9, size(con.s));
+con = con.Update(news, newq, con.h);
+
+verifyGradient(a, m, con, obj, opts)
+end
+
 function testObjectiveGradientSimple(a)
 [m, con, obj, opts] = simple_model();
 
