@@ -219,6 +219,7 @@ for i = 1:ny
     % Check/qualify species in output expression
     if is(m, 'Model.MassActionAmount')
         outputSpecies = expr(:,1)';
+        outputSpecies = outputSpecies(~cellfun(@isempty,outputSpecies)); % species name may be empty, indicating constant
         [unambiguousSpecies, unqualified] = qualifyCompartment(outputSpecies);
         expr(unqualified,1) = unambiguousSpecies(unqualified)';
     elseif is(m, 'Model.Analytic')

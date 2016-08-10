@@ -5,14 +5,34 @@ if nargout < 1
 end
 end
 
+% Make sure these tests are updated as the example files change
 function testEquilibriumLoading(a)
 m = LoadModelMassAction('Equilibrium.txt');
 a.verifyEqual(m.Name, 'Equilibrium');
+a.verifyEqual({m.Compartments.Name}, {'v'});
+a.verifyEqual({m.Parameters.Name}, {'kon','koff'});
+a.verifyEqual({m.States.Name}, {'a','b','c'});
+a.verifyEqual({m.Reactions.Name}, {'On','Off'});
+a.verifyEqual({m.Outputs.Name}, {'A','B','C'});
+verifyDerivatives(a, m);
 end
 
 function testSimpleLoading(a)
 m = LoadModelMassAction('Simple.txt');
 a.verifyEqual(m.Name, 'Simple')
+verifyDerivatives(a, m);
+end
+
+function testTestingLoading(a)
+m = LoadModelMassAction('../Tutorial/Testing.txt');
+a.verifyEqual(m.Name, 'Testing')
+a.verifyEqual({m.Compartments.Name}, {'v1','v2','v3','v4'});
+a.verifyEqual({m.Parameters.Name}, {'k1','k2'});
+a.verifyEqual({m.Seeds.Name}, {'s1','s2'});
+a.verifyEqual({m.Inputs.Name}, {'u4','u5'});
+a.verifyEqual({m.States.Name}, {'x1','x2','x3','x4','x5','x6','x7','x8'});
+a.verifyEqual({m.Reactions.Name}, {'r1','r2','','','r35','r5','r6','',''});
+a.verifyEqual({m.Outputs.Name}, {'y1','y2','y3','y4','y5'});
 verifyDerivatives(a, m);
 end
 
