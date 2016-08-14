@@ -479,8 +479,8 @@ end
 function isRepeated = isRepeatedCellStr(names)
 % Returns logical vector indicating which entries of names cell vector of string
 % are repeated
-[~, ~, ic] = unique(names);
-[a,b] = histc(ic, unique(ic));
+[~, ~, ic] = unique2013a(names);
+[a,b] = histc(ic, unique2013a(ic));
 count = a(b);
 isRepeated = count > 1;
 end

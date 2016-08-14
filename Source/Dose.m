@@ -61,7 +61,7 @@ assert(isfunction(d) && nargin(d) == 2, 'KroneckerBio:Dose:d', 'd must be a func
 
 % discontinuities
 assert(isnumeric(schedule) && all(schedule >= 0), 'KroneckerBio:Dosing:discontinuities', 'discontinuities must be a nonegative vector')
-schedule = vec(unique(schedule));
+schedule = vec(unique2013a(schedule));
 
 % h
 assert(isnumeric(h) && all(h >= 0), 'KroneckerBio:Dosing:h', 'h must be a nonegative vector')

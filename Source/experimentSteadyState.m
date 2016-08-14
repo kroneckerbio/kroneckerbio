@@ -128,12 +128,12 @@ con.inp = inp;
 con.dos = dos;
 con.SteadyState = true;
 con.Periodic = false;
-con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
+con.Discontinuities = vec(unique2013a([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
 con.private.BasalInput = basal_input;
 [con.private.basal_u, con.private.basal_dudq, con.private.basal_d2udq2] = getU(basal_input, m.nu);
 con.private.TimeScale = time_scale;
-con.private.BasalDiscontinuities = vec(unique([basal_input.discontinuities]));
+con.private.BasalDiscontinuities = vec(unique2013a([basal_input.discontinuities]));
 
     function con_out = update(s, q, h)
         

@@ -51,7 +51,7 @@ nh = numel(amounts);
 
 % times
 assert(isnumeric(times) && all(times >= 0), 'KroneckerBio:doseConstant:times', 'times must be a nonegative vector')
-times = vec(unique(times));
+times = vec(unique2013a(times));
 
 % receivers
 ns = m.ns;

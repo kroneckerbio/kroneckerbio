@@ -75,23 +75,23 @@ m.vxInd = vxInd;
 m.vuInd = vuInd;
 
 %% Error for repeated components
-[~, ia, ~] = unique(v_names);
+[~, ia, ~] = unique2013a(v_names);
 v_repeated = v_names(setdiff(1:nv, ia));
 assert(isempty(v_repeated), 'KroneckerBio:FinalizeModel:RepeatCompartment', 'Compartment %s not unique', cellstr2str(v_repeated))
 
-[~, ia, ~] = unique(k_names);
+[~, ia, ~] = unique2013a(k_names);
 k_repeated = k_names(setdiff(1:nk, ia));
 assert(isempty(k_repeated), 'KroneckerBio:FinalizeModel:RepeatParameter', 'Parameter %s not unique', cellstr2str(k_repeated))
 
-[~, ia, ~] = unique(s_names);
+[~, ia, ~] = unique2013a(s_names);
 s_repeated = s_names(setdiff(1:ns, ia));
 assert(isempty(s_repeated), 'KroneckerBio:FinalizeModel:RepeatSeed', 'Seed %s not unique', cellstr2str(s_repeated))
 
-[~, ia, ~] = unique(xu_full_names);
+[~, ia, ~] = unique2013a(xu_full_names);
 xu_repeated = xu_full_names(setdiff(1:nxu, ia));
 assert(isempty(xu_repeated), 'KroneckerBio:FinalizeModel:RepeatSpecies', 'Species %s not unique', cellstr2str(xu_repeated))
 
-[~, ia, ~] = unique(y_names);
+[~, ia, ~] = unique2013a(y_names);
 y_repeated = y_names(setdiff(1:ny, ia));
 assert(isempty(y_repeated), 'KroneckerBio:FinalizeModel:RepeatOutput', 'Output %s not unique', cellstr2str(y_repeated))
 

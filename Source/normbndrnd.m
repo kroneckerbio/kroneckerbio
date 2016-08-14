@@ -62,7 +62,7 @@ nub    = length(ub);
 nn     = length(n);
 
 % See if there is a vector of different n values
-nDifferent = length(unique(n)) > 1;
+nDifferent = length(unique2013a(n)) > 1;
 
 % Make sure all arg vector lengths are consistent
 lengths = [nmu, nsigma, nlb, nub, nn];

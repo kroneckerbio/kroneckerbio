@@ -69,7 +69,7 @@ for i_con = 1:n_con
     discrete_times_all = cell(n_obj,1);
     for i_obj = 1:n_obj
         [G_disc_i, temp] = obj(i_obj,i_con).G(ints(i_obj));
-        discrete_times_all{i_obj} = row(unique(temp));
+        discrete_times_all{i_obj} = row(unique2013a(temp));
         G_disc = G_disc + opts.ObjWeights(i_obj,i_con) * G_disc_i;
         
         Dk_i = obj(i_obj,i_con).dGdk(ints(i_obj));

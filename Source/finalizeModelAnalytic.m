@@ -177,7 +177,7 @@ y_strs = fastchar(y_syms);
 % Check for uniquness of names
 % A name can be duplicated within species, but cannot otherwise be duplicated
 % Species full names cannot be duplicated, though
-assert_unique_name([v_names; s_names; k_names; unique(u_names); unique(x_names); z_names])
+assert_unique_name([v_names; s_names; k_names; unique2013a(u_names); unique2013a(x_names); z_names])
 assert_unique_name([u_full_names; x_full_names])
 
 % Only unique species names can be referred to by their unqualified names
@@ -878,7 +878,7 @@ if verbose; fprintf('done.\n'); end
             else
                 orderstr = '';
             end
-            [denterms, ~, denoccurenceindex] = unique(dens, 'stable');
+            [denterms, ~, denoccurenceindex] = unique2013a(dens, 'stable');
             dencounts = histcounts(denoccurenceindex, 0.5:numel(denterms)+0.5);
             dencounts = strtrim(cellstr(int2str(dencounts(:))));
             dencounts(strcmp(dencounts, '1')) = {''};

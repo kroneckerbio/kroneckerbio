@@ -98,7 +98,7 @@ con.inp = inp;
 con.dos = dos;
 con.SteadyState = false;
 con.Periodic = false;
-con.Discontinuities = vec(unique([inp.discontinuities; dos.discontinuities]));
+con.Discontinuities = vec(unique2013a([inp.discontinuities; dos.discontinuities]));
 con.Update = @update;
 con.private = [];
 

@@ -30,7 +30,7 @@ end
 
 % discontinuities will be a column vector sorted ascending
 discontinuities = discontinuities((discontinuities > t0) & (discontinuities < tF));
-discontinuities = unique([vec(discontinuities); t0; tF]);
+discontinuities = unique2013a([vec(discontinuities); t0; tF]);
 
 % Performance constants
 forward_boost           = 10;   % Number of epsilons to jump at a discontinuity

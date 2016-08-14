@@ -33,7 +33,7 @@ t_get = vec(t_get).';
 
 % discontinuities will be a column vector sorted ascending
 discontinuities = discontinuities((discontinuities > t0) & (discontinuities < tF));
-discontinuities = unique([vec(discontinuities); t0; tF]);
+discontinuities = unique2013a([vec(discontinuities); t0; tF]);
 
 % Performance constants
 forward_boost           = 10;   % Number of epsilons to jump at a discontinuity
@@ -97,7 +97,7 @@ for k = 1:(N-1)
         it_get = t_get(t_get >= min(t_event_int) & t_get <= max(t_event_int));
         
         % Construct time vector for ode solver
-        t_ode = unique([t_event_int, it_get]);
+        t_ode = unique2013a([t_event_int, it_get]);
         if numel(t_ode) < 3
             % Include a third element to prevent the solver from saving
             % all timepoints

@@ -187,13 +187,13 @@ for iv = 1:nv
 end
 
 % Remove duplicate entries
-[B1Entries, ind] = unique(B1Entries(1:nB1Entries,:), 'rows');
+[B1Entries, ind] = unique2013a(B1Entries(1:nB1Entries,:), 'rows');
 B1Values = B1Values(ind);
 
-[B2Entries, ind] = unique(B2Entries(1:nB2Entries,:), 'rows');
+[B2Entries, ind] = unique2013a(B2Entries(1:nB2Entries,:), 'rows');
 B2Values = B2Values(ind);
 
-[bEntries, ind] = unique(bEntries(1:nbEntries,:), 'rows');
+[bEntries, ind] = unique2013a(bEntries(1:nbEntries,:), 'rows');
 bValues = bValues(ind);
 
 % Construct matrices
@@ -349,13 +349,13 @@ for iy = 1:ny
 end
 
 % Remove duplicate entries
-[C1Entries, ind] = unique(C1Entries(1:nC1Entries,:), 'rows');
+[C1Entries, ind] = unique2013a(C1Entries(1:nC1Entries,:), 'rows');
 C1Values = C1Values(ind);
 
-[C2Entries, ind] = unique(C2Entries(1:nC2Entries,:), 'rows');
+[C2Entries, ind] = unique2013a(C2Entries(1:nC2Entries,:), 'rows');
 C2Values = C2Values(ind);
 
-[cEntries, ind] = unique(cEntries(1:ncEntries,:), 'rows');
+[cEntries, ind] = unique2013a(cEntries(1:ncEntries,:), 'rows');
 cValues = cValues(ind);
 
 % Construct matrices
@@ -866,10 +866,10 @@ m.d  = m.dddk * kRand;
 [~, D4UsedColumns] = find(m.D4);
 [~, D5UsedColumns] = find(m.D5);
 
-D2UsedColumns = vec(unique(D2UsedColumns)); % vec compensates for Matlab bug when nr = 1
-D3UsedColumns = vec(unique(D3UsedColumns));
-D4UsedColumns = vec(unique(D4UsedColumns));
-D5UsedColumns = vec(unique(D5UsedColumns));
+D2UsedColumns = vec(unique2013a(D2UsedColumns)); % vec compensates for Matlab bug when nr = 1
+D3UsedColumns = vec(unique2013a(D3UsedColumns));
+D4UsedColumns = vec(unique2013a(D4UsedColumns));
+D5UsedColumns = vec(unique2013a(D5UsedColumns));
 
 % *1 and *2 refer to the order in (1 kron 2)
 [D2UsedSpecies2, D2UsedSpecies1] = ind2sub([nx,nx], D2UsedColumns);

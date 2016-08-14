@@ -10,7 +10,7 @@ n_eve = sum(nes);
 tF = max([obs.tF]);
 eve = @events_combined;
 fin = @is_finished_combined;
-t_get = unique([obs.DiscreteTimes]);
+t_get = unique2013a([obs.DiscreteTimes]);
 
     function [val, is_terminal, direction] = events_combined(t, joint)
         x = joint(1:nx);

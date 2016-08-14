@@ -18,7 +18,7 @@ end
 
 % discontinuities will be a column vector sorted ascending
 discontinuities = discontinuities((discontinuities > t0) & (discontinuities < tF));
-discontinuities = unique([vec(discontinuities); t0; tF]);
+discontinuities = unique2013a([vec(discontinuities); t0; tF]);
 N = numel(discontinuities);
 
 % Performance constants

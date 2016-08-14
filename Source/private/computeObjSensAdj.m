@@ -150,11 +150,11 @@ for i_con = 1:n_con
     discrete_times_all = cell(n_obj,1);
     for i_obj = nonzeroobjs
         [iDiscG, temp] = obj(i_obj,i_con).G(int_sys(i_obj));
-        discrete_times_all{i_obj} = row(unique(temp));
+        discrete_times_all{i_obj} = row(unique2013a(temp));
         G_disc = G_disc + opts.ObjWeights(i_obj,i_con) * iDiscG;
     end
     
-    discrete_times = vec(unique([discrete_times_all{:}]));
+    discrete_times = vec(unique2013a([discrete_times_all{:}]));
     
     % Add to cumulative goal value
     G = G + G_cont + G_disc;

@@ -24,7 +24,7 @@ for iTop = 1:nTop
             for iObj = 1:nObj
                 discrete_times = [discrete_times, row(obs(iObj,iCon,iTop).t)];
             end
-            t_get{iCon,iTop} = unique(discrete_times);
+            t_get{iCon,iTop} = unique2013a(discrete_times);
         end
     end
 end

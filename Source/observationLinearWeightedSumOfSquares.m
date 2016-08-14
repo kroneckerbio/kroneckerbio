@@ -35,7 +35,7 @@ outputlist = vec(outputlist);
 timelist = vec(timelist);
 
 % Find unique timelist
-discrete_times = row(unique(timelist));
+discrete_times = row(unique2013a(timelist));
 
 if isempty(name)
     name = 'WeightedSumOfSquares';

@@ -24,7 +24,7 @@ assert(numel(timelist) == n, 'KroneckerBio:objectiveWeightedSumOfSquares:timelis
 assert(numel(measurements) == n || isempty(measurements), 'KroneckerBio:objectiveWeightedSumOfSquares:measurements', 'Input "measurements" must be a vector length of "outputlist" or empty.')
 
 % Find unique timelist
-discrete_times = row(unique(timelist));
+discrete_times = row(unique2013a(timelist));
 
 if isempty(name)
     name = 'WeightedSumOfSquares';

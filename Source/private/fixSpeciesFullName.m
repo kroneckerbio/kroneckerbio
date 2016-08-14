@@ -53,7 +53,7 @@ end
 % Get default (1st) compartment if not supplied
 if isempty(compartment)
     vNames = {m.Compartments.Name};
-    vNames = unique(vNames(~cellfun('isempty',vNames)));
+    vNames = unique2013a(vNames(~cellfun('isempty',vNames)));
     if isempty(vNames)
         error('fixReactionSpeciesAnalytic: model has no compartments for state to reside in')
     end

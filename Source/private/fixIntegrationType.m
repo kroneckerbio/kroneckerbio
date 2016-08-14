@@ -40,7 +40,7 @@ for iTop = 1:nTop
                 % We need the final point as well
                 discreteTimes = [discreteTimes; con(iCon).tF];
             end
-            tGet{iCon,iTop} = unique(discreteTimes);
+            tGet{iCon,iTop} = unique2013a(discreteTimes);
         end
     end
 end

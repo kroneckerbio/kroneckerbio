@@ -325,9 +325,9 @@ for i = 1:nr
     
     % Combine reactants and products according to stoichiometries for
     % multi-consumption and production
-    [reactants, ~, ic] = unique(reactants);
+    [reactants, ~, ic] = unique2013a(reactants);
     Sr = histc(ic, 1:numel(reactants));
-    [products, ~, ic] = unique(products);
+    [products, ~, ic] = unique2013a(products);
     Sp = histc(ic, 1:numel(products));
     
     nReac = length(reactants);
@@ -366,7 +366,7 @@ for i = 1:nr
     %% Modifiers
     % Need to identify species present in kinetic law but not reactants or products
     vars = symvar(rate);
-    modifierIDs = setdiff(vars, unique([vIDs; kIDs; sIDs; reactants; products])); % exclude compartment, param, and participating species
+    modifierIDs = setdiff(vars, unique2013a([vIDs; kIDs; sIDs; reactants; products])); % exclude compartment, param, and participating species
     nModifiers = length(modifierIDs);
     
     allModifiers = [];

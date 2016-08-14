@@ -14,7 +14,7 @@ elseif isnumeric(ic)
 elseif ischar(ic)
     ic = {row(ic), 1};
 elseif iscellstr(ic)
-    assert(numel(ic) == numel(unique(ic)), 'KroneckerBio:State:RepeatedStateSeed', 'States cannot have the same seed appears twice')
+    assert(numel(ic) == numel(unique2013a(ic)), 'KroneckerBio:State:RepeatedStateSeed', 'States cannot have the same seed appears twice')
     ic = [vec(ic), num2cell(ones(numel(ic),1))];
 else
     assert(size(ic,2) == 2, 'KroneckerBio:State:InvalidSeed', 'State has an invalid seed')
