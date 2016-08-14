@@ -118,6 +118,15 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 %           the optimization will run serially. This option has no effect
 %           on global optimization; set opts.GlobalOpts.UseParallel to true
 %           to parallelize global optimization.
+%       .OutputFcn [ function handle {[]} ]
+%           Set to a function handle of the form stop = outfun(x,
+%           optimValues, state). The function is run after each iteration
+%           of the optimization. x are the parameters after the iteration,
+%           optimValues is a struct containing the current iteration's
+%           data, and state is a string describing what the algorithm is
+%           currently doing. stop is a flag that, when set to true, stops
+%           optimization. See the documentation for optimization options
+%           for more details.
 %       .GlobalOptimization [ logical scalar {false} ]
 %           Use global optimization in addition to fmincon
 %       .GlobalOpts [ options struct scalar {} ]
@@ -187,6 +196,7 @@ end
 defaultOpts.MaxIter          = 1000;
 defaultOpts.MaxFunEvals      = 5000;
 
+defaultOpts.OutputFcn              = [];
 defaultOpts.ParallelizeExperiments = false;
 
 defaultOpts.GlobalOptimization = false;
@@ -554,6 +564,10 @@ end
             stop = true;
         else
             stop = false;
+        end
+        
+        if ~isempty(opts.OutputFcn)
+            stop = stop || opts.OutputFcn(x, optimValues, state);
         end
     end
 
