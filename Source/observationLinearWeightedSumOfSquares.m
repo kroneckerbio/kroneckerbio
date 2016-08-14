@@ -84,6 +84,7 @@ obs = pastestruct(observationZero(), obs);
         assert(numel(measurements) == n , 'KroneckerBio:observationWeightedSumOfSquares:measurements', 'Input "measurements" must be a vector length of "outputlist"')
         obj = objectiveLinearWeightedSumOfSquares(outputlist, timelist, measurements, sd, name);
     end
+
 end
 
 function obj = objectiveLinearWeightedSumOfSquares(outputlist, timelist, measurements, sd, name)
@@ -100,6 +101,9 @@ obj.Continuous = false;
 obj.G = @G;
 obj.dGdy = @dGdy;
 obj.d2Gdy2 = @d2Gdy2;
+
+obj.err = @err;
+obj.derrdT = @derrdT;
 
 obj.p = @p;
 obj.logp = @logp;
@@ -121,6 +125,11 @@ obj = pastestruct(objectiveZero(), obj);
         
         % Return discrete times as well
         discrete = discrete_times;
+    end
+
+    function val = err(int)
+        [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
+        val = (ybar - measurements)./sigma;
     end
 
     function val = dGdy(t, int)
@@ -158,12 +167,20 @@ obj = pastestruct(objectiveZero(), obj);
         end
     end
 
+    function val = derrdT(int)
+        
+        ybar = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
+        [dybardT, sigma, dsigmady] = evaluate_grad(outputlist, timelist, discrete_times, sd, int);
+        val = bsxfun(@times, 1./sigma.*(1-ybar./sigma.*dsigmady), dybardT);
+        
+    end
+
     function val = d2Gdy2(t, int)
-        % d2Gdy2dy1 = 2 * sigma^-2 - 4*e*sigma^-3*dsigmady1 - 4*e*sigma^-3*dsigmady2 
-        %             + (6*e^2*sigma^-4 - 2*sigma^-2)*dsigmady1*dsigmady2 
+        % d2Gdy2dy1 = 2 * sigma^-2 - 4*e*sigma^-3*dsigmady1 - 4*e*sigma^-3*dsigmady2
+        %             + (6*e^2*sigma^-4 - 2*sigma^-2)*dsigmady1*dsigmady2
         %             + (2*sigma^-1 - 2*e^2*sigma^-3)*d2sigmady1dy2
         ny = int.ny;
-
+        
         % Find all data points that have a time that matches t
         ind_t = find(t == timelist);
         n_current = numel(ind_t);
@@ -171,7 +188,7 @@ obj = pastestruct(objectiveZero(), obj);
         if n_current > 0
             % Extract integration for this time point
             yt = int.y(:,int.t == t);
-
+            
             % Extract the data points with time t
             timelist_t = timelist(ind_t);
             outputlist_t = outputlist(ind_t);
@@ -215,7 +232,7 @@ obj = pastestruct(objectiveZero(), obj);
 %% Log likelihood
     function val = logp(sol)
         % logp = -n/2 * log(tau) + -sum(log(sigma)) + -1/2 * sum(((ybar-yhat)/sigma)^2)
-
+        
         % Evaluate solution
         [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, sol);
         e = ybar - measurements;

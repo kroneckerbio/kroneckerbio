@@ -178,7 +178,12 @@ defaultOpts.RestartJump      = 0.001;
 defaultOpts.TerminalObj      = -inf;
 
 defaultOpts.MaxStepSize      = 1;
-defaultOpts.Algorithm        = 'active-set';
+defaultOpts.Solver           = 'fmincon';
+if ~isfield(opts, 'Solver') || strcmp(opts.Solver, 'fmincon')
+    defaultOpts.Algorithm    = 'active-set';
+else
+    defaultOpts.Algorithm    = 'trust-region-reflective';
+end
 defaultOpts.MaxIter          = 1000;
 defaultOpts.MaxFunEvals      = 5000;
 
@@ -255,6 +260,11 @@ T0 = collectActiveParameters(m, con, opts.UseParams, opts.UseSeeds, opts.UseInpu
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
+if strcmp(opts.Solver, 'lsqnonlin') && opts.UseAdjoint
+    warning('KroneckerBio:FitObjective:AdjointNotSupportedForLsqnonlin', ...
+        'Adjoint method currently not supported for lsqnonlin. Switching to forward method...')
+    opts.UseAdjoint = false;
+end
 opts.AbsTol = fixAbsTol(opts.AbsTol, 2, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 % Bounds
@@ -265,18 +275,34 @@ opts.UpperBound = fixBounds(opts.UpperBound, opts.UseParams, opts.UseSeeds, opts
 intOpts = opts;
 
 %% Local optimization options
-localOpts = optimoptions('fmincon');
-localOpts.Algorithm               = opts.Algorithm;
+localOpts = optimoptions(opts.Solver);
 localOpts.TolFun                  = opts.TolOptim;
 localOpts.TolX                    = 0;
-localOpts.OutputFcn               = @isTerminalObj;
-localOpts.GradObj                 = 'on';
-localOpts.Hessian                 = 'off'; % unused
 localOpts.MaxFunEvals             = opts.MaxFunEvals;
 localOpts.MaxIter                 = opts.MaxIter;
-localOpts.RelLineSrchBnd          = opts.MaxStepSize;
-localOpts.RelLineSrchBndDuration  = Inf;
-localOpts.TolCon                  = 1e-6;
+switch opts.Solver
+    case 'fmincon'
+        localOpts.GradObj                 = 'on';
+        localOpts.Hessian                 = 'off'; % unused
+        localOpts.RelLineSrchBnd          = opts.MaxStepSize;
+        localOpts.RelLineSrchBndDuration  = Inf;
+        localOpts.TolCon                  = 1e-6;
+        solverFun                         = @computeObj;
+        solverGrad                        = @computeObjGrad;
+    case 'lsqnonlin'
+        localOpts.Jacobian                  = 'on'; % For older versions of MATLAB
+        % The following options are for newer versions of MATLAB that
+        % change the options' names
+        localOpts.FunctionTolerance         = opts.TolOptim; % Similar to TolOptim
+        localOpts.StepTolerance             = 0; % Similar to TolX
+        localOpts.SpecifyObjectiveGradient  = true; % For newer versions of MATLAB
+        localOpts.MaxFunctionEvaluations    = opts.MaxFunEvals;
+        localOpts.MaxIterations             = opts.MaxIter;        
+        solverFun                           = @computeError;
+        solverGrad                          = @computeError;
+end
+localOpts.Algorithm           = opts.Algorithm;
+localOpts.OutputFcn           = @isTerminalObj;
 
 if verbose
     localOpts.Display = 'iter';
@@ -302,8 +328,10 @@ if opts.Normalized
     
     % Change relative line search bound to an absolute scale in log space
     % Because fmincon lacks an absolute option, this hack circumvents that
-    localOpts.TypicalX = zeros(nT,1) + log(1 + opts.MaxStepSize)*log(realmax);
-    localOpts.RelLineSrchBnd = 1 / log(realmax);
+    if strcmp(opts.Solver, 'fmincon') && strcmp(opts.Algorithm, 'active-set')
+        localOpts.TypicalX = zeros(nT,1) + log(1 + opts.MaxStepSize)*log(realmax);
+        localOpts.RelLineSrchBnd = 1 / log(realmax);
+    end
 end
 
 %% Apply bounds to starting parameters before optimizing
@@ -390,7 +418,7 @@ if opts.ParallelizeExperiments
     % Generate objective function parts for each worker
     slave_objectives = cell(1,NumWorkers);
     for ii = 1:NumWorkers
-        slave_objectives{ii} = generateSlaveObjective(m, con, obj, opts, intOpts, T_experiment, icon_worker{ii});
+        slave_objectives{ii} = generateSlaveObjective(m, con, obj, opts, intOpts, T_experiment, icon_worker{ii}, solverFun, solverGrad);
     end
     
     % Distribute slave objective functions to workers
@@ -444,10 +472,16 @@ for iRestart = 1:opts.Restart+1
         [~, D] = objective(That); % since global solvers don't return gradient at endpoint
         
     else
-        
         if opts.Verbose; fprintf('Beginning gradient descent...\n'); end
-        [That, G, exitflag, ~, ~, D] = fmincon(fminconObjective, That, [], [], opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], localOpts);
-        
+        switch opts.Solver
+            case 'fmincon'
+                [That, G, exitflag, ~, ~, D] = fmincon(fminconObjective, That, [], [], opts.Aeq, opts.beq, opts.LowerBound, opts.UpperBound, [], localOpts);
+            case 'lsqnonlin'
+                [That,G,~,exitflag,~,~,D] = lsqnonlin(fminconObjective, That, opts.LowerBound, opts.UpperBound, localOpts);
+            otherwise
+                error('KroneckerBio:FitObjective:UnrecognizedSolver', ...
+                    'Unrecognized solver %s', opts.Solver);
+        end
     end
     
     % Check abortion status
@@ -508,7 +542,13 @@ end
 %%%%% Halt optimization on terminal goal %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function stop = isTerminalObj(x, optimValues, state)
-        if optimValues.fval  < opts.TerminalObj
+        switch opts.Solver
+            case 'fmincon'
+                fval = optimValues.fval;
+            case 'lsqnonlin'
+                fval = optimValues.resnorm.^2;
+        end
+        if fval  < opts.TerminalObj
             aborted = true;
             Tabort = x;
             stop = true;
@@ -538,13 +578,13 @@ end
         [m, con] = updateAll(m, con, T, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
         
         % Integrate system to get objective function value
-        if nargout == 1
-            G = computeObj(m, con, obj, intOpts);
+        if nargout < 2
+                G = solverFun(m, con, obj, intOpts);
         end
         
         % Integrate sensitivities or use adjoint to get objective gradient
         if nargout == 2
-            [G, D] = computeObjGrad(m, con, obj, intOpts);
+                [G, D] = solverGrad(m, con, obj, intOpts);
         end
     end
 
@@ -569,28 +609,40 @@ end
             end
            
             % Sum slave objective function gradients to get total gradient
-            D = zeros(numel(T),1);
+            D = cell(NumWorkers,1);
             for wi = 1:NumWorkers
-                D = D + D_d{wi};
+                D{wi} = D_d{wi};
             end
             
+            switch opts.Solver
+                case 'fmincon'
+                    D = horzcat(D{:});
+                    D = sum(D,2);
+                case 'lsqnonlin'
+                    D = vertcat(D{:});
+            end
         end
         
         % Sum slave objective function values to get total value
-        G = 0;
+        G = cell(NumWorkers,1);
         for wi = 1:NumWorkers
-            G = G + G_d{wi};
+            G{wi} = G_d{wi};
+        end
+        G = vertcat(G{:});
+        switch opts.Solver
+            case 'fmincon'
+                G = sum(G,1);
+            case 'lsqnonlin'
+                % Don't do anything extra
         end
         
     end
-
 end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Slave objective function generator %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-function objectivefun = generateSlaveObjective(m, con, obj, opts, intOpts, T_experiment, i_cons)
+function objectivefun = generateSlaveObjective(m, con, obj, opts, intOpts, T_experiment, i_cons, solverFun, solverGrad)
 % T_experiment:
 %   nT-by-1 vector of experiment indices indicating which experiment fits
 %   each parameter. 0 indicates model parameter fit by all experiments.
@@ -662,17 +714,23 @@ function objectivefun = generateSlaveObjective(m, con, obj, opts, intOpts, T_exp
         
         % Integrate system to get objective function value
         if nargout <= 1
-            G = computeObj(m, con, obj, intOpts);
+            G = solverFun(m, con, obj, intOpts);
         end
         
         % Integrate sensitivities or use adjoint to get objective gradient
         if nargout == 2
-            [G, D_worker] = computeObjGrad(m, con, obj, intOpts);
+            [G, D_worker] = solverGrad(m, con, obj, intOpts);
         end
         
         % Assign back to vector sized for all workers
-        D = zeros(nT, 1);
-        D(TisWorker) = D_worker;
+        switch opts.Solver
+            case 'fmincon'
+                D = zeros(nT, 1);
+                D(TisWorker) = D_worker;
+            case 'lsqnonlin'
+                D = zeros(size(D_worker,1), nT);
+                D(:,TisWorker) = D_worker;
+        end
     end
 
     function [G, D] = emptyobjective(T)

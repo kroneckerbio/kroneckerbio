@@ -173,6 +173,10 @@ obj.d2Gdkdq = @d2Gdkdq;
 obj.d2Gdsdq = @d2Gdsdq;
 obj.d2Gdhdq = @d2Gdhdq;
 
+% lsqnonlin functions
+obj.err = @err;
+obj.derrdT = @derrdT;
+
 % Information theory
 obj.p = @p;
 obj.logp = @logp;
@@ -283,6 +287,14 @@ function val = d2Gdhdq(int)
 ns = int.ns;
 nh = int.nh;
 val = sparse(nh,ns);
+end
+
+function val = err(int)
+val = zeros(0,1);
+end
+function val = derrdT(int)
+nT = int.nT;
+val = sparse(0,nT);
 end
 
 % For Objective.Information
