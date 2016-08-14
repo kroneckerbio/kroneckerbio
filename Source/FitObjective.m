@@ -330,6 +330,26 @@ if strcmpi(globalOpts.Algorithm, 'multistart') && globalOpts.UseParallel
 end
 
 %% Normalize parameters
+
+if strcmp(opts.Algorithm, 'sqp')
+    % Prevent sqp algorithm from automatically normalizing parameters
+    localOpts.ScaleProblem = 'none';
+    
+    % Set output function that updates what the last parameter set used was
+    localOpts.OutputFcn = @outfun;
+else
+    localOpts.OutputFcn = opts.OutputFcn;
+end
+
+    function stop = outfun(x, optimValues, state)
+        lastT = x;
+        if ~isempty(opts.OutputFcn)
+            stop = opts.OutputFcn(x, optimValues, state);
+        else
+            stop = false;
+        end
+    end
+
 if opts.Normalized
     % Normalize starting parameters and bounds
     T0 = log(T0);
@@ -339,6 +359,8 @@ if opts.Normalized
     % Change relative line search bound to an absolute scale in log space
     % Because fmincon lacks an absolute option, this hack circumvents that
     if strcmp(opts.Solver, 'fmincon') && strcmp(opts.Algorithm, 'active-set')
+        % This only works for active-set. Other algorithms don't have the
+        % RelLineSrchBnd option, and setting TypicalX won't help on its own.
         localOpts.TypicalX = zeros(nT,1) + log(1 + opts.MaxStepSize)*log(realmax);
         localOpts.RelLineSrchBnd = 1 / log(realmax);
     end
@@ -448,6 +470,7 @@ for iRestart = 1:opts.Restart+1
     % Init abort parameters
     aborted = false;
     Tabort = That;
+    lastT = That;
     
     % Run specified optimization
     if opts.GlobalOptimization
@@ -579,6 +602,14 @@ end
         % Reset answers
         G = 0;
         D = zeros(nT,1);
+        if strcmp(opts.Algorithm, 'sqp') && any(abs(T - lastT) > opts.MaxStepSize)
+            % Don't allow steps larger than the max step size
+            G = nan;
+            if nargout > 1
+                D = nan(nT,1);
+            end
+            return
+        end
         
         % Unnormalize
         if opts.Normalized
@@ -593,12 +624,33 @@ end
         
         % Integrate system to get objective function value
         if nargout < 2
+            try
                 G = solverFun(m, con, obj, intOpts);
+            catch ME
+                % If an integration error, return a NaN objective function
+                % value
+                switch ME.identifier
+                    case 'KroneckerBio:accumulateOde:IntegrationFailure'
+                        G = nan;
+                    otherwise
+                        rethrow(ME)
+                end
+            end
         end
         
         % Integrate sensitivities or use adjoint to get objective gradient
         if nargout == 2
+            try
                 [G, D] = solverGrad(m, con, obj, intOpts);
+            catch ME
+                switch ME.identifier
+                    case 'KroneckerBio:accumulateOde:IntegrationFailure'
+                        G = nan;
+                        D = nan(nT,1);
+                    otherwise
+                        rethrow(ME)
+                end
+            end
         end
     end
 
