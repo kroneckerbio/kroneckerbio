@@ -85,159 +85,159 @@ obs = pastestruct(observationZero(), obs);
         obj = objectiveLinearWeightedSumOfSquares(outputlist, timelist, measurements, sd, name);
     end
 
-end
-
-function obj = objectiveLinearWeightedSumOfSquares(outputlist, timelist, measurements, sd, name)
-% Find unique timelist
-n = numel(outputlist);
-discrete_times = row(unique(timelist));
-
-% Inherit observation
-obj = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, name);
-
-obj.Type = 'Objective.Data.WeightedSumOfSquares';
-obj.Continuous = false;
-
-obj.G = @G;
-obj.dGdy = @dGdy;
-obj.d2Gdy2 = @d2Gdy2;
-
-obj.err = @err;
-obj.derrdT = @derrdT;
-
-obj.p = @p;
-obj.logp = @logp;
-obj.F = @(sol)F(outputlist, timelist, discrete_times, sd, sol);
-
-obj = pastestruct(objectiveZero(), obj);
-
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% Parameter fitting functions %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [val, discrete] = G(int)
-        % Evaluate solution
-        [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
-        e = ybar - measurements;
+    function obj = objectiveLinearWeightedSumOfSquares(outputlist, timelist, measurements, sd, name)
+        % Find unique timelist
+        n = numel(outputlist);
+        discrete_times = row(unique(timelist));
         
-        % Goal function
-        val = sum(2 * log(sigma) + (e./sigma).^2);
+        % Inherit observation
+        obj = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, name);
         
-        % Return discrete times as well
-        discrete = discrete_times;
-    end
-
-    function val = err(int)
-        [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
-        val = (ybar - measurements)./sigma;
-    end
-
-    function val = dGdy(t, int)
-        % dGdy = 2 * sigma^-1 * dsigmady + 2 * (y-yhat) * (sigma - (y-yhat)*dsigmady) * sigma^-3
-        ny = int.ny;
+        obj.Type = 'Objective.Data.WeightedSumOfSquares';
+        obj.Continuous = false;
         
-        % Find all data points that have a time that matches t
-        ind_t = find(t == timelist);
-        n_current = numel(ind_t);
+        obj.G = @G;
+        obj.dGdy = @dGdy;
+        obj.d2Gdy2 = @d2Gdy2;
         
-        if n_current > 0
-            % Extract integration for this time point
-            yt = int.y(:,int.t == t);
+        obj.err = @err;
+        obj.derrdT = @derrdT;
+        
+        obj.p = @p;
+        obj.logp = @logp;
+        obj.F = @(sol)F(outputlist, timelist, discrete_times, sd, sol);
+        
+        obj = pastestruct(objectiveZero(), obj);
+        
+        
+        %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %%%%% Parameter fitting functions %%%%%
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [val, discrete] = G(int)
+            % Evaluate solution
+            [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
+            e = ybar - measurements;
             
-            % Extract the data points with time t
-            timelist_t = timelist(ind_t);
-            outputlist_t = outputlist(ind_t);
-            measurements_t = measurements(ind_t);
+            % Goal function
+            val = sum(2 * log(sigma) + (e./sigma).^2);
             
-            % Compute e for each datapoint that has a matching time to t
-            ybar_t = zeros(n_current,1);
-            sigma_t = zeros(n_current,1);
-            dsigmady_t = zeros(n_current,1);
-            for i = 1:n_current
-                ybar_t(i) = yt(outputlist_t(i));
-                [sigma_t(i), dsigmady_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
-            end
-            
-            % Gradient value
-            e = ybar_t - measurements_t; % Y_
-            dGdybar = 2 ./ sigma_t .* dsigmady_t + 2 .* e .* (sigma_t - e.*dsigmady_t) ./ sigma_t.^3; % Y_
-            val = accumarray(outputlist_t, dGdybar, [ny,1]); % sum the entries associated with the same output
-        else
-            val = zeros(ny, 1);
+            % Return discrete times as well
+            discrete = discrete_times;
         end
-    end
-
-    function val = derrdT(int)
         
-        ybar = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
-        [dybardT, sigma, dsigmady] = evaluate_grad(outputlist, timelist, discrete_times, sd, int);
-        val = bsxfun(@times, 1./sigma.*(1-ybar./sigma.*dsigmady), dybardT);
-        
-    end
-
-    function val = d2Gdy2(t, int)
-        % d2Gdy2dy1 = 2 * sigma^-2 - 4*e*sigma^-3*dsigmady1 - 4*e*sigma^-3*dsigmady2
-        %             + (6*e^2*sigma^-4 - 2*sigma^-2)*dsigmady1*dsigmady2
-        %             + (2*sigma^-1 - 2*e^2*sigma^-3)*d2sigmady1dy2
-        ny = int.ny;
-        
-        % Find all data points that have a time that matches t
-        ind_t = find(t == timelist);
-        n_current = numel(ind_t);
-        
-        if n_current > 0
-            % Extract integration for this time point
-            yt = int.y(:,int.t == t);
-            
-            % Extract the data points with time t
-            timelist_t = timelist(ind_t);
-            outputlist_t = outputlist(ind_t);
-            measurements_t = measurements(ind_t);
-            
-            ybar_t = zeros(n_current,1);
-            sigma_t = zeros(n_current,1);
-            dsigmady_t = zeros(n_current,1);
-            d2sigmady2_t = zeros(n_current,1);
-            for i = 1:n_current
-                ybar_t(i) = yt(outputlist_t(i));
-                [sigma_t(i), dsigmady_t(i), d2sigmady2_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
-            end
-            
-            % Curvature value
-            e = ybar_t - measurements_t;
-            d2Gdybar2 = 2 ./ sigma_t.^2 - 8 .* e ./ sigma_t.^3 .* dsigmady_t + ...
-                (6 .* e.^2 ./ sigma_t.^4 - 2 ./ sigma_t.^2) .* dsigmady_t.^2 + ...
-                (2 ./ sigma_t - 2 .* e.^2 ./ sigma_t.^3) .* d2sigmady2_t;
-            val = accumarray(outputlist_t, d2Gdybar2, [ny,1]); % y_ % sum the entries associated with the same output
-            val = spdiags(val, 0, ny, ny); % y_y
-        else
-            val = zeros(ny, ny);
+        function val = err(int)
+            [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
+            val = (ybar - measurements)./sigma;
         end
-    end
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% Information theory %%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Probability density function
-    function val = p(sol)
-        % p = tau^(-n/2) * prod(sigma)^-1 * exp(-1/2 * sum(((ybar-yhat)/sigma)^2)
         
-        % Evaluate solution
-        [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, sol);
-        e = ybar - measurements;
+        function val = dGdy(t, int)
+            % dGdy = 2 * sigma^-1 * dsigmady + 2 * (y-yhat) * (sigma - (y-yhat)*dsigmady) * sigma^-3
+            ny = int.ny;
+            
+            % Find all data points that have a time that matches t
+            ind_t = find(t == timelist);
+            n_current = numel(ind_t);
+            
+            if n_current > 0
+                % Extract integration for this time point
+                yt = int.y(:,int.t == t);
+                
+                % Extract the data points with time t
+                timelist_t = timelist(ind_t);
+                outputlist_t = outputlist(ind_t);
+                measurements_t = measurements(ind_t);
+                
+                % Compute e for each datapoint that has a matching time to t
+                ybar_t = zeros(n_current,1);
+                sigma_t = zeros(n_current,1);
+                dsigmady_t = zeros(n_current,1);
+                for i = 1:n_current
+                    ybar_t(i) = yt(outputlist_t(i));
+                    [sigma_t(i), dsigmady_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
+                end
+                
+                % Gradient value
+                e = ybar_t - measurements_t; % Y_
+                dGdybar = 2 ./ sigma_t .* dsigmady_t + 2 .* e .* (sigma_t - e.*dsigmady_t) ./ sigma_t.^3; % Y_
+                val = accumarray(outputlist_t, dGdybar, [ny,1]); % sum the entries associated with the same output
+            else
+                val = zeros(ny, 1);
+            end
+        end
         
-        val = (2*pi)^(-n/2) * prod(sigma).^-1 * exp(-1/2 * sum((e ./ sigma).^2));
-    end
-
-%% Log likelihood
-    function val = logp(sol)
-        % logp = -n/2 * log(tau) + -sum(log(sigma)) + -1/2 * sum(((ybar-yhat)/sigma)^2)
+        function val = derrdT(int)
+            
+            ybar = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
+            [dybardT, sigma, dsigmady] = evaluate_grad(outputlist, timelist, discrete_times, sd, int);
+            val = bsxfun(@times, 1./sigma.*(1-ybar./sigma.*dsigmady), dybardT);
+            
+        end
         
-        % Evaluate solution
-        [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, sol);
-        e = ybar - measurements;
+        function val = d2Gdy2(t, int)
+            % d2Gdy2dy1 = 2 * sigma^-2 - 4*e*sigma^-3*dsigmady1 - 4*e*sigma^-3*dsigmady2
+            %             + (6*e^2*sigma^-4 - 2*sigma^-2)*dsigmady1*dsigmady2
+            %             + (2*sigma^-1 - 2*e^2*sigma^-3)*d2sigmady1dy2
+            ny = int.ny;
+            
+            % Find all data points that have a time that matches t
+            ind_t = find(t == timelist);
+            n_current = numel(ind_t);
+            
+            if n_current > 0
+                % Extract integration for this time point
+                yt = int.y(:,int.t == t);
+                
+                % Extract the data points with time t
+                timelist_t = timelist(ind_t);
+                outputlist_t = outputlist(ind_t);
+                measurements_t = measurements(ind_t);
+                
+                ybar_t = zeros(n_current,1);
+                sigma_t = zeros(n_current,1);
+                dsigmady_t = zeros(n_current,1);
+                d2sigmady2_t = zeros(n_current,1);
+                for i = 1:n_current
+                    ybar_t(i) = yt(outputlist_t(i));
+                    [sigma_t(i), dsigmady_t(i), d2sigmady2_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
+                end
+                
+                % Curvature value
+                e = ybar_t - measurements_t;
+                d2Gdybar2 = 2 ./ sigma_t.^2 - 8 .* e ./ sigma_t.^3 .* dsigmady_t + ...
+                    (6 .* e.^2 ./ sigma_t.^4 - 2 ./ sigma_t.^2) .* dsigmady_t.^2 + ...
+                    (2 ./ sigma_t - 2 .* e.^2 ./ sigma_t.^3) .* d2sigmady2_t;
+                val = accumarray(outputlist_t, d2Gdybar2, [ny,1]); % y_ % sum the entries associated with the same output
+                val = spdiags(val, 0, ny, ny); % y_y
+            else
+                val = zeros(ny, ny);
+            end
+        end
         
-        val = -n/2 * log(2*pi) + -sum(log(sigma)) + -1/2 * sum((e ./ sigma).^2);
+        %% %%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %%%%% Information theory %%%%%
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %% Probability density function
+        function val = p(sol)
+            % p = tau^(-n/2) * prod(sigma)^-1 * exp(-1/2 * sum(((ybar-yhat)/sigma)^2)
+            
+            % Evaluate solution
+            [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, sol);
+            e = ybar - measurements;
+            
+            val = (2*pi)^(-n/2) * prod(sigma).^-1 * exp(-1/2 * sum((e ./ sigma).^2));
+        end
+        
+        %% Log likelihood
+        function val = logp(sol)
+            % logp = -n/2 * log(tau) + -sum(log(sigma)) + -1/2 * sum(((ybar-yhat)/sigma)^2)
+            
+            % Evaluate solution
+            [ybar, sigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, sol);
+            e = ybar - measurements;
+            
+            val = -n/2 * log(2*pi) + -sum(log(sigma)) + -1/2 * sum((e ./ sigma).^2);
+        end
+        
     end
 
 end
