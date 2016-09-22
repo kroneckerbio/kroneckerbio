@@ -81,7 +81,7 @@ for i = 1:m.nx
     initialConst = true;
     if isnan(initial) % didn't parse to a single constant number
         initial = 0;
-        initialLHS = sprintf(name, i);
+        initialLHS = name;
         initialRHS = species.InitialValue;
         initialConst = false;
     end
