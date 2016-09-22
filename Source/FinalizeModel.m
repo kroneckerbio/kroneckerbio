@@ -77,23 +77,23 @@ m.vuInd = vuInd;
 %% Error for repeated components
 [~, ia, ~] = unique(v_names);
 v_repeated = v_names(setdiff(1:nv, ia));
-assert(isempty(v_repeated), 'KroneckerBio:FinalizeModel:RepeatCompartment', 'Compartment %s not unique', cellstr2str(v_repeated))
+assert(isempty(v_repeated), 'KroneckerBio:FinalizeModel:RepeatCompartment', 'Compartment %s not unique', strjoin(v_repeated))
 
 [~, ia, ~] = unique(k_names);
 k_repeated = k_names(setdiff(1:nk, ia));
-assert(isempty(k_repeated), 'KroneckerBio:FinalizeModel:RepeatParameter', 'Parameter %s not unique', cellstr2str(k_repeated))
+assert(isempty(k_repeated), 'KroneckerBio:FinalizeModel:RepeatParameter', 'Parameter %s not unique', strjoin(k_repeated))
 
 [~, ia, ~] = unique(s_names);
 s_repeated = s_names(setdiff(1:ns, ia));
-assert(isempty(s_repeated), 'KroneckerBio:FinalizeModel:RepeatSeed', 'Seed %s not unique', cellstr2str(s_repeated))
+assert(isempty(s_repeated), 'KroneckerBio:FinalizeModel:RepeatSeed', 'Seed %s not unique', strjoin(s_repeated))
 
 [~, ia, ~] = unique(xu_full_names);
 xu_repeated = xu_full_names(setdiff(1:nxu, ia));
-assert(isempty(xu_repeated), 'KroneckerBio:FinalizeModel:RepeatSpecies', 'Species %s not unique', cellstr2str(xu_repeated))
+assert(isempty(xu_repeated), 'KroneckerBio:FinalizeModel:RepeatSpecies', 'Species %s not unique', strjoin(xu_repeated))
 
 [~, ia, ~] = unique(y_names);
 y_repeated = y_names(setdiff(1:ny, ia));
-assert(isempty(y_repeated), 'KroneckerBio:FinalizeModel:RepeatOutput', 'Output %s not unique', cellstr2str(y_repeated))
+assert(isempty(y_repeated), 'KroneckerBio:FinalizeModel:RepeatOutput', 'Output %s not unique', strjoin(y_repeated))
 
 % Does it make sense to exclude repeated reactions and rules?
 

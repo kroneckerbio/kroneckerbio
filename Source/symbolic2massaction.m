@@ -117,7 +117,7 @@ isRepeated = isRepeatedCellStr(xuNames);
 xuNamesNew(isRepeated) = strcat(xuvNames(isRepeated), '_', xuNames(isRepeated));
 
 if any(isRepeated)
-    warning('symbolic2massaction:repeatedSpeciesNames', 'Repeated species names found: %s', cellstr2str(xuNames(isRepeated)))
+    warning('symbolic2massaction:repeatedSpeciesNames', 'Repeated species names found: %s', strjoin(xuNames(isRepeated)))
     if ~opts.ForceUniqueNames
         error('symbolic2massaction:repeatedSpeciesNames', 'Quitting on opts.ForceUniqueNames')
     end

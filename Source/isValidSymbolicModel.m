@@ -41,9 +41,9 @@ expectedFields = {'Type', 'Name', ...
 fields = fieldnames(s);
 missingFields = setdiff(expectedFields, fields); % (arg1 not in arg2)
 extraFields = setdiff(fields, expectedFields);
-assert(isempty(missingFields), 'isValidSymbolicModel:MissingFields', 'Model struct missing fields: %s', cellstr2str(missingFields))
+assert(isempty(missingFields), 'isValidSymbolicModel:MissingFields', 'Model struct missing fields: %s', strjoin(missingFields))
 if ~isempty(extraFields)
-    warning('isValidSymbolicModel:ExtraFields', 'Model struct has extra fields: %s', cellstr2str(extraFields))
+    warning('isValidSymbolicModel:ExtraFields', 'Model struct has extra fields: %s', strjoin(extraFields))
 end
 
 %% Compartments
