@@ -118,7 +118,7 @@ function m = InitializeModelMassActionAmount(name)
 %           The order of each reaction
 %       .krInd [ natural vector nr ]
 %           The indexes to the parameters associated with each reaction
-%       .x0 [ function handle returning nonnegative vector nx ]
+%       .x0 [  handle @(s) returns real nonnegative vector nx ]
 %           The values of the initial conditions of each state species.
 %       .dx0ds [ function of seeds returning nonnegative matrix nx by ns ]
 %           First derivative of the initial conditions with respect to the

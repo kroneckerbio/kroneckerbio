@@ -113,6 +113,19 @@ a.verifyEqual(con.d(1), zeros(m.ns,1));
 a.verifyEqual(con.private.TimeScale, time_scale);
 end
 
+function testParameterlessInput(a)
+m = InitializeModelMassActionAmount('');
+m = AddCompartment(m, 'v', 3, 1);
+m = AddInput(m, 'u', 'v');
+inp = Input(m, @(t)double(t<1));
+con = experimentInitialValue(m, [], inp);
+
+a.verifyEqual(con.u(0), 1)
+a.verifyEqual(con.u(1), 0)
+a.verifyEqual(con.dudq(1), zeros(1,0))
+a.verifyEqual(con.d2udq2(1), zeros(0,0))
+end
+
 function testSimpleExperiment(a)
 [unused, con] = simple_model();
 verifyDerivatives(a, con)

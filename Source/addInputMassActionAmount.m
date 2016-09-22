@@ -26,6 +26,10 @@ if nargin < 4
     default = [];
 end
 
+if isempty(default)
+    default = 0;
+end
+
 % Increment counter
 nu = m.nu + 1;
 m.nu = nu;

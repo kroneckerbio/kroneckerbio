@@ -68,6 +68,16 @@ x0 = m.x0(m.s);
 u0 = vec([]);
 end
 
+function testDefaultSpecies(a)
+m = InitializeModelMassActionAmount();
+m = AddCompartment(m, 'v', 3, 1);
+m = AddInput(m, 'u', 'v');
+m = AddState(m, 'x', 'v');
+m = FinalizeModel(m);
+a.verifyEqual(m.u(), 0)
+a.verifyEqual(m.x0(m.s), 0)
+end
+
 function testAddReactionFwd(a)
 [m, x0, u0] = model_with_some_species();
 m = AddReaction(m, 'test', {'x1', 'x2'}, 'x3', 'k1');
