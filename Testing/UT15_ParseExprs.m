@@ -111,12 +111,20 @@ end
 function testSimBioExprParser(a)
 exprsIn = {'cpt.spc', 'cpt.[spc*]', '[cpt*].spc', '[cpt*].[spc*]', ...
     'cpt.[spc*]+cptcpt.[spc*]', 'cptcpt.[spc*]+cpt.[spc*]'};
-exprsExpected = {'"cpt.spc"', '"cpt.spc*"', '"cpt*.spc"', '"cpt*.spc*"', ...
+exprsOut = {'"cpt.spc"', '"cpt.spc*"', '"cpt*.spc"', '"cpt*.spc*"', ...
     '"cpt.spc*"+"cptcpt.spc*"', '"cptcpt.spc*"+"cpt.spc*"'};
-assert(length(exprsIn) == length(exprsExpected))
+assert(length(exprsIn) == length(exprsOut))
 
+% SimBio -> kroneckerbio
 for i = 1:length(exprsIn)
     exprOut = simbioExpr2kroneckerbioExpr(exprsIn{i});
-    a.verifyEqual(exprOut, exprsExpected{i});
+    a.verifyEqual(exprOut, exprsOut{i});
+end
+
+% kroneckerbio -> SimBio
+for i = 1:length(exprsIn)
+    exprOut = kroneckerbioExpr2SimbioExpr(exprsOut{i});
+    a.verifyEqual(exprOut, exprsIn{i});
 end
 end
+

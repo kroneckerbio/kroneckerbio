@@ -1,4 +1,4 @@
-function simbio = analytic2simbio(m)
+function simbio = analytic2simbio(m, opts)
 % Convert kroneckerbio analytic model to Matlab SimBiology model
 % The kroneckerbio model m should be finalized. This cleans up all the
 %   expressions and checks model validity.
@@ -6,6 +6,15 @@ function simbio = analytic2simbio(m)
 % Inputs:
 %   m [ Model.Analytic struct ]
 %       Kroneckerbio analytic model struct
+%   opts [ options struct ]
+%       Options struct with the following fields:
+%       .Verbose [ nonnegative integer {0} ]
+%           Control printed information. Higher means more is printed.
+%       .OutputsAsStates [ true | {false} ]
+%           Whether to export outputs as states. If true, outputs are added as
+%           boundary condition states with name "kboutput_<output name>" and
+%           repeated assignment rule. This prefixing is necessary because of
+%           conflicts with other states.
 %
 % Outputs:
 %   simbio [ (SimBio) Model ]
@@ -15,10 +24,8 @@ function simbio = analytic2simbio(m)
 % - State initial conditions can be arbitrary math expressions of seeds and
 %   rate constants. An initial assignment rule is created for each state
 %   whose initial condition isn't a simple constant number.
-% - Outputs are added as dummy species with name "out_<output name>" as a
-%   boundary condition with repeated assignment rule as its expression. We
-%   can add an options struct to this function's input args to control this
-%   behavior if desired.
+% - 'null' is a placeholder value for a 0-th order production or a degradation
+%   to nothing reaction. 'null' is not allowed as a species name.
 %
 % Limitations (these should be removed as features are implemented):
 % - Compartments must be constant size, with size being (converted into) a
@@ -29,14 +36,32 @@ function simbio = analytic2simbio(m)
 % - Stuff from experiments aren't in here. So the actual expressions for
 %   inputs need to be pulled in later.
 
+%% Clean up inputs
+if nargin < 2
+    opts = [];
+end
+
+opts_ = [];
+opts_.Verbose = 0;
+opts_.OutputsAsStates = false;
+opts = mergestruct(opts_, opts);
+verbose = logical(opts.Verbose);
+
 assert(strcmp(m.Type, 'Model.Analytic'), 'analytic2simbio:InvalidModelType', 'Input model must be a Model.Analytic')
 
 % It may be possible to relax this, but this function relies on proper
 %   species qualification
 assert(m.Ready, 'analytic2simbio:UnfinalizedModel', 'Input model must be finalized') 
 
+if verbose; fprintf('Converting analytic model to SimBio...'); end
+
 %% Initialize SimBio model
-simbio = sbiomodel([m.Name m.Type]);
+if isempty(m.Name)
+    name = m.Type;
+else
+    name = m.Name;
+end
+simbio = sbiomodel(name);
 
 %% Add compartments
 vNames = {m.Compartments.Name};
@@ -81,8 +106,8 @@ for i = 1:m.nx
     initialConst = true;
     if isnan(initial) % didn't parse to a single constant number
         initial = 0;
-        initialLHS = name;
-        initialRHS = species.InitialValue;
+        initialLHS = kroneckerbioExpr2SimbioExpr(name);
+        initialRHS = kroneckerbioExpr2SimbioExpr(species.InitialValue);
         initialConst = false;
     end
     
@@ -117,7 +142,27 @@ for i = 1:m.nr
     reaction = m.Reactions(i);
     reactants = reaction.Reactants;
     products = reaction.Products;
-    rate = reaction.Rate;
+    rate = kroneckerbioExpr2SimbioExpr(reaction.Rate);
+    
+    nR = length(reactants);
+    for iR = 1:nR
+        if ~isValidIdentifier(reactants{iR});
+            reactants{iR} = kroneckerbioExpr2SimbioExpr(['"' reactants{iR} '"']);
+        end
+    end
+    if nR == 0 % placeholder for 0-th order production
+        reactants = {'null'};
+    end
+    
+    nP = length(products);
+    for iP = 1:nP
+        if ~isValidIdentifier(products{iP});
+            products{iP} = kroneckerbioExpr2SimbioExpr(['"' products{iP} '"']);
+        end
+    end
+    if nP == 0 % placeholder for degradation to nothing
+        products = {'null'};
+    end
     
     % Assemble reactants -> products expression
     reactionStr = [strjoin(reactants, ' + ') ' -> ' strjoin(products, ' = ')];
@@ -128,18 +173,21 @@ for i = 1:m.nr
 end
 
 %% Add outputs using repeated assignment rules to dummy states
-for i = 1:m.ny
-    output = m.Outputs(i);
-    name = output.Name;
-    expr = output.Expression;
-    
-    dummyName = ['out_' name];
-    
-    s_ = addspecies(simbio, dummyName, 0);
-    set(s_, 'BoundaryCondition', true);
-    
-    rule_ = addrule(simbio, [dummyName ' = ' expr]);
-    set(rule_, 'RuleType', 'repeatedAssignment');
+if opts.OutputsAsStates
+    for i = 1:m.ny
+        output = m.Outputs(i);
+        name = output.Name;
+        expr = kroneckerbioExpr2SimbioExpr(output.Expression);
+        
+        dummyName = ['kboutput_' name];
+        dummyName = kroneckerbioExpr2SimbioExpr(dummyName);
+        
+        s_ = addspecies(simbio, dummyName, 0);
+        set(s_, 'BoundaryCondition', true);
+        
+        rule_ = addrule(simbio, [dummyName ' = ' expr]);
+        set(rule_, 'RuleType', 'repeatedAssignment');
+    end
 end
 
 end

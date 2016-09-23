@@ -1,4 +1,7 @@
-function simbio = ExportModelAnalyticSimBio(m)
-% See the documentation for `analytic2simbio` 
+function simbio = ExportModelAnalyticSimBio(m, opts)
+% See the documentation for `analytic2simbio`
+if nargin < 2
+    opts = [];
+end
 
-simbio = analytic2simbio(m);
+simbio = analytic2simbio(m, opts);

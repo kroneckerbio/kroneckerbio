@@ -3,10 +3,26 @@ function expressions = substituteQuotedExpressions(expressions, inputs, outputs,
 % If an input is a valid identifier, it may be found in the expression as
 %   either a bare identifier or quoted.
 % If an input is not a valid identifier, it must be quoted.
-% The outputs will only be quoted if both add_quotes is true and the output
-%   is not a valid identifier
-% Note that fully qualified compartment.species will always be quoted, since it
-%   contains a dot, which isn't a valid identifier
+% Note that fully qualified compartment.species will only be quoted if either
+%   compartment or species has an invalid identifier.
+%
+% Inputs:
+%   expressions [ string | cell array of strings ]
+%       Expressions to substitute
+%   inputs [ string | cell array of strings ]
+%       Names to be removed
+%   outputs [ string | cell array of strings ]
+%       Names to be added. Must match length of inputs
+%   add_output_quotes [ true | {false} ]
+%       Whether to surround substituted outputs in expressions with
+%       double-quotes if it has invalid identifiers. Use true if expressions is
+%       an arbitrary expression like a math formula; false if it's a single
+%       field like a reactant or product ina reaction.
+%
+% Outputs:
+%   expressions [ string |cell array of strings ]
+%       Input expressions with the substitutions performed
+
 
 if nargin < 4 || isempty(add_output_quotes)
     add_output_quotes = false;

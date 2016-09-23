@@ -87,10 +87,6 @@ end
 %   conditions, outputs, and rules.
 xuQualified = strcat([xCompartments, uCompartments]', repmat({'.'}, nx+nu, 1), [xNames, uNames]')';
 for i = 1:nx+nu
-    if ~isValidIdentifier(xuQualified{i})
-        xuQualified{i} = ['"' xuQualified{i} '"'];
-    end
-end
 xuIds = [xIds uIds];
 
 allQualified = [xuQualified vNames kNames sNames];
@@ -251,6 +247,9 @@ for i = 1:m.nr
     reactants(1) = [];
     for iR = 1:nR
         reactants(iR) = reactantBase;
+        if ~isValidIdentifier(reactants_{iR});
+            reactants_{iR} = ['"' reactants_{iR} '"'];
+        end
         reactants(iR).species = substituteQuotedExpressions(reactants_{iR}, xuQualified, xuIds);
     end
     
@@ -259,6 +258,9 @@ for i = 1:m.nr
     products(1) = [];
     for iP = 1:nP
         products(iP) = reactantBase;
+        if ~isValidIdentifier(products_{iP});
+            products_{iP} = ['"' products_{iP} '"'];
+        end
         products(iP).species = substituteQuotedExpressions(products_{iP}, xuQualified, xuIds);
     end
     
