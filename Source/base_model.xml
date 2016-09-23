@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbml xmlns="http://www.sbml.org/sbml/level2/version4" level="2" version="4">
+  <annotation>
+    <SimBiology xmlns="http://www.mathworks.com">
+      <Version Major="5" Minor="4" Point="0"/>
+    </SimBiology>
+  </annotation>
+  <model id="mw82776711_8d38_4d6d_a3c7_9c7a5d49b1c7" name="untitled">
+    <listOfCompartments>
+      <compartment id="mw9062f39f_25fc_48af_8a16_4f733962d3bb" name="unnamed" size="1" constant="true"/>
+    </listOfCompartments>
+    <listOfSpecies>
+      <species id="mw3302c01d_0e44_4649_b1f5_cce74971512e" name="x1" compartment="mw9062f39f_25fc_48af_8a16_4f733962d3bb" initialAmount="0" boundaryCondition="false" constant="false"/>
+    </listOfSpecies>
+    <listOfParameters>
+      <parameter id="mwa032529c_24dd_4c8c_b02a_9cd59b25f3c9" name="k1" value="1" constant="true"/>
+    </listOfParameters>
+    <listOfInitialAssignments>
+      <initialAssignment symbol="mw3302c01d_0e44_4649_b1f5_cce74971512e">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <cn type="integer"> 0 </cn>
+        </math>
+      </initialAssignment>
+    </listOfInitialAssignments>
+    <listOfRules>
+      <assignmentRule variable="mw3302c01d_0e44_4649_b1f5_cce74971512e">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <cn type="integer"> 1 </cn>
+        </math>
+      </assignmentRule>
+    </listOfRules>
+    <listOfReactions>
+      <reaction id="mw393c1e5d_5dbe_4601_a7de_5f6c14f277cd" name="reaction1" reversible="false" fast="false">
+        <listOfReactants>
+          <speciesReference species="mw3302c01d_0e44_4649_b1f5_cce74971512e" stoichiometry="1"/>
+        </listOfReactants>
+        <kineticLaw>
+          <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <apply>
+              <times/>
+              <ci> mwa032529c_24dd_4c8c_b02a_9cd59b25f3c9 </ci>
+              <ci> mw3302c01d_0e44_4649_b1f5_cce74971512e </ci>
+            </apply>
+          </math>
+        </kineticLaw>
+      </reaction>
+    </listOfReactions>
+  </model>
+</sbml>
