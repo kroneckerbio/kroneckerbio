@@ -1,11 +1,11 @@
-function simbio = analytic2simbio(m, opts)
-% Convert kroneckerbio analytic model to Matlab SimBiology model
+function simbio = massaction2simbio(m, opts)
+% Convert kroneckerbio massaction model to Matlab SimBiology model
 % The kroneckerbio model m should be finalized. This cleans up all the
 %   expressions and checks model validity.
 %
 % Inputs:
-%   m [ Model.Analytic struct ]
-%       Kroneckerbio analytic model struct
+%   m [ Model.MassActionAmount struct ]
+%       Kroneckerbio massaction model struct
 %   opts [ options struct ]
 %       Options struct with the following fields:
 %       .Verbose [ nonnegative integer {0} ]
@@ -21,7 +21,7 @@ function simbio = analytic2simbio(m, opts)
 %       SimBiology Model object
 %
 % Notes:
-% - State initial conditions can be arbitrary math expressions of seeds and
+% - State initial conditions can be affine functions of seeds and
 %   rate constants. An initial assignment rule is created for each state
 %   whose initial condition isn't a simple constant number.
 % - 'null' is a placeholder value for a 0-th order production or a degradation
@@ -47,13 +47,13 @@ opts_.OutputsAsStates = false;
 opts = mergestruct(opts_, opts);
 verbose = logical(opts.Verbose);
 
-assert(strcmp(m.Type, 'Model.Analytic'), 'analytic2simbio:InvalidModelType', 'Input model must be a Model.Analytic')
+assert(strcmp(m.Type, 'Model.MassActionAmount'), 'massaction2simbio:InvalidModelType', 'Input model must be a Model.MassActionAmount')
 
 % It may be possible to relax this, but this function relies on proper
 %   species qualification
-assert(m.Ready, 'analytic2simbio:UnfinalizedModel', 'Input model must be finalized') 
+assert(m.Ready, 'massaction2simbio:UnfinalizedModel', 'Input model must be finalized') 
 
-if verbose; fprintf('Converting analytic model to SimBio...'); end
+if verbose; fprintf('Converting massaction model to SimBio...'); end
 
 %% Initialize SimBio model
 if isempty(m.Name)
@@ -68,10 +68,11 @@ vNames = {m.Compartments.Name};
 for i = 1:m.nv
     compartment = m.Compartments(i);
     name = compartment.Name;
-    size = compartment.Size;
-    if ischar(size)
-        size = str2double(size);
-    end
+    size = affineCellMat2Str(compartment.Size);
+    
+    % Only a single constant number for size is supported right now
+    size = str2double(size);
+    assert(~isnan(size), 'massaction2simbio:InvalidCompartmentSize', 'Compartment size must be a single constant number right now')
     
     addcompartment(simbio, name, size); % ConstantCapacity = true by default
 end
@@ -102,20 +103,27 @@ for i = 1:m.nx
     species = m.States(i);
     name = species.Name;
     compartment = species.Compartment;
-    initial = str2double(species.InitialValue);
+    
+    % initial is a string
+    if isempty(species.InitialValue) % blank InitialValue assumes set to 0
+        initial = '0';
+    else
+        initial = affineCellMat2Str(species.InitialValue);
+    end
+    initialVal = str2double(initial);
     initialConst = true;
-    if isnan(initial) % didn't parse to a single constant number
-        initial = 0;
+    if isnan(initialVal) % didn't parse to a single constant number
+        initialVal = 0;
         initialLHS = name;
         if ~isValidIdentifier(name);
             initialLHS = kroneckerbioExpr2SimbioExpr(['"' name '"']);
         end
-        initialRHS = kroneckerbioExpr2SimbioExpr(species.InitialValue);
+        initialRHS = kroneckerbioExpr2SimbioExpr(initial);
         initialConst = false;
     end
     
     vInd = find(ismember(vNames, compartment));
-    addspecies(simbio.Compartments(vInd), name, initial);
+    addspecies(simbio.Compartments(vInd), name, initialVal);
     
     if ~initialConst
         rule_ = addrule(simbio, [initialLHS ' = ' initialRHS]);
@@ -145,7 +153,7 @@ for i = 1:m.nr
     reaction = m.Reactions(i);
     reactants = reaction.Reactants;
     products = reaction.Products;
-    rate = kroneckerbioExpr2SimbioExpr(reaction.Rate);
+    rate = affineCellMat2Str(reaction.Parameter); % there should just be 1 entry?
     
     nR = length(reactants);
     for iR = 1:nR
@@ -172,6 +180,11 @@ for i = 1:m.nr
     r_ = addreaction(simbio, reactionStr);
     
     % Assemble reaction rate
+    % Include species according to law of mass action. No change is needed
+    %   for 0-th order production rxns
+    if nR ~= 0 
+        rate = strjoin([reactants, rate], '*');
+    end
     set(r_, 'ReactionRate', rate);
 end
 
@@ -180,7 +193,7 @@ if opts.OutputsAsStates
     for i = 1:m.ny
         output = m.Outputs(i);
         name = output.Name;
-        expr = kroneckerbioExpr2SimbioExpr(output.Expression);
+        expr = affineCellMat2Str(output.Expression);
         
         dummyName = ['kboutput_' name];
         dummyName = kroneckerbioExpr2SimbioExpr(dummyName);
@@ -193,5 +206,33 @@ if opts.OutputsAsStates
     end
 end
 
+end
+
+
+%% Helper functions
+function str = affineCellMat2Str(mat)
+% Convert cell matrix representing affine function to string expression.
+%   mat is an nComponents x 2 cell matrix where the 1st col is the name of
+%   the component (with an empty value being the "y-intercept") and the 2nd
+%   col being the coefficient multiplying that component. Properly puts
+%   brackets around component names w/ invalid chars.
+n = size(mat,1);
+parts = cell(1,n);
+for i = 1:n
+    if isempty(mat{i,1})
+        parts{i} = sprintf('%g', mat{i,2});
+    else
+        component = mat{i,1};
+        if ~isValidIdentifier(component);
+            component = kroneckerbioExpr2SimbioExpr(['"' component '"']);
+        end
+        if mat{i,2} == 1 % make the coefficient = 1 case cleaner
+            parts{i} = sprintf('%s', component);
+        else
+            parts{i} = sprintf('%s*%g', component, mat{i,2});
+        end
+    end
+end
+str = strjoin(parts, ' + ');
 end
 
