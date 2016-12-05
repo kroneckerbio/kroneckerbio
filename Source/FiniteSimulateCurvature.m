@@ -88,6 +88,7 @@ opts.Verbose = max(opts.Verbose-1,0);
 % Constants
 nx = m.nx;
 nk = m.nk;
+ns = m.ns;
 
 % Ensure structures are proper sizes
 [con, n_con] = fixCondition(con);
@@ -97,13 +98,13 @@ nk = m.nk;
 [opts.UseParams, nTk] = fixUseParams(opts.UseParams, nk);
 
 % Ensure UseSeeds is a logical matrix
-[opts.UseSeeds, nTx] = fixUseSeeds(opts.UseSeeds, nx, n_con);
+[opts.UseSeeds, nTs] = fixUseSeeds(opts.UseSeeds, ns, n_con);
 
 % Ensure UseControls are cell vectors of logical vectors
 [opts.UseInputControls, nTq] = fixUseControls(opts.UseInputControls, n_con, cat(1,con.nq));
 [opts.UseDoseControls, nTh] = fixUseControls(opts.UseDoseControls, n_con, cat(1,con.nh));
 
-nT = nTk + nTx + nTq + nTh;
+nT = nTk + nTs + nTq + nTh;
 
 % RelTol
 opts.RelTol = fixRelTol(opts.RelTol);
