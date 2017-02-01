@@ -37,7 +37,7 @@ function D = ObjectiveGradient(m, con, obj, opts)
 %       .Normalized [ logical scalar {true} ]
 %           Indicates if the gradient should be computed in log parameters
 %           space
-%    	.UseAdjoint [ logical scalar {false} ]
+%    	.UseAdjoint [ logical scalar {true} ]
 %           Indicates whether the gradient should be calculated via the
 %           adjoint method or the forward method.
 %       .RelTol [ nonnegative scalar {1e-6} ]
@@ -79,7 +79,7 @@ defaultOpts.UseDoseControls  = [];
 
 defaultOpts.ObjWeights       = ones(size(obj));
 
-defaultOpts.UseAdjoint       = false;
+defaultOpts.UseAdjoint       = true;
 
 opts = mergestruct(defaultOpts, opts);
 

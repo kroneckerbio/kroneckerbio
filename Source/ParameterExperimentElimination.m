@@ -97,7 +97,6 @@ defaultOpts.UseControls    = [];
 defaultOpts.ObjWeights     = ones(size(obj));
 
 defaultOpts.Normalized     = true;
-defaultOpts.UseAdjoint     = true;
 
 defaultOpts.UseExperiments      = true(size(obj));
 defaultOpts.Cost                = zeros(size(obj));
@@ -124,7 +123,7 @@ nT = size(F,1);
 
 %% Fetch expected hessians
 if isempty(EFs)
-    [unused, EFs] = ObjectiveInformation(m, con_pos, obj_pos, opts);
+    [~, EFs] = ObjectiveInformation(m, con_pos, obj_pos, opts);
 end
 
 %% Single elimination

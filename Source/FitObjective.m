@@ -65,7 +65,7 @@ function [m, con, G, D] = FitObjective(m, con, obj, opts)
 %       .Normalized [ logical scalar {true} ]
 %           Indicates if the optimization should be done in log parameters
 %           space
-%    	.UseAdjoint [ logical scalar {false} ]
+%    	.UseAdjoint [ logical scalar {true} ]
 %           Indicates whether the gradient should be calculated via the
 %           adjoint method or the forward method
 %     	.TolOptim [ positive scalar {1e-5} ]

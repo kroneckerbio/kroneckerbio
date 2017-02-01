@@ -38,9 +38,6 @@ function H = ObjectiveHessian(m, con, obj, opts)
 %       .Normalized [ logical scalar {true} ]
 %           Indicates if the gradient should be computed in log parameters
 %           space
-%    	.UseAdjoint [ logical scalar {false} ]
-%           Indicates whether the gradient should be calculated via the
-%           adjoint method or the forward method.
 %       .RelTol [ nonnegative scalar {1e-6} ]
 %           Relative tolerance of the integration
 %       .AbsTol [ cell vector of nonnegative vectors | nonnegative vector |
@@ -80,8 +77,6 @@ defaultOpts.UseDoseControls  = [];
 
 defaultOpts.ObjWeights       = ones(size(obj));
 
-defaultOpts.UseAdjoint       = false;
-
 opts = mergestruct(defaultOpts, opts);
 
 verbose = logical(opts.Verbose);
@@ -115,7 +110,7 @@ nT = nTk + nTs + nTq + nTh;
 opts.RelTol = fixRelTol(opts.RelTol);
 
 % Fix AbsTol to be a cell array of vectors appropriate to the problem
-opts.AbsTol = fixAbsTol(opts.AbsTol, 3, opts.continuous, nx, n_con, opts.UseAdjoint, opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
+opts.AbsTol = fixAbsTol(opts.AbsTol, 3, opts.continuous, nx, n_con, [], opts.UseParams, opts.UseSeeds, opts.UseInputControls, opts.UseDoseControls);
 
 %% Run main calculation
 [~, ~, H] = computeObjHess(m, con, obj, opts);

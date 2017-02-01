@@ -86,6 +86,7 @@ end
 
 function verifyHessian(a, m, con, obj, opts)
 opts.ComplexStep = true;
+opts.UseAdjoint = false;
 nTk = nnz(opts.UseParams);
 nTs = nnz(opts.UseSeeds);
 if iscell(opts.UseInputControls)

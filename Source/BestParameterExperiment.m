@@ -139,7 +139,6 @@ defaultOpts.UseDoseControls  = [];
 defaultOpts.ObjWeights      = ones(size(obj));
 
 defaultOpts.Normalized      = true;
-defaultOpts.UseAdjoint      = true;
 
 defaultOpts.UseExperiments  = true(size(obs_pos));
 defaultOpts.Cost            = zeros(size(obs_pos));
