@@ -229,3 +229,26 @@ a.verifyEqual(m1.Reactions, m2.Reactions)
 a.verifyEqual(m1.Rules, m2.Rules)
 a.verifyEqual(m1.Outputs, m2.Outputs)
 end
+
+function testMassActionModelCopy(a)
+m = LoadModelMassAction('Equilibrium.txt');
+ms = [m; m];
+
+ms(1) = ms(1).Update(ones(m.nk,1));
+ms(2) = ms(2).Update(zeros(m.nk,1));
+
+a.verifyEqual(ms(1).k, ones(m.nk,1));
+a.verifyEqual(ms(2).k, zeros(m.nk,1));
+end
+
+function testAnalyticModelCopy(a)
+m = LoadModelSbmlAnalytic('test.xml');
+m = FinalizeModel(m);
+ms = [m; m];
+
+ms(1) = ms(1).Update(ones(m.nk,1));
+ms(2) = ms(2).Update(zeros(m.nk,1));
+
+a.verifyEqual(ms(1).k, ones(m.nk,1));
+a.verifyEqual(ms(2).k, zeros(m.nk,1));
+end
