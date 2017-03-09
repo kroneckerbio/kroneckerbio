@@ -79,6 +79,30 @@ verifyDerivatives(a, obj, int, t);
 
 end
 
+function testObjectiveLogWeightedSumOfSquares(a)
+simpleopts.objectiveFun = 'observationLogWeightedSumOfSquares';
+[m, con, obj, opts] = simple_model(simpleopts);
+
+obs = observationSelect(1:6);
+sim = SimulateSystem(m, con, obs, opts);
+
+int = sim.int;
+t = 1;
+verifyDerivatives(a, obj, int, t)
+end
+
+function testObjectiveLogWeightSumOfSquaresDose(a)
+[m, con, ~, opts] = dose_model();
+
+obs = observationLogWeightedSumOfSquares(2, 5, sdLinear(0.2, 2));
+obj = obs.Objective(4);
+sim = SimulateSystem(m, con(1), obs, opts);
+
+int = sim.int;
+t = 5;
+verifyDerivatives(a, obj, int, t)
+end
+
 % function testObjectiveWeightedSumOfSquaresNonNeg(a)
 % simpleopts.objectiveFun = 'objectiveWeightedSumOfSquaresNonNeg';
 % [m, con, obj, opts] = simple_model(simpleopts);
