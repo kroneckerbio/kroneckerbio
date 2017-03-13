@@ -169,6 +169,7 @@ obj = pastestruct(objectiveZero(), obj);
 
     % TODO: there is something wrong with this  derivative.
     function val = d2Gdy2(t, int)
+        error('observationLogWeightedSumOfSquares.d2Gdy2 is inaccurate and needs fixed')
         % d2Gdy2dy1 = 2 * sigma^-2 - 4*e*sigma^-3*dsigmady1 - 4*e*sigma^-3*dsigmady2 
         %             + (6*e^2*sigma^-4 - 2*sigma^-2)*dsigmady1*dsigmady2 
         %             + (2*sigma^-1 - 2*e^2*sigma^-3)*d2sigmady1dy2
