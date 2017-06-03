@@ -927,7 +927,7 @@ if verbose; fprintf('done.\n'); end
             sindexstring = textscan(sindexstring, '%s', 'Delimiter', '\n');
             sindexstring = sindexstring{1};
         end
-        string_rep = regexprep(string_rep, [x_strs; u_strs; k_strs; s_strs], [xindexstring; uindexstring; kindexstring; sindexstring], 0);
+        string_rep = regexprep(string_rep, [x_strs; u_strs; k_strs; s_strs], [xindexstring; uindexstring; kindexstring; sindexstring]);
         
     end         
 
