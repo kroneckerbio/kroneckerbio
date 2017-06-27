@@ -274,7 +274,7 @@ m.d2x0dsdk = @d2x0dsdk;
 
 %% Process inputs
 % Condense time varying inputs into u(t) function
-m.u = cat(1, m.Inputs.DefaultValue);
+m.u = vec([m.Inputs.DefaultValue]);
 
 %% Process outputs
 % Entries in each sparse matrix for compartment conversion

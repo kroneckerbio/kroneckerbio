@@ -54,6 +54,17 @@ m = InitializeModelMassActionAmount();
 a.verifyError(@()AddCompartment(m, 'test', 4, 1), 'KroneckerBio:Compartment:Dimension');
 end
 
+function testAddCompartmentTwoWays(a)
+m = InitializeModelMassActionAmount();
+m = AddCompartment(m, 'v1', 3, 2);
+m = AddCompartment(m, 'v2', 3, {'', 2});
+m = FinalizeModel(m);
+
+v = m.v(0, m.x0(m.s), m.u);
+
+a.verifyEqual(v(1), v(2))
+end
+
 function [m, x0, u0] = model_with_some_species()
 m = InitializeModelMassActionAmount();
 m = AddCompartment(m, 'v1', 3, 1);

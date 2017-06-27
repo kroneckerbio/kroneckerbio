@@ -36,6 +36,15 @@ a.verifyEqual({m.Outputs.Name}, {'y1','y2','y3','y4','y5'});
 verifyDerivatives(a, m);
 end
 
+function testCompartmentChanging(a)
+m = LoadModelMassAction('Equilibrium.txt');
+a.verifyEqual(m.v(0, m.x0(m.s), m.u), 1);
+
+m.Compartment(1).Size = 1;
+m = FinalizeModel(m);
+a.verifyEqual(m.v(0, m.x0(m.s), m.u), 1);
+end
+
 %% More comprehensive advanced model loading
 function testBasicSbmlLoading(a)
 m = LoadModelSbmlAnalytic('test.xml');
