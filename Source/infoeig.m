@@ -1,10 +1,9 @@
-function [lambda Q] = infoeig(F)
-%INFOEIG Perform the eigendecomposition of an information matrix that is
-%   not decomposable by ordinary algorithms due to numerical instabilities
+function [lambda, Q] = infoeig(F)
+%INFOEIG Eigendecomposition an unstable information matrix.
 %
-%   [lambda Q] = infoeig(F)
+%   [lambda, Q] = infoeig(F)
 %
-%   Symetric matrix F is eigendecomposed into vector of eigenvalues lambda
+%   Symmetric matrix F is eigendecomposed into vector of eigenvalues lambda
 %   and matrix of eigenvectors Q. All eigenvalues are sorted from smallest
 %   to largest. F can be indefinite.
 %
@@ -56,7 +55,7 @@ invertableInd([zeroInd;negInfInd;posInfInd]) = false;
 if nargout <= 1
     lambda = eig(F(invertableInd,invertableInd));
 else
-    [Qplain lambda] = eig(F(invertableInd,invertableInd));
+    [Qplain, lambda] = eig(F(invertableInd,invertableInd));
     lambda = diag(lambda);
 end
 

@@ -1,4 +1,19 @@
 function Finv = infoinv(F)
+%INFOINV Invert an unstable information matrix.
+%
+%   Finv = infoinv(F)
+%
+%   This function inverts a Fisher information matrix into a covariance
+%   matrix, but in a way that avoids zeros and infinites corrupting the
+%   entire result. Instead, zeros on the diagonal are converted to
+%   infinites on the diagonal and infinites on the diagonal are converted
+%   to zeros on the diagonal. The rest of the matrix is forced to be
+%   positive semidefinite and then inverted. This is done by
+%   eigendecomposing the matrix, forcing all small eigenvalues to be above
+%   a epsilon threshold, and then inverting.
+
+% (c) 2010 David R Hagen & Bruce Tidor
+% This work is released under the MIT license.
 
 % Desparsify
 if issparse(F)

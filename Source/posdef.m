@@ -1,5 +1,5 @@
 function A = posdef(A, e)
-%POSDEF Make symmetric matrix positive definite
+%POSDEF Make symmetric matrix positive definite.
 %
 %   A = posdef(A, e)
 %   Reconstitute a symmetric matrix as a symmetric positive definite
@@ -22,7 +22,7 @@ function A = posdef(A, e)
 % This work is released under the MIT license.
 
 % Eigendecompose matrix
-[lambda Q] = infoeig(A);
+[lambda, Q] = infoeig(A);
 
 % Default epsilon is machine epsilon of max eigenvalue
 if nargin < 2 || isempty(e)
