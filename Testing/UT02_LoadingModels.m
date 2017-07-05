@@ -261,3 +261,61 @@ ms(2) = ms(2).Update(zeros(m.nk,1));
 a.verifyEqual(ms(1).k, ones(m.nk,1));
 a.verifyEqual(ms(2).k, zeros(m.nk,1));
 end
+
+function testSaveModelFromFiles(a)
+m_old = LoadModelMassAction('Equilibrium.txt');
+SaveModel(m_old, 'temp.txt');
+m_new = LoadModelMassAction('temp.txt');
+a.verifyTrue(modelsAreEqual(m_old, m_new))
+
+m_old = LoadModelMassAction('Simple.txt');
+SaveModel(m_old, 'temp.txt');
+m_new = LoadModelMassAction('temp.txt');
+a.verifyTrue(modelsAreEqual(m_old, m_new))
+
+m_old = LoadModelMassAction('DoseModel.txt');
+SaveModel(m_old, 'temp.txt');
+m_new = LoadModelMassAction('temp.txt');
+a.verifyTrue(modelsAreEqual(m_old, m_new))
+
+m_old = LoadModelMassAction('MAPK_DKDP.txt');
+SaveModel(m_old, 'temp.txt');
+m_new = LoadModelMassAction('temp.txt');
+a.verifyTrue(modelsAreEqual(m_old, m_new))
+
+delete('temp.txt')
+end
+
+function testSaveModelComponents(a)
+% Test the corner cases of mass action components
+m = InitializeModelMassActionAmount('my_name');
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddCompartment(m, 'v2', 2, {'x1', 1.2; 'x3', 5.6});
+m = AddCompartment(m, 'cell volume', 2, {'x1', 1.2});
+m = AddParameter(m, 'k1', 2.0);
+m = AddParameter(m, 'parameter 2', 0);
+m = AddParameter(m, 'k3', 2);
+m = AddSeed(m, 's1', 6.7);
+m = AddSeed(m, 'seed 2', 1000);
+m = AddInput(m, 'u1', 'v1');
+m = AddInput(m, 'u2', 'v2', 4.5);
+m = AddInput(m, 'input 1', 'cell volume', 4.5);
+m = AddState(m, 'x1', 'v2');
+m = AddState(m, 'x2', 'v1', 12.5);
+m = AddState(m, 'x3', 'v1', 's1');
+m = AddState(m, 'x4', 'v1', {'s1', 4.2});
+m = AddState(m, 'state 1', 'cell volume', {'s1', 4.2; '', 2; 'seed 2', 1});
+m = AddReaction(m, '', 'x1', 'x3', 'k1');
+m = AddReaction(m, '', {'x2', 'x3'}, 'x4', 'parameter 2', 'k1');
+m = AddReaction(m, '', {'x2', 'x3'}, {'x4', 'x3', 'x4'}, 'parameter 2');
+m = AddReaction(m, 'r 4', {}, 'x1', {'parameter 2', 3}, {'k3', 2});
+m = AddOutput(m, 'y1', 'x1');
+m = AddOutput(m, 'y2', {'x2', 2; '', 10; 'x3', 4});
+m_old = FinalizeModel(m);
+
+SaveModel(m_old, 'temp.txt');
+m_new = LoadModelMassAction('temp.txt');
+a.verifyTrue(modelsAreEqual(m_old, m_new))
+
+delete('temp.txt')
+end

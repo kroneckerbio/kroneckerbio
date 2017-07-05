@@ -77,6 +77,7 @@ kReverse  = fixReactionParameter(kReverse);
 
 % Add separate reactions for forward and reverse (if applicable)
 if ~isempty(kForward{1})
+    assert(numel(reactants) <= 2, 'KroneckerBio:AddReaction:ToomanyReactants', 'A reaction may have at most two reactants')
     nr = m.nr + 1;
     m.nr = nr;
     m.Reactions = growReactions(m.Reactions, nr);
@@ -91,6 +92,7 @@ if ~isempty(kForward{1})
 end
 
 if ~isempty(kReverse{1})
+    assert(numel(products) <= 2, 'KroneckerBio:AddReaction:ToomanyReactants', 'A reaction may have at most two reactants')
     nr = m.nr + 1;
     m.nr = nr;
     m.Reactions = growReactions(m.Reactions, nr);

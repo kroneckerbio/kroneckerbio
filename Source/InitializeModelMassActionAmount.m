@@ -15,7 +15,7 @@ function m = InitializeModelMassActionAmount(name)
 %       the properties of the model, summarize the constants of the model,
 %       or provide handles to functions that describe the changing state of
 %       the system.
-%       .Type 'Model.MassActionKronecker'
+%       .Type 'Model.MassActionAmount'
 %       .Name [ string ]
 %       .Compartments [ struct vector ]
 %           Each compartment is described by an element of this vector

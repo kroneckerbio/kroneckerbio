@@ -104,7 +104,7 @@ for i_file = 1:n_files
                 if isempty(compartment)
                     compartment = '';
                 else
-                    compartment = compartment{1};
+                    compartment = strip_quotes(compartment{1});
                 end
             elseif strcmpi(match, 'seeds')
                 % Switch mode
@@ -121,7 +121,7 @@ for i_file = 1:n_files
                 if isempty(compartment)
                     compartment = '';
                 else
-                    compartment = compartment{1};
+                    compartment = strip_quotes(compartment{1});
                 end
                 
             elseif strcmpi(match, 'outputs')
@@ -140,11 +140,11 @@ for i_file = 1:n_files
             % Process entries
             
             % Tokenize
-            tokens = vec(regexp(line, '"[^"]*"|[^"\s]+','match'));
+            tokens = vec(regexp(line, '"[^"]*"(=[^\s]+)?|[^"\s]+', 'match'));
             
             % Strip quotes
             for i_tok = 1:numel(tokens)
-                tokens{i_tok} = regexp(tokens{i_tok}, '[^"]*', 'match', 'once');
+                tokens{i_tok} = strip_quotes(tokens{i_tok});
             end
             
             if mode == 1
@@ -297,7 +297,7 @@ end
 %% Finalize Model
 m = FinalizeModel(m);
 
-%% Helper function
+%% Helper functions
     function exprs = extract_values(tokens)
         % Extract components of linear combination in cell matrix form
         %
@@ -327,4 +327,8 @@ m = FinalizeModel(m);
             end
         end
     end
+end
+
+function string = strip_quotes(string)
+string(string == '"') = [];
 end
