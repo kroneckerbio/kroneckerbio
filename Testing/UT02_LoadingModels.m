@@ -45,6 +45,24 @@ m = FinalizeModel(m);
 a.verifyEqual(m.v(0, m.x0(m.s), m.u), 1);
 end
 
+function testVariableCompartmentLoading(a)
+m = LoadModelMassAction('variable_compartments.txt');
+verifyDerivatives(a, m);
+
+v = m.v(0, m.x0(m.s), m.u);
+a.verifyEqual(v(1), v(2))
+a.verifyEqual(v(1), v(3))
+
+v = m.v(0, m.x0(m.s), [2;3]);
+a.verifyEqual(v(2), 2)
+a.verifyEqual(v(3), 3)
+end
+
+function testChenLoading(a)
+m = LoadModelMassAction('Chen.txt');
+verifyDerivatives(a, m);
+end
+
 %% More comprehensive advanced model loading
 function testBasicSbmlLoading(a)
 m = LoadModelSbmlAnalytic('test.xml');

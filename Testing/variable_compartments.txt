@@ -1,0 +1,35 @@
+% Compartments
+v1 3 5
+v2 3 u1
+v3 3 v3.u2
+
+% Parameters
+k1 3
+
+% Inputs v2
+u1 5
+
+% Inputs v3
+u2 5
+
+% States v1
+x1 1
+x2 2
+
+% States v2
+x1 1
+x2 2
+
+% States v3
+x1 1
+x2 2
+
+% Reactions
+v1.x1 v1.x2 0 0 k1
+v2.x1 v2.x2 0 0 k1
+v3.x1 v3.x2 0 0 k1
+
+% Outputs
+V1 v1.x1
+V2 v2.x1
+V3 v3.x1

@@ -25,39 +25,39 @@ clear i notes
 % Outputs: 
 Ynames = {
             'ErbB1';
-            'ErbB1#P';
+            'ErbB1_P';
             'ErbB2';
-            'ErbB2#P';
+            'ErbB2_P';
             'ErbB3';
-            'ErbB3#P';
+            'ErbB3_P';
             'ErbB4';
-            'ErbB4#P';
+            'ErbB4_P';
             'GAP';
             'Grb2';
             'Gab1';
-            'Gab1#P';
-            'Gab1#P#P;'
+            'Gab1_P';
+            'Gab1_P_P'
             'Sos';
-            'Sos#P';
+            'Sos_P';
             'Ras:GTP';
             'Ras:GDP';
             'Shc';
-            'Shc#P';
+            'Shc_P';
             'Raf';
-            'Raf#P';
+            'Raf_P';
             'MEK';
-            'MEK#P';
-            'MEK#P#P';
+            'MEK_P';
+            'MEK_P_P';
             'ERK';
-            'ERK#P';
-            'ERK#P#P';
+            'ERK_P';
+            'ERK_P_P';
             'Pase1';
             'Pase2';
             'Pase3';
             'PI3K';
             'AKT';
-            'AKT#P';
-            'AKT#P#P';
+            'AKT_P';
+            'AKT_P_P';
             'PDK1';
             'Pase4';
             'RTK_Pase';
@@ -296,34 +296,54 @@ m = LoadModelSbmlMassAction(mSimbio, opts);
 % Add Outputs
 for iy = 1:numel(Ymembers)
     [exprs, values] = count_unique(Ymembers{iy});
-    exprs = strcat('\.', exprs, '$'); % Exact matches on species
-    m = AddOutput(m, Ynames{iy}, exprs, values);
+    m = AddOutput(m, Ynames{iy}, [exprs, num2cell(values)]);
 end
 
 % Remove unecessary parameters
-nullParameters = false(m.nk,1);
-for ik = 1:m.nk
-    if m.Parameters(ik).Value == 0
-        nullParameters(ik) = true;
-        rInd = strcmp(m.Parameters(ik).Name, {m.Reactions.Parameter});
-        m.Reactions(rInd) = [];
-    end
+all_reaction_parameter_names = cell(m.nr,1);
+for ir = 1:m.nr
+    all_reaction_parameter_names{ir} = m.Reactions(ir).Parameter{1};
 end
 
-% Unused paramters
-unusedParameters = false(m.nk,1);
+unused_parameters = false(m.nk,1);
+null_parameters = false(m.nk,1);
+null_reactions = false(m.nr,1);
 for ik = 1:m.nk
-    found = find(strcmp({m.Reactions.Parameter}, m.Parameters(ik).Name), 1);
+    % Unused parameters
+    found = find(strcmp(m.Parameters(ik).Name, all_reaction_parameter_names), 1);
     if isempty(found)
-        unusedParameters(ik) = true;
+        unused_parameters(ik) = true;
+    end
+    
+    % Zero parameters
+    if m.Parameters(ik).Value == 0
+        null_parameters(ik) = true;
+        null_reactions = null_reactions | strcmp(m.Parameters(ik).Name, all_reaction_parameter_names);
     end
 end
 
-m.Parameters(nullParameters | unusedParameters) = [];
+m.Parameters(null_parameters | unused_parameters) = [];
+m.nk = m.nk - nnz(null_parameters | unused_parameters);
+
+m.Reactions(null_reactions) = [];
+m.nr = m.nr - nnz(null_reactions);
+
+% Remove unecessary seeds
+null_seeds = false(m.ns,1);
+for is = 1:m.ns
+    % Zero seeds
+    if m.Seeds(is).Value == 0
+        null_seeds(is) = true;
+        m.States(is).InitialValue = cell(0,2);
+    end
+end
+
+m.Seeds(null_seeds) = [];
+m.ns = m.ns - nnz(null_seeds);
 
 % Rearrange inputs
 m.Inputs = m.Inputs([1;4;3;2]); % EGF, HRG, Inh, endosomal HRG
 
 m = FinalizeModel(m);
 
-clear iy exprs values ik nullParameters unusedParameters rInd found ik temp
+clear iy exprs values ik null_parameters unused_parameters rInd found ik temp

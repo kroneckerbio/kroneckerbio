@@ -208,6 +208,30 @@ for i = 1:nr
     
 end
 
+%% Resolve compartment sizes and standardize names
+for i = 1:nv
+    % Extract compartment
+    compartment = m.Compartments(i);
+    name = compartment.Name;
+    expr = compartment.Size;
+    
+    % Check/qualify species in output expression
+    if is(m, 'Model.MassActionAmount')
+        contributor_names = expr(:,1);
+        non_empty_contributors = ~cellfun(@isempty, contributor_names);
+        unambiguous_names = qualifyCompartment(contributor_names(non_empty_contributors));
+        expr(non_empty_contributors,1) = unambiguous_names;
+    elseif is(m, 'Model.Analytic')
+        contributor_names = getSpeciesFromExpr(expr);
+        [unambiguousSpecies, unqualified] = qualifyCompartment(contributor_names);
+        expr = substituteQuotedExpressions(expr, contributor_names(unqualified), unambiguousSpecies(unqualified), true);
+    end
+    
+    % Update reaction
+    compartment.Size = expr;
+    m.Compartments(i) = compartment;
+end
+
 %% Resolve output compartments and standardize names
 for i = 1:ny
     % Extract output
