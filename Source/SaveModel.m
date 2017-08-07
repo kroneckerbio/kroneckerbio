@@ -1,32 +1,33 @@
-function SaveModel(filename, m)
+function SaveModel(m, filename)
 %SaveModel writes the Kronecker mass action model to a Kronecker mass
 %   action model file
 %
-%   SaveModel(filename, m)
+%   SaveModel(m, filename)
 %
 %   Inputs
+%   m: [ model struct scalar ]
+%       The Kronecker model to be written.
 %   filename: [ string ]
 %       The path to the file that will be written. Existing files are
 %       overwritten without prompt.
-%   m: [ model struct scalar ]
-%       The Kronecker model to be written.
 
-% (c) 2013 David R Hagen & Bruce Tidor
+% (c) 2017 David R Hagen & Bruce Tidor
 % This work is released under the MIT license.
+
+if ~m.Ready
+    m = FinalizeModel(m);
+end
 
 %% Open file
 fid = fopen(filename, 'w+t');
+keep_me_open = onCleanup(@()fclose(fid));
 
 %% Save all compartments
 % Write compartment header
 fprintf(fid, '%% Compartments');
 if ~isempty(m.Name)
     % Write model name
-    if ~isempty(regexp(m.Name, '[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        m.Name = ['"' m.Name '"'];
-    end
-    fprintf(fid, ' %s', m.Name);
+    fprintf(fid, ' %s', enquoted(m.Name));
 end
 fprintf(fid, '\n');
 
@@ -35,30 +36,21 @@ for iv = 1:m.nv
     v = m.Compartments(iv);
     
     % Write name and dimension
-    if ~isempty(regexp(v.Name, '^[%#]|[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        v.Name = ['"' v.Name '"'];
-    end
-    fprintf(fid, '%s %i', v.Name, v.Dimension);
+    fprintf(fid, '%s %i', enquoted(v.Name), v.Dimension);
     
-    % Write compartment volume regular expressions
-    nExpr = numel(v.Expressions);
-    for iExpr = 1:nExpr
-        fprintf(fid, ' ');
-        
-        % Write expressions if one exists
-        if ~isempty(v.Expressions{iExpr})
-            fprintf(fid, '%s=', v.Expressions{iExpr});
+    % Write compartment size contributors
+    n_expr = size(v.Size, 1);
+    for i_expr = 1:n_expr
+        % Write contributor expression
+        if isempty(v.Size{i_expr, 1})
+            % Empty name is constant expression
+            fprintf(fid, ' %g', v.Size{i_expr, 2});
+        elseif v.Size{i_expr, 2} == 1
+            % Value of 1 is the default
+            fprintf(fid, ' %s', enquoted(v.Size{i_expr, 1}));
+        else
+            fprintf(fid, ' %s=%g', enquoted(v.Size{i_expr, 1}), v.Size{i_expr, 2});
         end
-        
-        % Write value
-        fprintf(fid, '%g', v.Values(iExpr));
-        
-        % Write comma if there are more expressions,
-        if iExpr == nExpr
-            break
-        end
-        fprintf(fid, ',');
     end
     
     % Write newline
@@ -76,11 +68,7 @@ for ik = 1:m.nk
     k = m.Parameters(ik);
     
     % Write Name and Value
-    if ~isempty(regexp(k.Name, '^[%#]|[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        k.Name = ['"' k.Name '"'];
-    end
-    fprintf(fid, '%s %g\n', k.Name, k.Value);
+    fprintf(fid, '%s %g\n', enquoted(k.Name), k.Value);
 end
 
 fprintf(fid, '\n');
@@ -90,56 +78,36 @@ fprintf(fid, '\n');
 fprintf(fid, '%% Seeds\n');
 
 % Write parameters
-for ik = 1:m.nk
-    s = m.Seeds(ik);
+for is = 1:m.ns
+    s = m.Seeds(is);
     
     % Write Name and Value
-    if ~isempty(regexp(s.Name, '^[%#]|[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        s.Name = ['"' s.Name '"'];
-    end
-    fprintf(fid, '%s %g\n', k.Name, k.Value);
+    fprintf(fid, '%s %g\n', enquoted(s.Name), s.Value);
 end
 
 fprintf(fid, '\n');
 
 %% Save all inputs
-% Write species header
-fprintf(fid, '%% Species\n');
+% Initialize to dummy value to ensure new block runs on first iteration
+current_compartment = nan;
 
 % Write species
 for iu = 1:numel(m.Inputs)
-    u = m.Species(iu);
+    u = m.Inputs(iu);
     
-    % Write Compartment.Name
-    name = [u.Compartment '.' u.Name];
-    if ~isempty(regexp(name, '^[%#]|[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        v.Name = ['"' name '"'];
-    end
-    fprintf(fid, '%s', name);
-    
-    % Write function
-    if isempty(regexp(func2str(u.Value.Function), '@\(t,q\)repmat\([-+]?([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?,1,numel\(t\)\)', 'once'))
-        % Input is not a constant
-        fprintf(fid, ' %s', func2str(u.Function));
-    else
-        % The function was originally a constant; extract it
-        match = regexp(func2str(u.Function), '[-+]?([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?', 'match', 'once');
-        fprintf(fid, ' %s', match);
+    % Start new block if compartment changes
+    if ~isequaln(u.Compartment, current_compartment)
+        if iu ~= 1; fprintf(fid, '\n'); end
+        fprintf(fid, '%% Inputs %s\n', enquoted(u.Compartment));
+        current_compartment = u.Compartment;
     end
     
-    % If there are parameters, write them
-    nPara = numel(u.Parameters);
-    for iPara = 1:nPara
-        % Write parameter
-        fprintf(fid, ' %g', u.Parameters(iPara));
-        
-        % Write comma if there are more parameters
-        if iExpr == nExpr
-            break
-        end
-        fprintf(fid, ',');
+    % Write Name
+    fprintf(fid, '%s', enquoted(u.Name));
+    
+    % Write default value only if nonzero
+    if u.DefaultValue ~= 0
+        fprintf(fid, ' %g', u.DefaultValue);
     end
     
     % Write newline
@@ -149,24 +117,36 @@ end
 fprintf(fid, '\n');
 
 %% Save all states
-% Write species header
-fprintf(fid, '%% Species\n');
+% Initialize to dummy value to ensure new block runs on first iteration
+current_compartment = nan;
 
 % Write species
 for ix = 1:numel(m.States)
     x = m.States(ix);
     
-    % Write Compartment.Name
-    name = [x.Compartment '.' x.Name];
-    if ~isempty(regexp(name, '^[%#]|[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        v.Name = ['"' name '"'];
+    % Start new block if compartment changes
+    if ~isequaln(x.Compartment, current_compartment)
+        if ix ~= 1; fprintf(fid, '\n'); end
+        fprintf(fid, '%% States %s\n', enquoted(x.Compartment));
+        current_compartment = x.Compartment;
     end
-    fprintf(fid, '%s', name);
     
-    % Write value only if nonzero
-    if x.InitialValue ~= 0
-        fprintf(fid, ' %g', x.InitialValue);
+    % Write Name
+    fprintf(fid, '%s', enquoted(x.Name));
+    
+    % Write initial condition seeds
+    n_expr = size(x.InitialValue, 1);
+    for i_expr = 1:n_expr
+        % Write contributor expression
+        if isempty(x.InitialValue{i_expr, 1})
+            % Empty name is constant expression
+            fprintf(fid, ' %g', x.InitialValue{i_expr, 2});
+        elseif x.InitialValue{i_expr, 2} == 1
+            % Value of 1 is the default
+            fprintf(fid, ' %s', enquoted(x.InitialValue{i_expr, 1}));
+        else
+            fprintf(fid, ' %s=%g', enquoted(x.InitialValue{i_expr, 1}), x.InitialValue{i_expr, 2});
+        end
     end
     
     % Write newline
@@ -176,72 +156,65 @@ end
 fprintf(fid, '\n');
 
 %% Save all reactions
-% Write reaction header
-fprintf(fid, '%% Reactions\n');
+% Initialize to dummy value to ensure new block runs on first iteration
+current_compartment = nan;
 
 % Write reactions
 for ir = 1:m.nr
     r = m.Reactions(ir);
     
-    % Write Reactants
-    if ~isempty(r.Reactants{1})
-        if ~isempty(regexp(r.Reactants{1}, '^[%#]|[\s,]', 'once'))
-            % Enclose name in quotes if it contains operators
-            r.Reactants{1} = ['"' r.Reactants{1} '"'];
-        end
-        fprintf(fid, [r.Reactants{1} ' ']);
-    else
-        fprintf(fid, '0 ');
+    % Start new block if compartment changes
+    if ~isequaln(r.Compartment, current_compartment)
+        if ir ~= 1; fprintf(fid, '\n'); end
+        fprintf(fid, '%% Reactions %s\n', enquoted(r.Compartment));
+        current_compartment = r.Compartment;
     end
-    if ~isempty(r.Reactants{2})
-        if ~isempty(regexp(r.Reactants{2}, '^[%#]|[\s,]', 'once'))
-            % Enclose name in quotes if it contains operators
-            r.Reactants{2} = ['"' r.Reactants{2} '"'];
-        end
-        fprintf(fid, [r.Reactants{2} ' ']);
-    else
-        fprintf(fid, '0 ');
+    
+    % Reactions with more than 2 products are handled specially
+    large_scale = numel(r.Products) > 2;
+    
+    if large_scale
+        fprintf(fid, ', ');
+    end
+    
+    % Write reactants
+    if numel(r.Reactants) == 0
+        fprintf(fid, '0 0');
+    elseif numel(r.Reactants) == 1
+         fprintf(fid, '%s 0', enquoted(r.Reactants{1}));
+    elseif numel(r.Reactants) == 2
+        fprintf(fid, '%s %s', enquoted(r.Reactants{1}), enquoted(r.Reactants{2}));
     end
     
     % Write Products
-    if ~isempty(r.Products{1})
-        if ~isempty(regexp(r.Products{1}, '^[%#]|[\s,]', 'once'))
-            % Enclose name in quotes if it contains operators
-            r.Products{1} = ['"' r.Products{1} '"'];
-        end
-        fprintf(fid, [r.Products{1} ' ']);
+    if numel(r.Products) == 0
+        fprintf(fid, ' 0 0');
+    elseif numel(r.Products) == 1
+         fprintf(fid, ' %s 0', enquoted(r.Products{1}));
+    elseif numel(r.Products) == 2
+        fprintf(fid, ' %s %s', enquoted(r.Products{1}), enquoted(r.Products{2}));
     else
-        fprintf(fid, '0 ');
-    end
-    if ~isempty(r.Products{2})
-        if ~isempty(regexp(r.Products{2}, '^[%#]|[\s,]', 'once'))
-            % Enclose name in quotes if it contains operators
-            r.Products{2} = ['"' r.Products{2} '"'];
-        end
-        fprintf(fid, [r.Products{2} ' ']);
-    else
-        fprintf(fid, '0 ');
+        fprintf(fid, [' ', strjoin(cellfun(@enquoted, r.Products, 'UniformOutput', false), ' ')]);
     end
     
-    % Write Parameter
-    if ~isempty(regexp(r.Parameter, '^[%#]|[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        r.Parameter = ['"' r.Parameter '"'];
-    end
-    fprintf(fid, r.Parameter);
+    % Write parameter
+    fprintf(fid, ' %s', enquoted(r.Parameter{1}));
     
-    % Write Name
+    % Write parameter scale if present
+    if r.Parameter{2} ~= 1
+        fprintf(fid, '=%g', r.Parameter{2});
+    end
+    
+    % Write name if present
     if ~isempty(r.Name)
-        if ~isempty(regexp(r.Name, '[\s,]', 'once'))
-            % Enclose name in quotes if it contains operators
-            r.Name = ['"' r.Name '"'];
-        end
-        fprintf(fid, [' 0 ' r.Name]);
+        fprintf(fid, ' 0 %s', enquoted(r.Name));
     end
     
     % Write newline
     fprintf(fid, '\n');
 end
+
+fprintf(fid, '\n');
 
 %% Save all outputs
 % Write output header
@@ -252,37 +225,31 @@ for iy = 1:m.ny
     y = m.Outputs(iy);
     
     % Write name
-    if ~isempty(regexp(y.Name, '^[%#]|[\s,]', 'once'))
-        % Enclose name in quotes if it contains operators
-        y.Name = ['"' y.Name '"'];
-    end
-    fprintf(fid, y.Name);
+    fprintf(fid, enquoted(y.Name));
     
-    % Write output value regular expressions
-    nExpr = numel(y.Expressions);
-    for iExpr = 1:nExpr
-        fprintf(fid, ' ');
-        
-        % Write expressions if one exists
-        if ~isempty(y.Expressions(iExpr))
-            fprintf(fid, '%s=', y.Expressions{iExpr});
+    % Write output value contributors
+    n_expr = size(y.Expression, 1);
+    for i_expr = 1:n_expr
+        % Write contributor expression
+        if isempty(y.Expression{i_expr, 1})
+            % Empty name is constant expression
+            fprintf(fid, ' %g', y.Expression{i_expr, 2});
+        elseif y.Expression{i_expr, 2} == 1
+            % Value of 1 is the default
+            fprintf(fid, ' %s', enquoted(y.Expression{i_expr, 1}));
+        else
+            fprintf(fid, ' %s=%g', enquoted(y.Expression{i_expr, 1}), y.Expression{i_expr, 2});
         end
-        
-        % Write value
-        fprintf(fid, '%g', y.Values(iExpr));
-        
-        % Write comma if there are more expressions
-        if iExpr == nExpr
-            break
-        end
-        fprintf(fid, ',');
     end
     
     % Write newline
     fprintf(fid, '\n');
 end
+end
 
-fprintf(fid, '\n');
-
-%% Close file
-fclose(fid);
+function string = enquoted(string)
+% Add quotes if string contains characters that need escaping
+if ~isempty(regexp(string, '[%#\s,]', 'once'))
+    string = ['"' string '"'];
+end
+end

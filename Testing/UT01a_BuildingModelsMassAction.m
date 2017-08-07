@@ -229,6 +229,20 @@ for i = 1:nForms
 end
 end
 
+function testOutputsWithConstants(a)
+m = InitializeModelMassActionAmount();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddState(m, 'x1', 'v1');
+m = AddState(m, 'x2', 'v1');
+m = AddInput(m, 'u1', 'v1');
+m = AddOutput(m, 'y1', {'', 10});
+m = AddOutput(m, 'y2', {'x1', 2; '', 1});
+m = AddOutput(m, 'y3', {'x2', 2; '', 1; 'u1', 3});
+m = FinalizeModel(m);
+
+a.verifyEqual(m.y(0, [3;4], 5), [10; 7; 24])
+end
+
 function testRemoveComponent(a)
 m = InitializeModelMassActionAmount();
 m = AddCompartment(m, 'v1', 3, 1);
