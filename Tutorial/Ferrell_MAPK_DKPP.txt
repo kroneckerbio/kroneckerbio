@@ -24,9 +24,9 @@ P:D	0
 P:M	0
 
 % Outputs
-S	S
-M	M
-D	D
+S	S E:S
+M	M E:M P:M
+D	D P:D
 
 % Parameters
 k1on	0.02
