@@ -20,17 +20,13 @@
 % experimental design to predict which experiments would be best for
 % reducing the remaining uncertainty.
 
-
 %% Download
 % The latest stable version is %${VERSION} and can be downloaded at
-% <https://github.com/kroneckerbio/kroneckerbio/archive/stable.zip>.
+% <https://github.com/kroneckerbio/kroneckerbio/releases>.
 %
 % The current development version can be downloaded or
 % cloned from the Github repository at
 % <https://github.com/kroneckerbio/kroneckerbio>.
-%
-% Previous releases can be found in the releases page on
-% the Github at <https://github.com/kroneckerbio/kroneckerbio/releases>.
 
 %% Installation
 % KroneckerBio is written entirely in Matlab. No compilation is necessary.
