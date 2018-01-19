@@ -12,7 +12,7 @@ addpath([kroneckerPath '/External/libSBML-5.11.4-matlab']);
 
 % Compatibility paths
 % Add our version if Matlab version does not exist
-compatibility_files = {'assert', 'bsxfun', 'ismatrix', 'padarray', 'strjoin', 'histcounts'};
+compatibility_files = {'padarray', 'strjoin', 'histcounts'};
 
 for i = 1:numel(compatibility_files)
     if ~(exist(compatibility_files{i}, 'builtin') || exist(compatibility_files{i}, 'file'))
