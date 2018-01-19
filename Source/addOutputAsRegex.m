@@ -13,17 +13,18 @@ function m = addOutputAsRegex(m, name, regex)
 %       The model to which the output will be added
 %   name: [ string ]
 %       A name for the output
-%   expression: [ string regex | cell vector of string regexes | n x 2 cell matrix of [string regex, double] pairs ]
-%       A regex as a string for matching in the model. Matches are performed 
-%       on the qualified compartment.species names. The output will
-%       be the sum of matched species multiplied by the specified coefficient
-%       (default 1). May be specified as a single
-%       string, a cell vector of strings with implied unity coefficient,
-%       or a n x 2 cell matrix where the 1st col contains strings and the
-%       2nd col contains the coefficients. No compartment qualification is done.
+%   expression: [ string regex | cell vector of string regexes 
+%               | n x 2 cell matrix of [string regex, double] pairs ]
+%       A regex as a string for matching in the model. Matches are
+%       performed on the qualified compartment.species names. The output
+%       will be the sum of matched species multiplied by the specified
+%       coefficient (default 1). May be specified as a single string, a
+%       cell vector of strings with implied unity coefficient, or a n x 2
+%       cell matrix where the 1st col contains strings and the 2nd col
+%       contains the coefficients. No compartment qualification is done.
 %       Beware of species whose names are substrings of other species' or
-%       compartments' names. Beware: if multiple matches of a species are made, then
-%       that species will be counted multiple times.
+%       compartments' names. Beware: if multiple matches of a species are
+%       made, then that species will be counted multiple times.
 %
 %   Outputs
 %   m: [ model struct scalar ]

@@ -77,17 +77,13 @@ function m = InitializeModelMassActionAmount(name)
 %       .Outputs [ struct vector ]
 %           .Name [ string ]
 %               The name of the output
-%           .Expressions [ cell vector of regexp strings | '' ]
+%           .Expression [ cell vector of regexp strings | '' ]
 %               The regular expressions match species of the model. Each
 %               species whose full name contains the described substring
 %               contributes to the output an amount equal to the
 %               corresponding element in Values. An empty string means
 %               that the value is constituitive (the output simply has
 %               that value regardless of any species value).
-%           .Values [ nonnegative vector ]
-%               The value of the output is the sum of each value in
-%               this vector times the sum of the amounts of each species
-%               that is matched by Expressions.
 %       .nv [ whole scalar ]
 %           The number of compartments
 %       .nk [ whole scalar ]

@@ -1,2 +1,2 @@
 function outputs = emptyOutputs(ny)
-outputs = emptystruct(ny, 'Name',  'Expressions');
+outputs = emptystruct(ny, 'Name',  'Expression');
