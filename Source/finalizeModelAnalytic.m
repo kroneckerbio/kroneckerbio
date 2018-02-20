@@ -803,7 +803,7 @@ if verbose; fprintf('done.\n'); end
                 orderstr = '';
             end
             [denterms, ~, denoccurenceindex] = unique(dens, 'stable');
-            dencounts = histcounts(denoccurenceindex, 0.5:numel(denterms)+0.5);
+            dencounts = accumarray(denoccurenceindex, ones(numel(denoccurenceindex),1));
             dencounts = strtrim(cellstr(int2str(dencounts(:))));
             dencounts(strcmp(dencounts, '1')) = {''};
             denstrs = strcat('d', denterms(:), dencounts(:));

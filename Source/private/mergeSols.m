@@ -23,11 +23,11 @@ switch xSol1.solver
             dif3d1 = xSol1.idata.dif3d;
             dif3d2 = xSol2.idata.dif3d;
         elseif(size1 < size2)
-            dif3d1 = padarray(xSol1.idata.dif3d, [0, size2-size1, 0], 'post');
+            dif3d1 = padarray_post(xSol1.idata.dif3d, [0, size2-size1, 0]);
             dif3d2 = xSol2.idata.dif3d;
         else % size1 bigger
             dif3d1 = xSol1.idata.dif3d;
-            dif3d2 = padarray(xSol2.idata.dif3d, [0, size1-size2, 0], 'post');
+            dif3d2 = padarray_post(xSol2.idata.dif3d, [0, size1-size2, 0]);
         end
 
         xSol.idata.kvec             = [xSol1.idata.kvec, xSol2.idata.kvec];
@@ -52,4 +52,28 @@ elseif isfield(xSol2, 'xe')
     xSol.xe = xSol2.xe;
     xSol.ye = xSol2.ye;
     xSol.ie = xSol2.ie;
+end
+end
+
+function B = padarray_post(A, pad_size)
+% padarray_post Pad an array to a given size with zeros.
+%
+%   B = padarray_post(A, pad_size)
+% 
+% This function implements the post method of the full padarray function
+% found in the Image Processing Toolbox. It pads the input array A with
+% zeros to the right and bottom until the final array size is B.
+
+n_dims = numel(pad_size);
+
+ind   = cell(1,n_dims);
+size_B = zeros(1,n_dims);
+for k = 1:n_dims
+    M = size(A,k);
+    ind{k}   = 1:M;
+    size_B(k) = M + pad_size(k);
+end
+
+B         = zeros(size_B);
+B(ind{:}) = A;
 end
