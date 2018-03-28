@@ -42,7 +42,9 @@ if isempty(name)
 end
 
 n = numel(outputlist);
-assert(numel(timelist) == n, 'KroneckerBio:objectiveWeightedSumOfSquares:timelist', 'Input "timelist" must be a vector length of "outputlist".')
+assert(numel(timelist) == n && all(timelist >= 0), ...
+    'KroneckerBio:objectiveWeightedSumOfSquares:timelist', ...
+    'Input "timelist" must be a nonegative vector length of "outputlist".')
 
 obs.Type = 'Observation.Data.LinearWeightedSumOfSquares';
 obs.Name = name;
