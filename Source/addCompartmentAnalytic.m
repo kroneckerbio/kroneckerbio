@@ -1,7 +1,7 @@
 function m = addCompartmentAnalytic(m, name, dimension, size)
 %AddCompartment Add a compartment to a Model.Analytic
 %
-%   m = AddCompartment(m, name, dimension, size, id)
+%   m = AddCompartment(m, name, dimension, size)
 %
 %   Compartments hold species and have size. They are purely an
 %   organizational feature in analytic models and have no impact on the

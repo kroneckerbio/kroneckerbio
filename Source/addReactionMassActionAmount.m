@@ -36,14 +36,11 @@ function m = addReactionMassActionAmount(m, name, reactants, products, kForward,
 %       Like kForward.
 %   compartment: [ string | empty {''} ]
 %       A compartment name.
-%       If empty, then each species referred to in the reactants, products,
-%       forward, and reverse must unambiguously refer to a single species
-%       in the model, either because it is unique or because it is a
-%       species full name.
-%       If supplied, then each species in the reactants and products that
-%       does not have a compartment will be disambiguated with this
-%       compartment. The reactants and products that are disambiguated will
-%       also be disambiguated in forward and reverse expressions.
+%       If empty, then each species referred to in the reactants and products
+%       must unambiguously refer to a single species in the model, either
+%       because it is unique or because it is a species full name. If supplied,
+%       then each species in the reactants and products that does not have a
+%       compartment will be disambiguated with this compartment.
 %
 %   Outputs
 %   m: [ model struct scalar ]
