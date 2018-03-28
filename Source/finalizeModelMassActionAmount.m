@@ -66,29 +66,6 @@ if nz > 0
     warning('KroneckerBio:FinalizeModel:MassActionRule', 'Rules not supported in massaction models. Ignoring.')
 end
 
-%% Warn on repeated reactions
-% It is necessary to sort the reactants and products first so that
-% reactions which are merely permutations of the names can be detected
-% Note: if only reactions were objects with an overloaded equals function...
-sorted_reactions = cell(nr,1);
-for ir = 1:nr
-    sorted_reactions{ir} = {sort(m.Reactions(ir).Reactants), sort(m.Reactions(ir).Products), m.Reactions(ir).Parameter, m.Reactions(ir).Name};
-end
-
-for ir = 1:nr
-    for jr = 1:ir-1
-        if numel(sorted_reactions{ir}{1}) == numel(sorted_reactions{jr}{1}) && ...
-                numel(sorted_reactions{ir}{2}) == numel(sorted_reactions{jr}{2}) && ...
-                all(strcmp(sorted_reactions{ir}{1}, sorted_reactions{jr}{1})) && ...
-                all(strcmp(sorted_reactions{ir}{2}, sorted_reactions{jr}{2})) && ...
-                strcmp(sorted_reactions{ir}{3}{1}, sorted_reactions{jr}{3}{1}) && ...
-                sorted_reactions{ir}{3}{2} == sorted_reactions{jr}{3}{2} && ...
-                strcmp(sorted_reactions{ir}{4}, sorted_reactions{jr}{4})
-            warning('KroneckerBio:FinalizeModel:RepeatReactions', 'Reaction %s (#%i) is identical to reaction %s (#%i)', r_names{ir}, ir, r_names{jr}, jr)
-        end
-    end
-end
-
 %% Process compartments
 % Dimensions
 m.dv = vec([m.Compartments.Dimension]);
@@ -844,7 +821,8 @@ m.dD6dk_rk_u  = spermute132(m.dD6dk, [nr,nu,nk],    [nr*nk,nu]);
 % Construct fullest possible matrices to determine which columns are used
 kRand = sparse(rand(nk,1));
 m.A1 = reshape(m.dA1dk * kRand, nx,nx);
-m.A2 = reshape(m.dA2dk * kRand, nx,nx*nx);
+%m.A2 = reshape(m.dA2dk * kRand, nx,nx*nx);
+m.A2 = reshape(mtimestall(m.dA2dk, kRand), nx,nx*nx);
 m.A3 = reshape(m.dA3dk * kRand, nx,nu*nx);
 m.A4 = reshape(m.dA4dk * kRand, nx,nx*nu);
 m.A5 = reshape(m.dA5dk * kRand, nx,nu*nu);
@@ -876,6 +854,41 @@ D5UsedColumns = vec(unique(D5UsedColumns));
 [D3UsedSpecies2, D3UsedSpecies1] = ind2sub([nx,nu], D3UsedColumns);
 [D4UsedSpecies2, D4UsedSpecies1] = ind2sub([nu,nx], D4UsedColumns);
 [D5UsedSpecies2, D5UsedSpecies1] = ind2sub([nu,nu], D5UsedColumns);
+
+%% Warn on duplicate reactions
+% Encode reaction names as numbers
+[~, ~, i_reaction_name] = unique(r_names);
+
+% Make one index zero so the sparse drops it (usually the empty string)
+i_reaction_name = sparse(i_reaction_name - 1);
+
+% Assemble reactions into one big matrix
+reaction_matrix = [sparse(m.krInd), m.S.', i_reaction_name];
+
+% All rows that already appeared elsewhere
+[~, i_unique_reactions] = unique(reaction_matrix, 'rows');
+i_duplicates = setdiff(vec(1:nr), i_unique_reactions);
+
+% Remove duplicate duplicates
+[~, i_unique_i_duplicates] = unique(reaction_matrix(i_duplicates, :), 'rows');
+i_unique_duplicates = i_duplicates(i_unique_i_duplicates);
+
+for i_dup = row(i_unique_duplicates)
+    % Find all rows corresponding to this duplicate and warn
+    dup_inds = find(ismember(reaction_matrix, reaction_matrix(i_dup,:), 'rows'));
+    
+    warning_string = 'The following reactions are identical: ';
+    for dup_ind = row(dup_inds)
+        if isempty(r_names{dup_ind})
+            warning_string = [warning_string, ' #', num2str(dup_ind), ','];
+        else
+            warning_string = [warning_string, ' #', num2str(dup_ind), ' "', r_names{dup_ind}, '",'];
+        end
+    end
+    warning_string = warning_string(1:end-1); % Drop final comma
+    
+    warning('KroneckerBio:FinalizeModel:RepeatReactions', warning_string)
+end
 
 %% Final build of model
 m = final(m, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2);
@@ -1005,7 +1018,8 @@ nr = m.nr;
 % Build kronecker matrices
 sparsek = sparse(m.k);
 m.A1 = reshape(m.dA1dk * sparsek, nx,nx);
-m.A2 = reshape(m.dA2dk * sparsek, nx,nx*nx);
+%m.A2 = reshape(m.dA2dk * sparsek, nx,nx*nx);
+m.A2 = reshape(mtimestall(m.dA2dk, sparsek), nx,nx*nx);
 m.A3 = reshape(m.dA3dk * sparsek, nx,nu*nx);
 m.A4 = reshape(m.dA4dk * sparsek, nx,nx*nu);
 m.A5 = reshape(m.dA5dk * sparsek, nx,nu*nu);
