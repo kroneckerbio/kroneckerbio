@@ -94,7 +94,7 @@ end
 
 function testSimulateEvent(a)
 [m, con, ~, opts] = simple_model();
-eve1 = eventDropsBelow(m, 10, 15);
+eve1 = eventDropsBelow(m, 10, 10);
 eve2 = eventDropsBelow(m, 1, 2);
 obs = observationEvents(6, [eve1;eve2]);
 
@@ -103,6 +103,43 @@ sim = SimulateSystem(m, con, obs, opts);
 a.verifyEqual(size(sim.ue,1), m.nu)
 a.verifyEqual(size(sim.xe,1), m.nx)
 a.verifyEqual(size(sim.ye,1), m.ny)
+end
+
+function testSimulateTerminalEvent(a)
+[m, con, ~, opts] = simple_model();
+eve1 = eventDropsBelow(m, 10, 10);
+eve2 = eventDropsBelow(m, 1, 3);
+obs = observationEvents(6, [eve1;eve2], 1);
+
+sim = SimulateSystem(m, con, obs, opts);
+
+a.verifyNotEqual(sim.te(end), 6);
+a.verifyEqual(size(sim.te), [1, 2]);
+a.verifyEqual(size(sim.ue), [m.nu, 2])
+a.verifyEqual(size(sim.xe), [m.nx, 2])
+a.verifyEqual(size(sim.ye), [m.ny, 2])
+end
+
+function testSimulateTerminalEventAndAll(a)
+[m, con, ~, opts] = simple_model();
+eve1 = eventDropsBelow(m, 10, 10);
+eve2 = eventDropsBelow(m, 1, 3);
+obs1 = observationEvents(6, [eve1;eve2], 1);
+obs2 = observationAll(6);
+
+sim = SimulateSystem(m, con, [obs1; obs2], opts);
+
+sim1 = sim(1);
+
+a.verifyNotEqual(sim1.te(end), 6);
+a.verifyEqual(size(sim1.te), [1, 2]);
+a.verifyEqual(size(sim1.ue), [m.nu, 2])
+a.verifyEqual(size(sim1.xe), [m.nx, 2])
+a.verifyEqual(size(sim1.ye), [m.ny, 2])
+
+sim2 = sim(2);
+
+a.verifyEqual(sim2.t(end), 6);
 end
 
 function testSimulateDifferent(a)

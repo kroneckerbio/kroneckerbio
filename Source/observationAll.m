@@ -1,4 +1,26 @@
 function obs = observationAll(tF)
+%observationAll Store the complete simulation up to a final time
+%
+%   obs = observationAll(tF)
+%
+%   This is the default observation scheme when a bare number is provided to a
+%   Simulate function. It returns a simulation struct with function handles that
+%   can be evaluated at any time, which interpolate the solution using the
+%   built-on ODE interpolation scheme, so accuracy is maintained at all time
+%   points.
+%
+%   Inputs
+%   tF: [ nonnegative scalar ]
+%       The time at which the simulation will be stopped.
+%
+%   Outputs
+%   obs: [ observation struct scalar ]
+%       A KroneckerBio observation scheme structure
+%
+%   For the meanings of the fields of obs see "help observationZero"
+
+% (c) 2018 David R Hagen and Bruce Tidor
+% This work is released under the MIT license.
 
 obs.tF = tF;
 obs.Complex = true;

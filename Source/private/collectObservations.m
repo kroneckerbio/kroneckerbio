@@ -34,8 +34,19 @@ t_get = unique([obs.DiscreteTimes]);
     % Is finished
     function finished = is_finished_combined(sol)
         finished = true;
+        used_events = 0;
         for iobs = 1:n_obs
-            if obs(iobs).IsFinished(sol)
+            % In the full list of events, which ie values pertain to this obs
+            obs_event_indexes = (1:obs(iobs).ne) + used_events;
+            
+            % Slice out just the events pertaining to this obs
+            keep_indexes = ismember(sol.ie, obs_event_indexes);
+            sol_i = sol;
+            sol_i.ie = sol_i.ie(keep_indexes);
+            sol_i.xe = sol_i.xe(keep_indexes);
+            sol_i.ye = sol_i.ye(:,keep_indexes);
+            
+            if ~obs(iobs).IsFinished(sol_i)
                 finished = false;
                 break
             end
