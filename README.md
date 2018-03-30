@@ -99,9 +99,9 @@ m = FinalizeModel(m);
 % inputs, and the doses. Here, the default values on the model are used.
 con = experimentInitialValue(m);
 
-% The observation scheme object defines defines what information is stored
-% during a simulation. Here, we store everything, which is convinient for
-% small models.
+% The observation scheme object defines what information is stored during 
+% a simulation. Here, we store everything, which is convenient for small 
+% models.
 obs = observationAll(10000);
 
 % A simulation is a model run under specific experimental conditions
