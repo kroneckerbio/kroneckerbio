@@ -200,13 +200,26 @@ z  = substituteQuotedExpressions(z, all_names, all_ids);
 r  = substituteQuotedExpressions(r, all_names, all_ids);
 y  = substituteQuotedExpressions(y, all_names, all_ids);
 
-if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
-v  = sym(v);
-x0 = sym(x0);
-z  = sym(z);
-r  = sym(r);
-y  = sym(y);
-if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
+if ~verLessThan('matlab', '9.3')
+    % sym as a symbolic parser was deprecated in Matlab 2016a (v9.0)
+    % str2sym was added in Matlab 2017b (v9.3)
+    % sym as a symbolic parser was removed in Matlab 2018a (v9.4)
+    v  = str2sym(v);
+    x0 = str2sym(x0);
+    z  = str2sym(z);
+    r  = str2sym(r);
+    y  = str2sym(y);
+else
+    if ~verLessThan('matlab', '9.0')
+        state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
+        finished = onCleanup(@() warning(state));
+    end
+    v  = sym(v);
+    x0 = sym(x0);
+    z  = sym(z);
+    r  = sym(r);
+    y  = sym(y);
+end
 
 %% Substitute in expressions
 % Everything that is substitutable

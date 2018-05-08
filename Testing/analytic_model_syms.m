@@ -137,9 +137,15 @@ reactiontable = {
     };
 
 nr = size(reactiontable,1);
-if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
-r = sym(reactiontable(:,3));
-if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
+if ~verLessThan('matlab', '9.3')
+    r = str2sym(reactiontable(:,3));
+else
+    if ~verLessThan('matlab', '9.0')
+        state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
+        finished = onCleanup(@() warning(state));
+    end
+    r = sym(reactiontable(:,3));
+end
 
 % Get indices of reactants and products in each reaction
 getspeciesindices = @(x)intersect(x,xuNames,'stable');
@@ -174,9 +180,15 @@ yNames = outputtable(:,1);
 yStrings = outputtable(:,1);
 sm.yNames = yNames;
 sm.yStrings = yStrings;
-if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
-sm.y = sym(yStrings);
-if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
+if ~verLessThan('matlab', '9.3')
+    sm.y = str2sym(yStrings);
+else
+    if ~verLessThan('matlab', '9.0')
+        state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
+        finished = onCleanup(@() warning(state));
+    end
+    sm.y = sym(yStrings);
+end
 y = sm.y;
 
 ny = length(y);

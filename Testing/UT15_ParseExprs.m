@@ -40,8 +40,6 @@ end
 end
 
 function testName2ID(a)
-if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
-
 [names, ids, xuvNames, values] = sampleData;
 sids = sym(ids);
 
@@ -49,28 +47,38 @@ sids = sym(ids);
 a1 = 'A + B';
 b1 = name2id(a1, names, ids, xuvNames);
 c1 = values(1) + values(2);
-d1 = double(subs(sym(b1), sids, values));
+d1 = double(subs(parse_sym(b1), sids, values));
 a.verifyEqual(c1 ,d1, 'RelTol', 0.001);
 
 a2 = 'k1*A + k2*B';
 b2 = name2id(a2, names, ids, xuvNames);
 c2 = values(8)*values(1) + values(9)*values(2);
-d2 = double(subs(sym(b2), sids, values));
+d2 = double(subs(parse_sym(b2), sids, values));
 a.verifyEqual(c2 ,d2, 'RelTol', 0.001);
 
 a3 = 'A_0*B_0 + 2.5*"C:C_0"';
 b3 = name2id(a3, names, ids, xuvNames);
 c3 = values(18)*values(19) + 2.5*values(21);
-d3 = double(subs(sym(b3), sids, values));
+d3 = double(subs(parse_sym(b3), sids, values));
 a.verifyEqual(c3 ,d3, 'RelTol', 0.001);
 
-a4 = 'k3*A + PI*1.15*exp("C:C_0")'; % Make sure to give pi as PI
+a4 = 'k3*A + pi*1.15*exp("C:C_0")';
 b4 = name2id(a4, names, ids, xuvNames);
 c4 = values(10)*values(1) + pi*1.15*exp(values(21));
-d4 = double(subs(sym(b4), sids, values));
+d4 = double(subs(parse_sym(b4), sids, values));
 a.verifyEqual(c4 ,d4, 'RelTol', 0.001);
 
-if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
+    function expression = parse_sym(string)
+        if ~verLessThan('matlab', '9.3')
+            expression = str2sym(string);
+        else
+            if ~verLessThan('matlab', '9.0')
+                state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
+                finished = onCleanup(@() warning(state));
+            end
+            expression = sym(string);
+        end
+    end
 end
 
 function [names, ids, xuvNames, values] = sampleData

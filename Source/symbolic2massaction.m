@@ -203,9 +203,15 @@ for i = 1:nr
     reactants = sym(reactants);
     products = sym(products);
     
-    if ~verLessThan('matlab', '9.0'); st = warning('off', 'symbolic:sym:sym:DeprecateExpressions'); end
-    rate = sym(name2id(rate, allNames, allIDs, xuvNames));
-    if ~verLessThan('matlab', '9.0') && strcmp(st.state, 'on'); warning('on', 'symbolic:sym:sym:DeprecateExpressions'); end
+    if ~verLessThan('matlab', '9.3')
+        rate = str2sym(name2id(rate, allNames, allIDs, xuvNames));
+    else
+        if ~verLessThan('matlab', '9.0')
+            state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
+            finished = onCleanup(@() warning(state));
+        end
+        rate = sym(name2id(rate, allNames, allIDs, xuvNames));
+    end
     
     rate = evaluateExternalFunctions(rate, allIDs); % for resolving "power" function
     
