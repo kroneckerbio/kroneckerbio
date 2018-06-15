@@ -67,16 +67,22 @@ r_products = arrayfun(@(ri){[vec({ri.product.species}), vec({ri.product.stoichio
 rates = [sbml.reaction.kineticLaw];
 r_rates = vec({rates.formula});
 
-% Seperate out reaction parameters to be combined with regular parameters
-reaction_parameters = vec([rates.parameter]);
+% Separate out reaction parameters to be combined with regular parameters
+reaction_parameters = {rates.parameter};
+reaction_parameters = reaction_parameters(cellfun(@(x)~isempty(x), reaction_parameters));
+reaction_parameters = vec([reaction_parameters{:}]);
 nrk = numel(reaction_parameters);
-rk_ids = vec({reaction_parameters.id});
-rk_names = vec({reaction_parameters.name});
-
-% Do same handling of unset parameters
-rk_set_size = logical(vec([reaction_parameters.isSetValue]));
-rk_values = nan(nrk,1);
-rk_values(rk_set_size) = vec([reaction_parameters(rk_set_size).value]);
+if nrk > 0
+    rk_ids = vec({reaction_parameters.id});
+    rk_names = vec({reaction_parameters.name});
+    rk_set_size = logical(vec([reaction_parameters.isSetValue]));
+    rk_values = nan(nrk,1);
+    rk_values(rk_set_size) = vec([reaction_parameters(rk_set_size).value]);
+else
+    rk_ids = cell(0,1);
+    rk_names = cell(0,1);
+    rk_values = zeros(0,1);
+end
 
 %% Append reaction parameters to regular parameters
 nk = nk + nrk;
