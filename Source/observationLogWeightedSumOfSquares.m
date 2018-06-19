@@ -289,7 +289,7 @@ for i = 1:n
     [sigma(i), dsigmady(i)] = sd(t_i, outputlist(i), ybar(i));
 end
 
-dlogydT = bsxfun(@rdivide, dydT, y_all);
+dlogydT = bsxfun(@rdivide, dydT, ybar);
 logsigma = sigma ./ ybar;
 dlogsigmadlogy = dsigmady - logsigma;
 end
