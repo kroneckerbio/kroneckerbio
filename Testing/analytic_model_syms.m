@@ -33,6 +33,12 @@ if isempty(opts.Outputs)
     opts.Outputs = {};
 end
 
+% Silence the symbolic warning for certain Matlab versions
+if verLessThan('matlab', '9.3') && ~verLessThan('matlab', '9.0')
+    state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
+    finished = onCleanup(@() warning(state));
+end
+
 %% Initialize models
 sm.Type       = 'Model.SymbolicReactions';
 sm.Name       = 'Symbolic Model Test';
@@ -140,10 +146,6 @@ nr = size(reactiontable,1);
 if ~verLessThan('matlab', '9.3')
     r = str2sym(reactiontable(:,3));
 else
-    if ~verLessThan('matlab', '9.0')
-        state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
-        finished = onCleanup(@() warning(state));
-    end
     r = sym(reactiontable(:,3));
 end
 
@@ -183,10 +185,6 @@ sm.yStrings = yStrings;
 if ~verLessThan('matlab', '9.3')
     sm.y = str2sym(yStrings);
 else
-    if ~verLessThan('matlab', '9.0')
-        state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
-        finished = onCleanup(@() warning(state));
-    end
     sm.y = sym(yStrings);
 end
 y = sm.y;

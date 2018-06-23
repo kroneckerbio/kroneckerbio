@@ -181,6 +181,12 @@ r      = symbolic.r; % cell matrix
 % Note second-order parameters that have the volume baked in
 kBaked = zeros(nk,1);
 
+% Silence the symbolic warning for certain Matlab versions
+if verLessThan('matlab', '9.3') && ~verLessThan('matlab', '9.0')
+    state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
+    finished = onCleanup(@() warning(state));
+end
+
 % Process reactions
 for i = 1:nr
     
@@ -206,10 +212,6 @@ for i = 1:nr
     if ~verLessThan('matlab', '9.3')
         rate = str2sym(name2id(rate, allNames, allIDs, xuvNames));
     else
-        if ~verLessThan('matlab', '9.0')
-            state = warning('off', 'symbolic:sym:sym:DeprecateExpressions');
-            finished = onCleanup(@() warning(state));
-        end
         rate = sym(name2id(rate, allNames, allIDs, xuvNames));
     end
     
