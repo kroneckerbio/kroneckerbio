@@ -91,17 +91,6 @@ t = 1;
 verifyDerivatives(a, obj, int, t)
 end
 
-function testObjectiveLogWeightedSumOfSquaresEquilibrium(a)
-[m, con, obj, opts] = equilibrium_model();
-
-obs = observationSelect(1);
-sim = SimulateSystem(m, con, obs, opts);
-
-int = sim.int;
-t = 1;
-verifyDerivatives(a, obj, int, t)
-end
-
 function testObjectiveLogWeightSumOfSquaresDose(a)
 [m, con, ~, opts] = dose_model();
 
@@ -127,7 +116,7 @@ end
 % end
 
 function testObjectiveNormalPriorOnKineticParameters(a)
-[m, con, unused, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
+[m, con, ~, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
 nk = m.nk;
 nTk = sum(opts.UseParams);
@@ -153,7 +142,7 @@ verifyDerivativesParameters(a, obj, int)
 end
 
 function testObjectiveLogNormalPriorOnKineticParameters(a)
-[m, con, unused, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
+[m, con, ~, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
 nk = m.nk;
 nTk = sum(opts.UseParams);
@@ -180,7 +169,7 @@ verifyDerivativesParameters(a, obj, int)
 end
 
 function testObjectiveLogNormalPriorOnSeedParameters(a)
-[m, con, unused, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
+[m, con, ~, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
 ns = m.ns;
 nTs = sum(opts.UseSeeds);
