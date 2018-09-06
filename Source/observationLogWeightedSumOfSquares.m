@@ -118,19 +118,24 @@ obj = pastestruct(objectiveZero(), obj);
 %%%%% Parameter fitting functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [val, discrete] = G(int)
-        % Evaluate solution
-        [logybar, logsigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
-        loge = logybar - log_measurements;
+        % e = log(ybar) - log(yhat)
+        % s = sigma / ybar
+        % G = 2 * log(s) + (e / s) ^ 2
+
+        [logybar, s] = evaluate_sol(outputlist, timelist, discrete_times, sd, int);
+        e = logybar - log_measurements;
         
         % Goal function
-        val = sum(2 * log(logsigma) + (loge./logsigma).^2);
+        val = sum(2 * log(s) + (e ./ s) .^ 2);
         
         % Return discrete times as well
         discrete = discrete_times;
     end
 
     function val = dGdy(t, int)
-        % dGdy = 2 * sigma^-1 * dsigmady + 2 * (y-yhat) * (sigma - (y-yhat)*dsigmady) * sigma^-3
+        % e = log(ybar) - log(yhat)
+        % s = sigma / ybar
+        % dGdy = 2 * (dsdy * (s^-1 - e^2 * s^-3) + dedy * (e * s^-2))
         ny = int.ny;
         
         % Find all data points that have a time that matches t
@@ -145,34 +150,41 @@ obj = pastestruct(objectiveZero(), obj);
             timelist_t = timelist(ind_t);
             outputlist_t = outputlist(ind_t);
             log_measurements_t = log_measurements(ind_t);
+            ybar_t = yt(outputlist_t);
+            logybar_t = log(ybar_t);
             
-            ybar_t = zeros(n_current,1);
-            logybar_t = zeros(n_current,1);
-            logsigma_t = zeros(n_current,1);
-            dlogsigmadlogy_t = zeros(n_current,1);
+            sigma_t = zeros(n_current,1);
+            dsigmady_t = zeros(n_current,1);
+            d2sigmady2_t = zeros(n_current,1);
             for i = 1:n_current
-                ybar_t(i) = yt(outputlist_t(i));
-                logybar_t(i) = log(ybar_t(i));
-                [sigma_t_i, dsigmady_t_i] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
-                logsigma_t(i) = sigma_t_i ./ ybar_t(i);
-                dlogsigmadlogy_t(i) = dsigmady_t_i - logsigma_t(i);
+                [sigma_t(i), dsigmady_t(i), d2sigmady2_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
             end
             
             % Gradient value
             e = logybar_t - log_measurements_t; % Y_
-            dGdlogybar_t = 2 ./ logsigma_t .* dlogsigmadlogy_t + 2 .* e .* (logsigma_t - e.*dlogsigmadlogy_t) ./ logsigma_t.^3; % Y_
-            val = accumarray(outputlist_t, dGdlogybar_t ./ ybar_t, [ny,1]); % y_ % sum the entries associated with the same output
+            dedy = ybar_t .^ -1;
+            s = sigma_t .* ybar_t .^ -1;
+            dsdy = dsigmady_t .* ybar_t .^ -1 - sigma_t .* ybar_t .^ -2;
+
+            dGdlogybar_t = 2 * (...
+                dsdy .* (s .^ -1 - e .^ 2 .* s .^ -3) ...
+                + dedy .* e .* s .^ -2 ...
+                ); % Y_
+            val = accumarray(outputlist_t, dGdlogybar_t, [ny,1]); % y_ % sum the entries associated with the same output
         else
             val = zeros(ny, 1);
         end
     end
 
-    % TODO: there is something wrong with this  derivative.
     function val = d2Gdy2(t, int)
-        error('observationLogWeightedSumOfSquares.d2Gdy2 is inaccurate and needs fixed')
-        % d2Gdy2dy1 = 2 * sigma^-2 - 4*e*sigma^-3*dsigmady1 - 4*e*sigma^-3*dsigmady2 
-        %             + (6*e^2*sigma^-4 - 2*sigma^-2)*dsigmady1*dsigmady2 
-        %             + (2*sigma^-1 - 2*e^2*sigma^-3)*d2sigmady1dy2
+        % e = log(ybar) - log(yhat)
+        % s = sigma / ybar
+        % d2Gdy2dy1 = 2 * (d2sdy2 * (s^-1 - e^2 * s^-3) 
+        %                  + d2edy2 * (e * s^-2)
+        %                  + dsdy^2 * (3 * e^2 * s^-4 - s^-2)
+        %                  + dedy^2 * (s^-2)
+        %                  + dsdy * dedy * (-4 * e * s^-3)
+        %                 )
         ny = int.ny;
 
         % Find all data points that have a time that matches t
@@ -187,27 +199,32 @@ obj = pastestruct(objectiveZero(), obj);
             timelist_t = timelist(ind_t);
             outputlist_t = outputlist(ind_t);
             log_measurements_t = log_measurements(ind_t);
+            ybar_t = yt(outputlist_t);
+            logybar_t = log(ybar_t);
             
-            ybar_t = zeros(n_current,1);
-            logybar_t = zeros(n_current,1);
-            logsigma_t = zeros(n_current,1);
-            dlogsigmadlogy_t = zeros(n_current,1);
-            d2logsigmadlogy2_t = zeros(n_current,1);
+            sigma_t = zeros(n_current,1);
+            dsigmady_t = zeros(n_current,1);
+            d2sigmady2_t = zeros(n_current,1);
             for i = 1:n_current
-                ybar_t(i) = yt(outputlist_t(i));
-                logybar_t(i) = log(ybar_t(i));
-                [sigma_t_i, dsigmady_t_i, d2sigmady2_t_i] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
-                logsigma_t(i) = sigma_t_i ./ ybar_t(i);
-                dlogsigmadlogy_t(i) = dsigmady_t_i - logsigma_t(i);
-                d2logsigmadlogy2_t(i) = d2sigmady2_t_i .* ybar_t(i) - 2 * dlogsigmadlogy_t(i); % Not sure if this factor of 2 should be here
+                [sigma_t(i), dsigmady_t(i), d2sigmady2_t(i)] = sd(timelist_t(i), outputlist_t(i), ybar_t(i));
             end
             
             % Curvature value
-            loge = logybar_t - log_measurements_t;
-            d2Gdlogybar2_t = 2 ./ logsigma_t.^2 - 8 .* loge ./ logsigma_t.^3 .* dlogsigmadlogy_t + ...
-                (6 .* loge.^2 ./ logsigma_t.^4 - 2 ./ logsigma_t.^2) .* dlogsigmadlogy_t.^2 + ...
-                (2 ./ logsigma_t - 2 .* loge.^2 ./ logsigma_t.^3) .* d2logsigmadlogy2_t; % Y_
-            val = accumarray(outputlist_t, d2Gdlogybar2_t ./ ybar_t ./ ybar_t, [ny,1]); % y_ % sum the entries associated with the same output
+            e = logybar_t - log_measurements_t;
+            dedy = ybar_t .^ -1;
+            d2edy2 = -1 * ybar_t .^ -2;
+            s = sigma_t .* ybar_t .^ -1;
+            dsdy = dsigmady_t .* ybar_t .^ -1 - sigma_t .* ybar_t .^ -2;
+            d2sdy2 = d2sigmady2_t .* ybar_t .^ -1 + dsigmady_t * -2 .* ybar_t ^ -2 + 2 * sigma_t .* ybar_t .^ -3;
+            
+            d2Gdlogybar2_t = 2  * (...
+                d2sdy2 .* (s .^ -1 - e .^ 2 .* s .^ -3) ...
+                + d2edy2 .* e .* s .^ -2 ...
+                + dsdy .^ 2 .* (3 * e .^ 2 .* s .^ -4 - s .^ -2) ...
+                + dedy .^ 2 .* s .^ -2 ...
+                + dsdy .* dedy .* (-4 * e .* s .^ -3) ...
+                ); % Y_
+            val = accumarray(outputlist_t, d2Gdlogybar2_t, [ny,1]); % y_ % sum the entries associated with the same output
             val = spdiags(val, 0, ny, ny); % y_y
         else
             val = zeros(ny, ny);
@@ -244,7 +261,7 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% Helper functions %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [logybar, logsigma] = evaluate_sol(outputlist, timelist, discrete_times, sd, int)
+function [logybar, s] = evaluate_sol(outputlist, timelist, discrete_times, sd, int)
 n = numel(outputlist);
 y_all = int.y;
 
@@ -258,7 +275,7 @@ end
 
 % Convert to log space
 logybar = log(ybar);
-logsigma = sigma ./ ybar;
+s = sigma ./ ybar;
 end
 
 function [dlogydT, logsigma, dlogsigmadlogy] = evaluate_grad(outputlist, timelist, discrete_times, sd, int)
