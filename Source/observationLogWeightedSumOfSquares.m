@@ -98,7 +98,7 @@ n = numel(outputlist);
 discrete_times = row(unique(timelist));
 
 % Inherit observation
-obj = observationLinearWeightedSumOfSquares(outputlist, timelist, sd, name);
+obj = observationLogWeightedSumOfSquares(outputlist, timelist, sd, name);
 
 obj.Type = 'Objective.Data.LogWeightedSumOfSquares';
 obj.Continuous = false;

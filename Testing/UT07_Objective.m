@@ -91,6 +91,17 @@ t = 1;
 verifyDerivatives(a, obj, int, t)
 end
 
+function testObjectiveLogWeightedSumOfSquaresEquilibrium(a)
+[m, con, obj, opts] = equilibrium_model();
+
+obs = observationSelect(1);
+sim = SimulateSystem(m, con, obs, opts);
+
+int = sim.int;
+t = 1;
+verifyDerivatives(a, obj, int, t)
+end
+
 function testObjectiveLogWeightSumOfSquaresDose(a)
 [m, con, ~, opts] = dose_model();
 
@@ -196,17 +207,18 @@ verifyDerivativesSeeds(a, obj, int)
 end
 
 function verifyDerivatives(a, obj, int, t)
-x0 = int.y(:,int.t == t);
+ind = find(int.t == t);
+x0 = int.y(:,ind);
 
 S.type = '()';
-S.subs = {':',1};
+S.subs = {':',ind};
 f = @(y)obj.G(setfield(int, 'y', subsasgn(int.y, S, y)));
 dfdx = @(y)obj.dGdy(t, setfield(int, 'y', subsasgn(int.y, S, y)));
 
 verifyClose(a, x0, f, dfdx)
 
 S.type = '()';
-S.subs = {':',1};
+S.subs = {':',ind};
 f = @(y)obj.dGdy(t, setfield(int, 'y', subsasgn(int.y, S, y)));
 dfdx = @(y)obj.d2Gdy2(t, setfield(int, 'y', subsasgn(int.y, S, y)));
 
