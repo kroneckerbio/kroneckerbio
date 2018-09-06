@@ -368,6 +368,7 @@ m.rOrder = zeros(nr,1);
 m.krInd  = zeros(nr,1);
 
 nSEntries  = 0;
+nSuEntries = 0; % Stoichiometry matrix for inputs used only for duplicate reaction checking
 nD1Entries = 0;
 nD2Entries = 0;
 nD3Entries = 0;
@@ -378,6 +379,8 @@ ndEntries  = 0;
 
 SEntries  = zeros(0,2);
 SValues   = zeros(0,1);
+SuEntries  = zeros(0,2);
+SuValues   = zeros(0,1);
 dD1dkEntries = zeros(0,2);
 dD1dkValues  = zeros(0,1);
 dD2dkEntries = zeros(0,2);
@@ -426,12 +429,13 @@ for ir = 1:nr
     for i_prod = 1:n_prod
         temp = find(strcmp(m.Reactions(ir).Products{i_prod}, x_full_names), 1);
         if ~isempty(temp)
-            % Store index to product only if it is a state
+            % It's a state
             products(i_prod) = temp;
             productsAreStates(i_prod) = true;
-        else%it's an input
-            % Redundant assignment
-            products(i_prod) = 0;
+        else
+            % It's an input
+            temp = find(strcmp(m.Reactions(ir).Products{i_prod}, u_full_names), 1);
+            products(i_prod) = temp;
             productsAreStates(i_prod) = false;
         end
     end
@@ -449,15 +453,13 @@ for ir = 1:nr
         % D1/A1 reaction
         % Add S entries
         nAdd = 1 + nnz(productsAreStates);
+        nuAdd = nnz(~productsAreStates);
         nSEntries = nSEntries + nAdd;
+        nSuEntries = nSuEntries + nuAdd;
         
         % Add more room in vector if necessary
-        currentLength = size(nSEntries,1);
-        if nSEntries > currentLength
-            addlength = max(currentLength, nAdd);
-            SEntries = [SEntries; zeros(addlength,2)];
-            SValues  = [SValues;  zeros(addlength,1)];
-        end
+        SEntries = make_room(SEntries, nSEntries);
+        SValues  = make_room(SValues, nSEntries);
         
         % Subtract reactant
         SEntries(nSEntries-nAdd+1,1) = reactants(1);
@@ -465,13 +467,19 @@ for ir = 1:nr
         SValues(nSEntries-nAdd+1)    = -1;
         
         % Add products
-        productsAddedSoFar = cumsum(productsAreStates);
+        states_added_so_far = cumsum(productsAreStates);
+        inputs_added_so_far = cumsum(~productsAreStates);
         for i_prod = 1:n_prod
             if productsAreStates(i_prod)
-                Srow = nSEntries-nAdd+1+productsAddedSoFar(i_prod);
+                Srow = nSEntries-nAdd+1+states_added_so_far(i_prod);
                 SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
+            else
+                Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                SuEntries(Srow,1) = products(i_prod);
+                SuEntries(Srow,2) = ir;
+                SuValues(Srow)    = 1;
             end
         end
         
@@ -479,12 +487,8 @@ for ir = 1:nr
         nD1Entries = nD1Entries + 1;
         
         % Add more room in vector if necessary
-        currentLength = size(dD1dkEntries,1);
-        if nD1Entries > currentLength
-            addlength = max(currentLength, 1);
-            dD1dkEntries = [dD1dkEntries; zeros(addlength,2)];
-            dD1dkValues  = [dD1dkValues;  zeros(addlength,1)];
-        end
+        dD1dkEntries = make_room(dD1dkEntries, nD1Entries);
+        dD1dkValues  = make_room(dD1dkValues, nD1Entries);
         
         dD1dkEntries(nD1Entries,1) = sub2ind([nr,nx], ir, reactants(1));
         dD1dkEntries(nD1Entries,2) = parameter;
@@ -499,15 +503,13 @@ for ir = 1:nr
         
         % Add S entries
         nAdd = 2 + nnz(productsAreStates);
+        nuAdd = nnz(~productsAreStates);
         nSEntries = nSEntries + nAdd;
+        nSuEntries = nSuEntries + nuAdd;
         
         % Add more room in vector if necessary
-        currentLength = size(nSEntries,1);
-        if nSEntries > currentLength
-            addlength = max(currentLength, nAdd);
-            SEntries = [SEntries; zeros(addlength,2)];
-            SValues  = [SValues;  zeros(addlength,1)];
-        end
+        SEntries = make_room(SEntries, nSEntries);
+        SValues  = make_room(SValues, nSEntries);
         
         % Subtract reactant 1
         SEntries(nSEntries-nAdd+1,1) = reactants(1);
@@ -520,13 +522,19 @@ for ir = 1:nr
         SValues(nSEntries-nAdd+2)    = -1;
 
         % Add products
-        productsAddedSoFar = cumsum(productsAreStates);
+        states_added_so_far = cumsum(productsAreStates);
+        inputs_added_so_far = cumsum(~productsAreStates);
         for i_prod = 1:n_prod
             if productsAreStates(i_prod)
-                Srow = nSEntries-nAdd+2+productsAddedSoFar(i_prod);
+                Srow = nSEntries-nAdd+2+states_added_so_far(i_prod);
                 SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
+            else
+                Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                SuEntries(Srow,1) = products(i_prod);
+                SuEntries(Srow,2) = ir;
+                SuValues(Srow)    = 1;
             end
         end
         
@@ -534,12 +542,8 @@ for ir = 1:nr
         nD2Entries = nD2Entries + 1;
         
         % Add more room in vector if necessary
-        currentLength = size(dD2dkEntries,1);
-        if nD2Entries > currentLength
-            addlength = max(currentLength, 1);
-            dD2dkEntries = [dD2dkEntries; zeros(addlength,2)];
-            dD2dkValues  = [dD2dkValues;  zeros(addlength,1)];
-        end
+        dD2dkEntries = make_room(dD2dkEntries, nD2Entries);
+        dD2dkValues  = make_room(dD2dkValues, nD2Entries);
         
         dD2dkEntries(nD2Entries,1) = sub2ind([nr,nx,nx], ir, reactants(2), reactants(1));
         dD2dkEntries(nD2Entries,2) = parameter;
@@ -563,29 +567,38 @@ for ir = 1:nr
             % D3/A3 reaction
             % Add S entries
             nAdd = 1 + nnz(productsAreStates);
+            nuAdd = 1 + nnz(~productsAreStates);
             nSEntries = nSEntries + nAdd;
+            nSuEntries = nSuEntries + nuAdd;
             
             % Add more room in vector if necessary
-            currentLength = size(nSEntries,1);
-            if nSEntries > currentLength
-                addlength = max(currentLength, nAdd);
-                SEntries = [SEntries; zeros(addlength,2)];
-                SValues  = [SValues;  zeros(addlength,1)];
-            end
+            SEntries = make_room(SEntries, nSEntries);
+            SValues  = make_room(SValues, nSEntries);
             
+            % Subtract reactant 1
+            SuEntries(nSuEntries-nuAdd+1,1) = reactants(1);
+            SuEntries(nSuEntries-nuAdd+1,2) = ir;
+            SuValues(nSuEntries-nuAdd+1)    = -1;
+
             % Subtract reactant 2
             SEntries(nSEntries-nAdd+1,1) = reactants(2);
             SEntries(nSEntries-nAdd+1,2) = ir;
             SValues(nSEntries-nAdd+1)    = -1;
             
             % Add products
-            productsAddedSoFar = cumsum(productsAreStates);
+            states_added_so_far = cumsum(productsAreStates);
+            inputs_added_so_far = cumsum(~productsAreStates);
             for i_prod = 1:n_prod
                 if productsAreStates(i_prod)
-                    Srow = nSEntries-nAdd+1+productsAddedSoFar(i_prod);
+                    Srow = nSEntries-nAdd+1+states_added_so_far(i_prod);
                     SEntries(Srow,1) = products(i_prod);
                     SEntries(Srow,2) = ir;
                     SValues(Srow)    = 1;
+                else
+                    Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                    SuEntries(Srow,1) = products(i_prod);
+                    SuEntries(Srow,2) = ir;
+                    SuValues(Srow)    = 1;
                 end
             end
         
@@ -593,12 +606,8 @@ for ir = 1:nr
             nD3Entries = nD3Entries + 1;
             
             % Add more room in vector if necessary
-            currentLength = size(dD3dkEntries,1);
-            if nD3Entries > currentLength
-                addlength = max(currentLength, 1);
-                dD3dkEntries = [dD3dkEntries; zeros(addlength,2)];
-                dD3dkValues  = [dD3dkValues;  zeros(addlength,1)];
-            end
+            dD3dkEntries = make_room(dD3dkEntries, nD3Entries);
+            dD3dkValues  = make_room(dD3dkValues, nD3Entries);
             
             dD3dkEntries(nD3Entries,1) = sub2ind([nr,nx,nu], ir, reactants(2), reactants(1));
             dD3dkEntries(nD3Entries,2) = parameter;
@@ -608,29 +617,38 @@ for ir = 1:nr
             % D4/A4 reaction
             % Add S entries
             nAdd = 1 + nnz(productsAreStates);
+            nuAdd = 1 + nnz(~productsAreStates);
             nSEntries = nSEntries + nAdd;
+            nSuEntries = nSuEntries + nuAdd;
             
             % Add more room in vector if necessary
-            currentLength = size(nSEntries,1);
-            if nSEntries > currentLength
-                addlength = max(currentLength, nAdd);
-                SEntries = [SEntries; zeros(addlength,2)];
-                SValues  = [SValues;  zeros(addlength,1)];
-            end
+            SEntries = make_room(SEntries, nSEntries);
+            SValues  = make_room(SValues, nSEntries);
             
             % Subtract reactant 1
             SEntries(nSEntries-nAdd+1,1) = reactants(1);
             SEntries(nSEntries-nAdd+1,2) = ir;
             SValues(nSEntries-nAdd+1)    = -1;
             
+            % Subtract reactant 2
+            SuEntries(nSuEntries-nuAdd+1,1) = reactants(2);
+            SuEntries(nSuEntries-nuAdd+1,2) = ir;
+            SuValues(nSuEntries-nuAdd+1)    = -1;
+
             % Add products
-            productsAddedSoFar = cumsum(productsAreStates);
+            states_added_so_far = cumsum(productsAreStates);
+            inputs_added_so_far = cumsum(~productsAreStates);
             for i_prod = 1:n_prod
                 if productsAreStates(i_prod)
-                    Srow = nSEntries-nAdd+1+productsAddedSoFar(i_prod);
+                    Srow = nSEntries-nAdd+1+states_added_so_far(i_prod);
                     SEntries(Srow,1) = products(i_prod);
                     SEntries(Srow,2) = ir;
                     SValues(Srow)    = 1;
+                else
+                    Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                    SuEntries(Srow,1) = products(i_prod);
+                    SuEntries(Srow,2) = ir;
+                    SuValues(Srow)    = 1;
                 end
             end
         
@@ -638,12 +656,8 @@ for ir = 1:nr
             nD4Entries = nD4Entries + 1;
         
             % Add more room in vector if necessary
-            currentLength = size(dD4dkEntries,1);
-            if nD4Entries > currentLength
-                addlength = max(currentLength, 1);
-                dD4dkEntries = [dD4dkEntries; zeros(addlength,2)];
-                dD4dkValues  = [dD4dkValues;  zeros(addlength,1)];
-            end
+            dD4dkEntries = make_room(dD4dkEntries, nD4Entries);
+            dD4dkValues  = make_room(dD4dkValues, nD4Entries);
         
             dD4dkEntries(nD4Entries,1) = sub2ind([nr,nu,nx], ir, reactants(2), reactants(1));
             dD4dkEntries(nD4Entries,2) = parameter;
@@ -660,24 +674,38 @@ for ir = 1:nr
         
         % Add S entries
         nAdd = nnz(productsAreStates);
+        nuAdd = 2 + nnz(~productsAreStates);
         nSEntries = nSEntries + nAdd;
+        nSuEntries = nSuEntries + nuAdd;
         
         % Add more room in vector if necessary
-        currentLength = size(nSEntries,1);
-        if nSEntries > currentLength
-            addlength = max(currentLength, nAdd);
-            SEntries = [SEntries; zeros(addlength,2)];
-            SValues  = [SValues;  zeros(addlength,1)];
-        end
+        SEntries = make_room(SEntries, nSEntries);
+        SValues  = make_room(SValues, nSEntries);
         
+        % Subtract reactant 1
+        SuEntries(nSuEntries-nuAdd+1,1) = reactants(1);
+        SuEntries(nSuEntries-nuAdd+1,2) = ir;
+        SuValues(nSuEntries-nuAdd+1)    = -1;
+
+        % Subtract reactant 2
+        SuEntries(nSuEntries-nuAdd+2,1) = reactants(2);
+        SuEntries(nSuEntries-nuAdd+2,2) = ir;
+        SuValues(nSuEntries-nuAdd+2)    = -1;
+
         % Add products
-        productsAddedSoFar = cumsum(productsAreStates);
+        states_added_so_far = cumsum(productsAreStates);
+        inputs_added_so_far = cumsum(~productsAreStates);
         for i_prod = 1:n_prod
             if productsAreStates(i_prod)
-                Srow = nSEntries-nAdd+productsAddedSoFar(i_prod);
+                Srow = nSEntries-nAdd+states_added_so_far(i_prod);
                 SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
+            else
+                Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                SuEntries(Srow,1) = products(i_prod);
+                SuEntries(Srow,2) = ir;
+                SuValues(Srow)    = 1;
             end
         end
         
@@ -685,12 +713,8 @@ for ir = 1:nr
         nD5Entries = nD5Entries + 1;
         
         % Add more room in vector if necessary
-        currentLength = size(nSEntries,1);
-        if nSEntries > currentLength
-            addlength = max(currentLength, 1);
-            dD5dkEntries = [dD5dkEntries; zeros(addlength,2)];
-            dD5dkValues  = [dD5dkValues;  zeros(addlength,1)];
-        end
+        dD5dkEntries = make_room(dD5dkEntries, nD5Entries);
+        dD5dkValues  = make_room(dD5dkValues, nD5Entries);
         
         dD5dkEntries(nD5Entries,1) = sub2ind([nr,nu,nu], ir, reactants(2), reactants(1));
         dD5dkEntries(nD5Entries,2) = parameter;
@@ -700,24 +724,33 @@ for ir = 1:nr
         % D6/A6 reaction
         % Add S entries
         nAdd = nnz(productsAreStates);
+        nuAdd = 1 + nnz(~productsAreStates);
         nSEntries = nSEntries + nAdd;
+        nSuEntries = nSuEntries + nuAdd;
         
         % Add more room in vector if necessary
-        currentLength = size(nSEntries,1);
-        if nSEntries > currentLength
-            addlength = max(currentLength, nAdd);
-            SEntries = [SEntries; zeros(addlength,2)];
-            SValues  = [SValues;  zeros(addlength,1)];
-        end
+        SEntries = make_room(SEntries, nSEntries);
+        SValues  = make_room(SValues, nSEntries);
         
+        % Subtract reactant 1
+        SuEntries(nSuEntries-nuAdd+1,1) = reactants(1);
+        SuEntries(nSuEntries-nuAdd+1,2) = ir;
+        SuValues(nSuEntries-nuAdd+1)    = -1;
+
         % Add products
-        productsAddedSoFar = cumsum(productsAreStates);
+        states_added_so_far = cumsum(productsAreStates);
+        inputs_added_so_far = cumsum(~productsAreStates);
         for i_prod = 1:n_prod
             if productsAreStates(i_prod)
-                Srow = nSEntries-nAdd+productsAddedSoFar(i_prod);
+                Srow = nSEntries-nAdd+states_added_so_far(i_prod);
                 SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
+            else
+                Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                SuEntries(Srow,1) = products(i_prod);
+                SuEntries(Srow,2) = ir;
+                SuValues(Srow)    = 1;
             end
         end
         
@@ -725,12 +758,8 @@ for ir = 1:nr
         nD6Entries = nD6Entries + 1;
         
         % Add more room in vector if necessary
-        currentLength = size(dD1dkEntries,1);
-        if nD1Entries > currentLength
-            addlength = max(currentLength, 1);
-            dD6dkEntries = [dD6dkEntries; zeros(addlength,2)];
-            dD6dkValues  = [dD6dkValues;  zeros(addlength,1)];
-        end
+        dD6dkEntries = make_room(dD6dkEntries, nD6Entries);
+        dD6dkValues  = make_room(dD6dkValues, nD6Entries);
         
         dD6dkEntries(nD6Entries,1) = sub2ind([nr,nu], ir, reactants(1));
         dD6dkEntries(nD6Entries,2) = parameter;
@@ -740,24 +769,28 @@ for ir = 1:nr
         % d/a reaction
         % Add S entries
         nAdd = nnz(productsAreStates);
+        nuAdd = nnz(~productsAreStates);
         nSEntries = nSEntries + nAdd;
+        nSuEntries = nSuEntries + nuAdd;
         
         % Add more room in vector if necessary
-        currentLength = size(nSEntries,1);
-        if nSEntries > currentLength
-            addlength = max(currentLength, nAdd);
-            SEntries = [SEntries; zeros(addlength,2)];
-            SValues  = [SValues;  zeros(addlength,1)];
-        end
+        SEntries = make_room(SEntries, nSEntries);
+        SValues  = make_room(SValues, nSEntries);
         
         % Add products
-        productsAddedSoFar = cumsum(productsAreStates);
+        states_added_so_far = cumsum(productsAreStates);
+        inputs_added_so_far = cumsum(~productsAreStates);
         for i_prod = 1:n_prod
             if productsAreStates(i_prod)
-                Srow = nSEntries-nAdd+productsAddedSoFar(i_prod);
+                Srow = nSEntries-nAdd+states_added_so_far(i_prod);
                 SEntries(Srow,1) = products(i_prod);
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
+            else
+                Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                SuEntries(Srow,1) = products(i_prod);
+                SuEntries(Srow,2) = ir;
+                SuValues(Srow)    = 1;
             end
         end
         
@@ -765,12 +798,8 @@ for ir = 1:nr
         ndEntries = ndEntries + 1;
         
         % Add more room in vector if necessary
-        currentLength = size(dddkEntries,1);
-        if ndEntries > currentLength
-            addlength = max(currentLength, 1);
-            dddkEntries = [dddkEntries; zeros(addlength,2)];
-            dddkValues  = [dddkValues;  zeros(addlength,1)];
-        end
+        dddkEntries = make_room(dddkEntries, ndEntries);
+        dddkValues  = make_room(dddkValues, ndEntries);
         
         dddkEntries(ndEntries,1) = ir;
         dddkEntries(ndEntries,2) = parameter;
@@ -784,6 +813,7 @@ end
 %% Construct matrices of model
 % Construct stoichiometry matrix
 m.S  = sparse(SEntries(1:nSEntries,1), SEntries(1:nSEntries,2), SValues(1:nSEntries), nx, nr);
+Su = sparse(SuEntries(1:nSuEntries,1), SuEntries(1:nSuEntries,2), SuValues(1:nSuEntries), nu, nr);
 
 % Construct D matrices from the sparse entries
 m.dD1dk = sparse(dD1dkEntries(1:nD1Entries,1), dD1dkEntries(1:nD1Entries,2), dD1dkValues(1:nD1Entries), nr*nx,    nk);
@@ -863,7 +893,7 @@ D5UsedColumns = vec(unique(D5UsedColumns));
 i_reaction_name = sparse(i_reaction_name - 1);
 
 % Assemble reactions into one big matrix
-reaction_matrix = [sparse(m.krInd), m.S.', i_reaction_name];
+reaction_matrix = [sparse(m.krInd), m.S.', Su.', i_reaction_name];
 
 % All rows that already appeared elsewhere
 [~, i_unique_reactions] = unique(reaction_matrix, 'rows');
@@ -2548,4 +2578,14 @@ handle = @d2fdudk;
               + dD5dk_rk_uu * (Iukronuvuinv + ukronIuvuinv + ukronudvuinvdu) ...
               + dD6dk_rk_u; % rk_u
     end
+end
+
+function array = make_room(array, needed)
+% Make room in an array by doubling its rows if needed is larger than its
+% current length. Fill the empty spots with zeros.
+current = size(array, 1);
+if needed > current
+    addlength = max(current, needed-current);
+    array = [array; zeros(addlength, size(array,2))];
+end
 end

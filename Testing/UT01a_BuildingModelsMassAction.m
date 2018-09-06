@@ -135,6 +135,19 @@ test = AddReaction(m, 'r1', 'x1', {}, 'k');
 a.verifyWarning(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:RepeatReactions'); % note: throws warning and ignores
 end
 
+function testRepeatedReactionsInputs(a)
+m = InitializeModelMassActionAmount();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddParameter(m, 'k', 4);
+m = AddState(m, 'x1', 'v1', 1);
+m = AddInput(m, 'u1', 'v1', 1);
+m = AddInput(m, 'u2', 'v1', 1);
+m = AddReaction(m, 'r1', {'x1', 'u1'}, {}, 'k');
+m = AddReaction(m, 'r1', {'x1', 'u2'}, {}, 'k');
+
+a.verifyWarningFree(@()FinalizeModel(m))
+end
+
 function testDuplicateSpeciesNames(a)
 m = InitializeModelMassActionAmount();
 m = AddCompartment(m, 'v1', 3, 1);
