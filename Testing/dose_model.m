@@ -20,7 +20,6 @@ values = [
     2, 5, 5;
     3, 5.5, 3;
     ];
-%obj = objectiveWeightedSumOfSquares(values(:,1), values(:,2), sd, values(:,3), 'SimpleData');
 obs = observationLinearWeightedSumOfSquares(values(:,1), values(:,2), sd, 'SimpleData');
 obj = obs.Objective(values(:,3));
 

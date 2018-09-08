@@ -79,6 +79,30 @@ verifyDerivatives(a, obj, int, t);
 
 end
 
+function testObjectiveLogWeightedSumOfSquares(a)
+simpleopts.objectiveFun = 'observationLogWeightedSumOfSquares';
+[m, con, obj, opts] = simple_model(simpleopts);
+
+obs = observationSelect(1:6);
+sim = SimulateSystem(m, con, obs, opts);
+
+int = sim.int;
+t = 1;
+verifyDerivatives(a, obj, int, t)
+end
+
+function testObjectiveLogWeightSumOfSquaresDose(a)
+[m, con, ~, opts] = dose_model();
+
+obs = observationLogWeightedSumOfSquares(2, 5, sdLinear(0.2, 2));
+obj = obs.Objective(4);
+sim = SimulateSystem(m, con(1), obs, opts);
+
+int = sim.int;
+t = 5;
+verifyDerivatives(a, obj, int, t)
+end
+
 % function testObjectiveWeightedSumOfSquaresNonNeg(a)
 % simpleopts.objectiveFun = 'objectiveWeightedSumOfSquaresNonNeg';
 % [m, con, obj, opts] = simple_model(simpleopts);
@@ -92,7 +116,7 @@ end
 % end
 
 function testObjectiveNormalPriorOnKineticParameters(a)
-[m, con, unused, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
+[m, con, ~, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
 nk = m.nk;
 nTk = sum(opts.UseParams);
@@ -118,7 +142,7 @@ verifyDerivativesParameters(a, obj, int)
 end
 
 function testObjectiveLogNormalPriorOnKineticParameters(a)
-[m, con, unused, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
+[m, con, ~, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
 nk = m.nk;
 nTk = sum(opts.UseParams);
@@ -145,7 +169,7 @@ verifyDerivativesParameters(a, obj, int)
 end
 
 function testObjectiveLogNormalPriorOnSeedParameters(a)
-[m, con, unused, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
+[m, con, ~, opts] = simple_model(); % objectiveWeightedSumOfSquares is the default obj fun
 
 ns = m.ns;
 nTs = sum(opts.UseSeeds);
@@ -172,17 +196,18 @@ verifyDerivativesSeeds(a, obj, int)
 end
 
 function verifyDerivatives(a, obj, int, t)
-x0 = int.y(:,int.t == t);
+ind = find(int.t == t);
+x0 = int.y(:,ind);
 
 S.type = '()';
-S.subs = {':',1};
+S.subs = {':',ind};
 f = @(y)obj.G(setfield(int, 'y', subsasgn(int.y, S, y)));
 dfdx = @(y)obj.dGdy(t, setfield(int, 'y', subsasgn(int.y, S, y)));
 
 verifyClose(a, x0, f, dfdx)
 
 S.type = '()';
-S.subs = {':',1};
+S.subs = {':',ind};
 f = @(y)obj.dGdy(t, setfield(int, 'y', subsasgn(int.y, S, y)));
 dfdx = @(y)obj.d2Gdy2(t, setfield(int, 'y', subsasgn(int.y, S, y)));
 

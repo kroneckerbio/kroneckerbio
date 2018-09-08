@@ -148,6 +148,9 @@ switch objectiveFun
     case 'observationLinearWeightedSumOfSquares'
         obs = observationLinearWeightedSumOfSquares(values(:,1), values(:,2), sd, 'SimpleData');
         obj = obs.Objective(values(:,3));
+    case 'observationLogWeightedSumOfSquares'
+        obs = observationLogWeightedSumOfSquares(values(:,1), values(:,2), sd, 'SimpleData');
+        obj = obs.Objective(values(:,3));
     otherwise
         error('Error:simple_model:Objective function %s not recognized.', objectiveFun)
 end
