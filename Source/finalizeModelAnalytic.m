@@ -1259,7 +1259,7 @@ end
 if isempty(dens)
     sparsestr = {'[' ']'};
 else
-    sparsestr = {'sparse(' ')'};
+    sparsestr = {'sym_sparse(' ')'};
 end
 
 if use_inf2big
@@ -1303,7 +1303,11 @@ end
 
 function val = vectorize_y(y, t, x, u, k, ny)
     nt = numel(t);
-    val = zeros(ny,nt);
+    if isa(t, 'sym') || isa(x, 'sym') || isa(u, 'sym') || isa(k, 'sym')
+        val = zeros(ny,nt,'sym');
+    else
+        val = zeros(ny,nt);
+    end
     if isempty(x)
         x = zeros(0,nt);
     end
@@ -1351,3 +1355,14 @@ for i = 1:n_new
     end
 end
 end
+
+% function S = sparse(varargin)
+% % Redefined sparse() function that constructs full matrices using
+% % the sparse syntax if input arguments are symbolic.
+% S = sym_sparse(varargin{:});
+% end
+
+% function c = bsxfun(varargin)
+% % Redefined bsxfun() that works with symbolic arrays.
+% c = sym_bsxfun(varargin{:});
+% end

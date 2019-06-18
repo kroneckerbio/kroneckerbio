@@ -3,7 +3,7 @@ function C = mtimestall(A, B)
 % tall, yet very sparse. This is a workaround that avoids using mtimes and
 % instead uses scalar multiplication.
 
-if nnz(A) < size(A,1)
+if nnz(A) < size(A,1) && ~(isa(A,'sym') || isa(B,'sym'))
     % Allocate memory for output
     C = sparse([], [], [], size(A,1), size(B,2), nnz(A)*min(nnz(B),size(B,2)));
     
