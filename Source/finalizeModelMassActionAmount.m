@@ -1100,7 +1100,7 @@ m.r = rHidden(m.D1, m.D2, m.D3, m.D4, m.D5, m.D6, m.d, m.v, D2UsedColumns, D2Use
 
 m.drdx = drdxHidden(m.D1, m.D2, m.D3, m.D4, m.D5, m.v, m.dvdx, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 m.drdu = drduHidden(m.D2, m.D3, m.D4, m.D5, m.D6, m.v, m.dvdu, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
-m.drdk = drdkHidden(m.dD1dk_rk_x, m.dD2dk_rk_xx, m.dD3dk_rk_ux, m.dD4dk_rk_xu, m.dD5dk_rk_uu, m.dD6dk_rk_u, m.dadk, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
+m.drdk = drdkHidden(m.dD1dk_rk_x, m.dD2dk_rk_xx, m.dD3dk_rk_ux, m.dD4dk_rk_xu, m.dD5dk_rk_uu, m.dD6dk_rk_u, m.dddk, m.v, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 
 m.d2rdx2  = d2rdx2Hidden(m.D2, m.D3, m.D4, m.D5, m.v, m.dvdx, m.d2vdx2, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
 m.d2rdu2  = d2rdu2Hidden(m.D2, m.D3, m.D4, m.D5, m.v, m.dvdu, m.d2vdu2, D2UsedColumns, D2UsedSpecies1, D2UsedSpecies2, D3UsedColumns, D3UsedSpecies1, D3UsedSpecies2, D4UsedColumns, D4UsedSpecies1, D4UsedSpecies2, D5UsedColumns, D5UsedSpecies1, D5UsedSpecies2, m.vxInd, m.vuInd);
@@ -2602,4 +2602,15 @@ if needed > current
     addlength = max(current, needed-current);
     array = [array; zeros(addlength, size(array,2))];
 end
+end
+
+function S = sparse(varargin)
+% Redefined sparse() function that constructs full matrices using
+% the sparse syntax if input arguments are symbolic.
+S = sym_sparse(varargin{:});
+end
+
+function c = bsxfun(varargin)
+% Redefined bsxfun() that works with symbolic arrays.
+c = sym_bsxfun(varargin{:});
 end

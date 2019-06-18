@@ -225,3 +225,59 @@ finished = onCleanup(@() warning(state));
 warning('off', 'MATLAB:ode15s:IntegrationTolNotMet')
 a.verifyError(@()SimulateSystem(m, con, 10, opts), 'KroneckerBio:accumulateOde:IntegrationFailure');
 end
+
+function testSymbolicInputArgumentsMassAction(a)
+m = simple_model();
+
+t = sym('t');
+x = sym('x', [m.nx,1]);
+u = sym('u', [m.nu,1]);
+k = sym('k', [m.nk,1]);
+msym = m.Update(k);
+
+tval = rand;
+xval = rand(size(x));
+uval = rand(size(u));
+kval = rand(size(k));
+mval = m.Update(kval);
+
+funs = {'f', 'dfdx', 'dfdu', 'dfdk', 'r', 'drdx', 'drdu', 'drdk', 'v', ...
+    'dvdx', 'dvdu', 'y', 'dydx', 'dydu', 'dydk'};
+for i = 1:numel(funs)
+    val_sym = msym.(funs{i})(t, x, u);
+    val = double(subs(val_sym, [t;x;u;k], [tval;xval;uval;kval]));
+    val_test = mval.(funs{i})(tval, xval, uval);
+    abs_err = abs(val - val_test);
+    if ~isempty(abs_err)
+        a.verifyLessThan(abs_err, 1e-11)
+    end
+end
+end
+
+function testSymbolicInputArgumentsAnalytic(a)
+m = simple_analytic_model();
+
+t = sym('t');
+x = sym('x', [m.nx,1]);
+u = sym('u', [m.nu,1]);
+k = sym('k', [m.nk,1]);
+msym = m.Update(k);
+
+tval = rand;
+xval = rand(size(x));
+uval = rand(size(u));
+kval = rand(size(k));
+mval = m.Update(kval);
+
+funs = {'f', 'dfdx', 'dfdu', 'dfdk', 'r', 'drdx', 'drdu', 'drdk', ...
+    'y', 'dydx', 'dydu', 'dydk'};
+for i = 1:numel(funs)
+    val_sym = msym.(funs{i})(t, x, u);
+    val = double(subs(val_sym, [t;x;u;k], [tval;xval;uval;kval]));
+    val_test = mval.(funs{i})(tval, xval, uval);
+    abs_err = abs(val - val_test);
+    if ~isempty(abs_err)
+        a.verifyLessThan(abs_err, 1e-11)
+    end
+end
+end
