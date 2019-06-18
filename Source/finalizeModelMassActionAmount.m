@@ -460,6 +460,8 @@ for ir = 1:nr
         % Add more room in vector if necessary
         SEntries = make_room(SEntries, nSEntries);
         SValues  = make_room(SValues, nSEntries);
+        SuEntries = make_room(SuEntries, nSuEntries);
+        SuValues = make_room(SuValues, nSuEntries);
         
         % Subtract reactant
         SEntries(nSEntries-nAdd+1,1) = reactants(1);
@@ -510,6 +512,8 @@ for ir = 1:nr
         % Add more room in vector if necessary
         SEntries = make_room(SEntries, nSEntries);
         SValues  = make_room(SValues, nSEntries);
+        SuEntries = make_room(SuEntries, nSuEntries);
+        SuValues = make_room(SuValues, nSuEntries);
         
         % Subtract reactant 1
         SEntries(nSEntries-nAdd+1,1) = reactants(1);
@@ -574,6 +578,8 @@ for ir = 1:nr
             % Add more room in vector if necessary
             SEntries = make_room(SEntries, nSEntries);
             SValues  = make_room(SValues, nSEntries);
+            SuEntries = make_room(SuEntries, nSuEntries);
+            SuValues = make_room(SuValues, nSuEntries);
             
             % Subtract reactant 1
             SuEntries(nSuEntries-nuAdd+1,1) = reactants(1);
@@ -595,7 +601,7 @@ for ir = 1:nr
                     SEntries(Srow,2) = ir;
                     SValues(Srow)    = 1;
                 else
-                    Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                    Srow = nSuEntries-nuAdd+1+inputs_added_so_far(i_prod);
                     SuEntries(Srow,1) = products(i_prod);
                     SuEntries(Srow,2) = ir;
                     SuValues(Srow)    = 1;
@@ -624,6 +630,8 @@ for ir = 1:nr
             % Add more room in vector if necessary
             SEntries = make_room(SEntries, nSEntries);
             SValues  = make_room(SValues, nSEntries);
+            SuEntries = make_room(SuEntries, nSuEntries);
+            SuValues = make_room(SuValues, nSuEntries);
             
             % Subtract reactant 1
             SEntries(nSEntries-nAdd+1,1) = reactants(1);
@@ -645,7 +653,7 @@ for ir = 1:nr
                     SEntries(Srow,2) = ir;
                     SValues(Srow)    = 1;
                 else
-                    Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                    Srow = nSuEntries-nuAdd+1+inputs_added_so_far(i_prod);
                     SuEntries(Srow,1) = products(i_prod);
                     SuEntries(Srow,2) = ir;
                     SuValues(Srow)    = 1;
@@ -681,6 +689,8 @@ for ir = 1:nr
         % Add more room in vector if necessary
         SEntries = make_room(SEntries, nSEntries);
         SValues  = make_room(SValues, nSEntries);
+        SuEntries = make_room(SuEntries, nSuEntries);
+        SuValues = make_room(SuValues, nSuEntries);
         
         % Subtract reactant 1
         SuEntries(nSuEntries-nuAdd+1,1) = reactants(1);
@@ -702,7 +712,7 @@ for ir = 1:nr
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
             else
-                Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                Srow = nSuEntries-nuAdd+2+inputs_added_so_far(i_prod);
                 SuEntries(Srow,1) = products(i_prod);
                 SuEntries(Srow,2) = ir;
                 SuValues(Srow)    = 1;
@@ -731,6 +741,8 @@ for ir = 1:nr
         % Add more room in vector if necessary
         SEntries = make_room(SEntries, nSEntries);
         SValues  = make_room(SValues, nSEntries);
+        SuEntries = make_room(SuEntries, nSuEntries);
+        SuValues = make_room(SuValues, nSuEntries);
         
         % Subtract reactant 1
         SuEntries(nSuEntries-nuAdd+1,1) = reactants(1);
@@ -747,7 +759,7 @@ for ir = 1:nr
                 SEntries(Srow,2) = ir;
                 SValues(Srow)    = 1;
             else
-                Srow = nSuEntries-nuAdd+inputs_added_so_far(i_prod);
+                Srow = nSuEntries-nuAdd+1+inputs_added_so_far(i_prod);
                 SuEntries(Srow,1) = products(i_prod);
                 SuEntries(Srow,2) = ir;
                 SuValues(Srow)    = 1;
@@ -776,6 +788,8 @@ for ir = 1:nr
         % Add more room in vector if necessary
         SEntries = make_room(SEntries, nSEntries);
         SValues  = make_room(SValues, nSEntries);
+        SuEntries = make_room(SuEntries, nSuEntries);
+        SuValues = make_room(SuValues, nSuEntries);
         
         % Add products
         states_added_so_far = cumsum(productsAreStates);
