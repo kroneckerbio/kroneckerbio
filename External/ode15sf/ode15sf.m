@@ -287,6 +287,11 @@ if nonNegative
   end  
 end
 
+% Determine number of state variables from the number of nonnegative
+% components
+nx = numel(idxNonNegative);
+nT = numel(y0)/nx - 1;
+
 % Handle the Jacobian
 [Jconstant,Jac,Jargs,Joptions] = ...
     odejacobian(FcnHandlesUsed,odeFcn,t0,y0,options,varargin);
@@ -419,8 +424,10 @@ else
     yp = yp0;
   else
     if issparse(Mt)
-      [L,U,P,Q,R] = lu(Mt);            
-      yp = Q * (U \ (L \ (P * (R \ f0))));      
+        % Optimized code for sensitivities
+        [L,U,P,Q,R] = lu(Mt(1:nx,1:nx));
+        Ablock = Mt(nx+1:end,1:nx);
+        yp = invsens(L,U,P,Q,R,nx,nT,Ablock,f0);
     else
       [L,U,p] = lu(Mt,'vector');      
       yp = U \ (L \ f0(p));
@@ -529,7 +536,8 @@ if DAE
   Miter = sparse(one2neq,one2neq,RowScale) * Miter;
 end
 if issparse(Miter)
-  [L,U,P,Q,R] = lu(Miter);
+  [L,U,P,Q,R] = lu(Miter(1:nx,1:nx));
+  Ablock = Miter(nx+1:end,1:nx);
 else
   [L,U,p] = lu(Miter,'vector');  
 end  
@@ -606,7 +614,8 @@ while ~done
       Miter = sparse(one2neq,one2neq,RowScale) * Miter;
     end
     if issparse(Miter)
-      [L,U,P,Q,R] = lu(Miter);
+      [L,U,P,Q,R] = lu(Miter(1:nx,1:nx));
+      Ablock = Miter(nx+1:end,1:nx);
     else  
       [L,U,p] = lu(Miter,'vector');
     end  
@@ -669,7 +678,7 @@ while ~done
         [lastmsg,lastid] = lastwarn('');
         warning(warnoff);
         if issparse(Miter)
-          del = Q * (U \ (L \ (P * (R \ rhs))));
+          del = invsens(L,U,P,Q,R,nx,nT,Ablock,rhs);
         else  
           del = U \ (L \ rhs(p));
         end  
@@ -787,7 +796,8 @@ while ~done
           Miter = sparse(one2neq,one2neq,RowScale) * Miter;
         end
         if issparse(Miter)
-          [L,U,P,Q,R] = lu(Miter);
+          [L,U,P,Q,R] = lu(Miter(1:nx,1:nx));
+          Ablock = Miter(nx+1:end,1:nx);
         else  
           [L,U,p] = lu(Miter,'vector');
         end  
@@ -874,7 +884,8 @@ while ~done
         Miter = sparse(one2neq,one2neq,RowScale) * Miter;
       end
       if issparse(Miter)
-        [L,U,P,Q,R] = lu(Miter);
+        [L,U,P,Q,R] = lu(Miter(1:nx,1:nx));
+        Ablock = Miter(nx+1:end,1:nx);
       else   
         [L,U,p] = lu(Miter,'vector');
       end
@@ -1096,4 +1107,13 @@ solver_output = odefinalize(solver_name, sol,...
                             {kvec,dif3d,idxNonNegative});
 if nargout > 0
   varargout = solver_output;
-end  
+end
+
+end
+
+function yp = invsens(L,U,P,Q,R,nx,nT,Ablock,f0)
+Jinvy0 = Q * (U \ (L \ (P * (R \ f0(1:nx)))));
+f0_block = reshape(f0, nx, nT+1) - [zeros(nx,1) reshape(Ablock*Jinvy0, nx, nT)];
+yp = Q * (U \ (L \ (P * (R \ f0_block))));
+yp = yp(:);
+end
