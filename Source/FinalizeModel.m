@@ -258,7 +258,11 @@ end
 
 %% Type-specific finalization
 if is(m, 'Model.MassActionAmount')
-    m = finalizeModelMassActionAmount(m, varargin{:});
+    if ~isempty(varargin) && strcmp(varargin{1}, 'legacy')
+        m = finalizeModelMassActionAmount(m, varargin{:});
+    else
+        m = finalizeModelMassActionMatrix(m, varargin{:});
+    end
 elseif is(m, 'Model.Analytic')
     m = finalizeModelAnalytic(m, varargin{:});
 end
