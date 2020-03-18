@@ -132,7 +132,7 @@ function m = finalizeModelMassActionMatrix(m)
             tmp = terminds(r.Reactants{rcti});
             if tmp <= nx
                 si = si + 1;
-                Ts.product_ind(si) = ri;
+                Ts.product_ind(si) = ri+1;
                 Ts.state_ind(si) = tmp;
                 Ts.state_coefficient(si) = -1*mult;
             end
@@ -141,7 +141,7 @@ function m = finalizeModelMassActionMatrix(m)
             tmp = terminds(r.Products{pdi});
             if tmp <= nx
                 si = si + 1;
-                Ts.product_ind(si) = ri;
+                Ts.product_ind(si) = ri+1;
                 Ts.state_ind(si) = tmp;
                 Ts.state_coefficient(si) = 1*mult;
             end
@@ -330,6 +330,7 @@ function m = finalizeModelMassActionMatrix(m)
         dat = dat0;
         dat.product_ind = Tr.product_ind;
         dat.term_ind = Tr.term_ind;
+        dat.term_exponent = Tr.term_exponent;
         dat.term_has_exponent = Tr.term_exponent ~= 1;
         dat.term_nonunary_exponent = Tr.term_exponent(dat.term_has_exponent);
         dat.product_ind_max = max(Tr.product_ind);
@@ -341,13 +342,17 @@ function m = finalizeModelMassActionMatrix(m)
             row_inds = Ts.state_ind;
             col_inds = zeros(size(row_inds,1),0);
         else
-            dat.nrows = nx.*nxuk.^(d_order - 1);
-            dat.ncols = nxuk;
+            dat.nrows = nx.*prod(deriv_sizes(1:end-1));
+            if isempty(dat.nrows)
+                dat.nrows = nx;
+            end
+            dat.ncols = deriv_sizes(end);
             dterm_inds_cell = mat2cell(Ts.dterm_inds, size(Ts.dterm_inds,1), ones(size(Ts.dterm_inds,2),1));
             lin_inds = sub2ind([nx, deriv_sizes], Ts.state_ind, dterm_inds_cell{:});
             [row_inds, col_inds] = ind2sub([dat.nrows, dat.ncols], lin_inds);
         end
         dat.S_subs = [row_inds, col_inds];
+        dat.state_coefficient = Ts.state_coefficient;
         dat.state_has_coefficient = Ts.state_coefficient ~= 1;
         dat.state_nonunary_coefficient = Ts.state_coefficient(dat.state_has_coefficient);
         dat.sparse = d_order > 0;
@@ -365,11 +370,13 @@ function val = fun(~, x, u, k, dat)
     %   .term_ind
     %   .term_has_exponent
     %   .term_nonunary_exponent
+    %   .term_exponent
     %   .product_ind_max
     %   .S_product_ind
     %   .S_subs
     %   .state_has_coefficient
     %   .state_nonunary_coefficient
+    %   .state_coefficient
     %   .nx
     %   .ncols
     %   .sparse
@@ -377,16 +384,14 @@ function val = fun(~, x, u, k, dat)
     % Calculate compartment sizes
     v = dat.Vxuk*[x; u; k; 1];
     
-    terms = log([x; u; k; v]);
-    terms = terms(dat.term_ind);
-    terms(dat.term_has_exponent) = terms(dat.term_has_exponent).*dat.term_nonunary_exponent;
-    
     % Calculate products
-    P = [1; exp(accumarray(dat.product_ind, terms, [dat.product_ind_max,1]))];
-    P = P(dat.S_product_ind);
-    P(dat.state_has_coefficient) = P(dat.state_has_coefficient).*dat.state_nonunary_coefficient;
+    terms = log([x; u; k; v]);
+    P = exp(accumarray(dat.product_ind, terms(dat.term_ind) .* dat.term_exponent, ...
+        [dat.product_ind_max,1]));
     
-    val = accumarray(dat.S_subs, P, [dat.nrows, dat.ncols], [], [], dat.sparse);
+    % Add products to RHS vector/matrix
+    val = accumarray(dat.S_subs, P(dat.S_product_ind) .* dat.state_coefficient, ...
+        [dat.nrows, dat.ncols], [], [], dat.sparse);
 end
 
 function m = Update(m, k, funs)
