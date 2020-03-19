@@ -19,24 +19,29 @@ xSol.y = [xSol.y{:}];
 
 switch varargin{1}.solver
     case 'ode15s'
-        for i = 1:numel(varargin)-1
+        % Get sizes of dif3d
+        dif3d_sizes = cellfun(@(x)size(x.idata.dif3d,2), varargin);
+        max_size = max(dif3d_sizes);
+        for i = 1:numel(varargin)
             xSol1 = varargin{i};
-            xSol2 = varargin{i+1};
+%             xSol2 = varargin{i+1};
             size1 = size(xSol1.idata.dif3d, 2);
-            size2 = size(xSol2.idata.dif3d, 2);
-            if(size1 == size2)
+%             size2 = size(xSol2.idata.dif3d, 2);
+            if size1 < max_size
+                xSol1.idata.dif3d = padarray_post(xSol1.idata.dif3d, [0, max_size-size1, 0]);
                 % No change
 %                 dif3d1 = xSol1.idata.dif3d;
 %                 dif3d2 = xSol2.idata.dif3d;
-            elseif(size1 < size2)
-                xSol1.idata.dif3d = padarray_post(xSol1.idata.dif3d, [0, size2-size1, 0]);
+%             elseif(size1 < size2)
+%                 xSol1.idata.dif3d = padarray_post(xSol1.idata.dif3d, [0, size2-size1, 0]);
 %                 dif3d2 = xSol2.idata.dif3d;
-            else % size1 bigger
+            elseif size1 > max_size% size1 bigger
+                error('This is a bug. Sizes of sol.idata.dif3d are not handled properly.')
 %                 dif3d1 = xSol1.idata.dif3d{1};
-                xSol2.idata.dif3d = padarray_post(xSol2.idata.dif3d, [0, size1-size2, 0]);
+%                 xSol2.idata.dif3d = padarray_post(xSol2.idata.dif3d, [0, size1-size2, 0]);
             end
             varargin{i} = xSol1;
-            varargin{i+1} = xSol2;
+%             varargin{i+1} = xSol2;
         end
         temp = cellfun(@(sol){sol.idata.kvec}, varargin); %[xSol1.idata.kvec, xSol2.idata.kvec];
         xSol.idata.kvec = [temp{:}];
