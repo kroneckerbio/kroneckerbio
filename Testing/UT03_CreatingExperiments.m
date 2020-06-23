@@ -51,7 +51,7 @@ a.verifyEqual(con.s, m.s);
 a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
 a.verifyEqual(con.private.BasalInput.u(5), m.u);
-a.verifyEqual(con.private.TimeScale, 10);
+a.verifyEqual(con.private.TimeScale, 100*24*60*60);
 a.verifyEqual(con.Periodic, false);
 a.verifyEqual(con.SteadyState, true);
 end
@@ -64,7 +64,7 @@ a.verifyEqual(con.s, s);
 a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
 a.verifyEqual(con.private.BasalInput.u(5), m.u);
-a.verifyEqual(con.private.TimeScale, 10);
+a.verifyEqual(con.private.TimeScale, 100*24*60*60);
 end
 
 function testSteadyStateExperimentBasalInputConstant(a)
@@ -75,7 +75,7 @@ a.verifyEqual(con.s, m.s);
 a.verifyEqual(con.u(5), m.u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
 a.verifyEqual(con.private.BasalInput.u(5), basalu);
-a.verifyEqual(con.private.TimeScale, 10);
+a.verifyEqual(con.private.TimeScale, 100*24*60*60);
 end
 
 function testSteadyStateExperimentInputConstant(a)
@@ -86,7 +86,7 @@ a.verifyEqual(con.s, m.s);
 a.verifyEqual(con.u(5), u);
 a.verifyEqual(con.d(1), zeros(m.ns,1));
 a.verifyEqual(con.private.BasalInput.u(5), m.u);
-a.verifyEqual(con.private.TimeScale, 10);
+a.verifyEqual(con.private.TimeScale, 100*24*60*60);
 end
 
 function testSteadyStateExperimentDoseConstant(a)
@@ -99,7 +99,7 @@ a.verifyEqual(con.u(1), m.u);
 a.verifyEqual(con.d(1), d)
 a.verifyEqual(con.d(1.5), zeros(m.ns,1))
 a.verifyEqual(con.private.BasalInput.u(5), m.u);
-a.verifyEqual(con.private.TimeScale, 10);
+a.verifyEqual(con.private.TimeScale, 100*24*60*60);
 end
 
 function testSteadyStateExperimentTimeScale(a)
