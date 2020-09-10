@@ -13,24 +13,17 @@ nT  = nTk + nTs + nTq + nTh;
 uqUseInputControls = linearslicer([nu,nq], true(nu,1), opts.UseInputControls);
 
 % Construct system
-[der, jac, eve] = constructSystem();
+[der, jac] = constructSystem();
 
 % Initial conditions
 order = 2;
 ic = extractICs(m,con,opts,order);
 
-% Check if already at steady state
-ssvalue = eve(0, ic);
-atSteadyState = ssvalue == 0;
-
-% If not at steady state, integrate until at steady state
-if ~atSteadyState
-    % Integrate [f; dfdT; d2fdT2] over time
-    sol = accumulateOdeFwdSimp(der, jac, 0, inf, ic, con.private.BasalDiscontinuities, 0, 1:nx, opts.RelTol, opts.AbsTol(1:nx+nx*nT+nx*nT*nT), [], eve, @(cum_sol)true);
-    
-    % Return steady-state value
-    ic = sol.ye;
-end
+abstol = opts.AbsTol(1:nx+nx*nT+nx*nT*nT);
+reltol = opts.RelTol;
+basal_discontinuities = con.private.BasalDiscontinuities;
+timescale = con.private.TimeScale;
+ic = iterate_steady_state(der, jac, ic, nx, abstol, reltol, basal_discontinuities, timescale);
 
 % End of function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -183,27 +176,5 @@ end
             val = spermute132(d2fdTdx(t,x,u), [nx,nx,nT], [nx*nT,nx]); % fx_T -> fT_x
         end
         
-        % Steady-state event
-        function [value, isTerminal, direction] = events(t, joint)
-            u = uf(t);
-            x = joint(1:nx); % x_
-
-            % Absolute change
-            absDiff = con.private.TimeScale * f(-1,x,u); % Change over an entire simulation
-            
-            % Relative change
-            relDiff = absDiff ./ x;
-            
-            % Either absolute change or relative change must be less than
-            % the tolerance for all species
-            value = max(min(abs(absDiff) - opts.AbsTol(1:nx), abs(relDiff) - opts.RelTol));
-            if value < 0
-                value = 0;
-            end
-            
-            % Always end and only care about drops below the threshold
-            isTerminal = true;
-            direction = -1;
-        end
     end
 end
