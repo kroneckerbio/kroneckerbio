@@ -135,6 +135,68 @@ test = AddReaction(m, 'r1', 'x1', {}, 'k');
 a.verifyWarning(@()FinalizeModel(test), 'KroneckerBio:FinalizeModel:RepeatReactions'); % note: throws warning and ignores
 end
 
+function testReactionTypes(a)
+m = InitializeModelMassActionAmount();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddCompartment(m, 'v2', 2, 1);
+m = AddParameter(m, 'k', 4);
+m = AddState(m, 'x1', 'v1', 1);
+m = AddInput(m, 'u1', 'v1', 1);
+m = AddState(m, 'x2', 'v2', 1);
+m = AddInput(m, 'u2', 'v2', 1);
+% D1
+m = AddReaction(m, 'r1', {'x1'}, {}, 'k');
+m = AddReaction(m, 'r1', {'x1'}, {'x1'}, 'k');
+m = AddReaction(m, 'r1', {'x1'}, {'u1'}, 'k');
+m = AddReaction(m, 'r1', {'x1'}, {'x1','x1'}, 'k');
+m = AddReaction(m, 'r1', {'x1'}, {'x1','u1'}, 'k');
+m = AddReaction(m, 'r1', {'x1'}, {'u1','u1'}, 'k');
+% D2
+m = AddReaction(m, 'r1', {'x1','x1'}, {}, 'k');
+m = AddReaction(m, 'r1', {'x1','x1'}, {'x1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','x1'}, {'u1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','x1'}, {'x1','x1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','x1'}, {'x1','u1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','x1'}, {'u1','u1'}, 'k');
+% D3
+m = AddReaction(m, 'r1', {'u1','x2'}, {}, 'k');
+m = AddReaction(m, 'r1', {'u1','x2'}, {'x1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','x2'}, {'u1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','x2'}, {'x1','x1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','x2'}, {'x1','u1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','x2'}, {'u1','u1'}, 'k');
+% D4
+m = AddReaction(m, 'r1', {'x1','u2'}, {}, 'k');
+m = AddReaction(m, 'r1', {'x1','u2'}, {'x1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','u2'}, {'u1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','u2'}, {'x1','x1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','u2'}, {'x1','u1'}, 'k');
+m = AddReaction(m, 'r1', {'x1','u2'}, {'u1','u1'}, 'k');
+% D5
+m = AddReaction(m, 'r1', {'u1','u1'}, {}, 'k');
+m = AddReaction(m, 'r1', {'u1','u1'}, {'x1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','u1'}, {'u1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','u1'}, {'x1','x1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','u1'}, {'x1','u1'}, 'k');
+m = AddReaction(m, 'r1', {'u1','u1'}, {'u1','u1'}, 'k');
+% D6
+m = AddReaction(m, 'r1', {'u1'}, {}, 'k');
+m = AddReaction(m, 'r1', {'u1'}, {'x1'}, 'k');
+m = AddReaction(m, 'r1', {'u1'}, {'u1'}, 'k');
+m = AddReaction(m, 'r1', {'u1'}, {'x1','x1'}, 'k');
+m = AddReaction(m, 'r1', {'u1'}, {'x1','u1'}, 'k');
+m = AddReaction(m, 'r1', {'u1'}, {'u1','u1'}, 'k');
+% d
+m = AddReaction(m, 'r1', {}, {}, 'k');
+m = AddReaction(m, 'r1', {}, {'x1'}, 'k');
+m = AddReaction(m, 'r1', {}, {'u1'}, 'k');
+m = AddReaction(m, 'r1', {}, {'x1','x1'}, 'k');
+m = AddReaction(m, 'r1', {}, {'x1','u1'}, 'k');
+m = AddReaction(m, 'r1', {}, {'u1','u1'}, 'k');
+
+m = FinalizeModel(m);
+end
+
 function testRepeatedReactionsInputs(a)
 m = InitializeModelMassActionAmount();
 m = AddCompartment(m, 'v1', 3, 1);
@@ -144,6 +206,20 @@ m = AddInput(m, 'u1', 'v1', 1);
 m = AddInput(m, 'u2', 'v1', 1);
 m = AddReaction(m, 'r1', {'x1', 'u1'}, {}, 'k');
 m = AddReaction(m, 'r1', {'x1', 'u2'}, {}, 'k');
+
+a.verifyWarningFree(@()FinalizeModel(m))
+end
+
+function testRepeatedReactionsRates(a)
+m = InitializeModelMassActionAmount();
+m = AddCompartment(m, 'v1', 3, 1);
+m = AddParameter(m, 'k', 4);
+m = AddState(m, 'x1', 'v1', 1);
+m = AddState(m, 'x2', 'v1', 1);
+m = AddInput(m, 'u1', 'v1', 1);
+m = AddReaction(m, 'r1', {'x1'}, {}, 'k');
+m = AddReaction(m, 'r1', {'x1', 'x2'}, {'x2'}, 'k');
+m = AddReaction(m, 'r1', {'x1', 'u1'}, {'u1'}, 'k');
 
 a.verifyWarningFree(@()FinalizeModel(m))
 end
