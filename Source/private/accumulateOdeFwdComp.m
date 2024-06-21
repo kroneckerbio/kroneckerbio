@@ -32,7 +32,8 @@ end
 
 %% Initialize variables
 % Initialize empty solution
-cum_sol = [];
+cum_sol = cell(1000,1);
+sol_ind = 0;
 
 % Apply the appropriate delta for the first discontinuities
 if ~isempty(delta)
@@ -76,14 +77,15 @@ for k = 1:(N-1)
         end
         
         % Combine new solution with cumulative
-        cum_sol = mergeSols(cum_sol, sim_sol);
+        sol_ind = sol_ind + 1;
+        cum_sol{sol_ind} = sim_sol;
         
         
         % Test for ending simulation if stop was caused by event
         if sim_sol.x(end) == t_int(2)
             % Segment complete; continue with next segment.
             break
-        elseif ~isempty(is_finished) && is_finished(cum_sol)
+        elseif ~isempty(is_finished) && is_finished(sim_sol)
             % Terminal event triggered
             finished = true;
             break;
@@ -104,14 +106,16 @@ end
 if N == 1
     % If no integration was performed:
     % t0 == tF == discontinuities
-    cum_sol.solver = 'ode15s';
-    cum_sol.extdata = [];
-    cum_sol.x = t0;
-    cum_sol.y = ic;
-    cum_sol.stats = [];
-    cum_sol.idata.kvec = 0;
-    cum_sol.idata.dif3d = zeros(N,1,1);
-    cum_sol.idata.idxNonNegative = sim_opts.NonNegative;
+    sol_ind = sol_ind + 1;
+    cum_sol{sol_ind} = struct;
+    cum_sol{sol_ind}.solver = 'ode15s';
+    cum_sol{sol_ind}.extdata = [];
+    cum_sol{sol_ind}.x = t0;
+    cum_sol{sol_ind}.y = ic;
+    cum_sol{sol_ind}.stats = [];
+    cum_sol{sol_ind}.idata.kvec = 0;
+    cum_sol{sol_ind}.idata.dif3d = zeros(N,1,1);
+    cum_sol{sol_ind}.idata.idxNonNegative = sim_opts.NonNegative;
 else
     % Handle final point (mainly because of delta at last point)
     if all(ic == sim_sol.y(:,end))
@@ -119,7 +123,7 @@ else
         if ~isinf(tF)
             % Don't replace final point with Inf because this causes
             % interpolation errors
-            cum_sol.x(end) = tF;
+            cum_sol{sol_ind}.x(end) = tF;
         end
     else
         % A new point has to be added to the end to handle discontinuities
@@ -134,9 +138,14 @@ else
         sim_sol.idata.dif3d = zeros(size(cum_sol.idata.dif3d,1),1,1);
         sim_sol.idata.idxNonNegative = sim_opts.NonNegative;
         
-        cum_sol = mergeSols(cum_sol, sim_sol);
+        sol_ind = sol_ind + 1;
+        cum_sol{sol_ind} = sim_sol;
     end
 end
+
+% Merge solutions
+cum_sol = cum_sol(1:sol_ind);
+cum_sol = mergeSols(cum_sol{:});
 
 % Make non-events solutions compatible with those that expect them
 if isempty(events) || ~isfield(cum_sol, 'ie') || isempty(cum_sol.ie)
