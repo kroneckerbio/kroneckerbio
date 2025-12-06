@@ -74,6 +74,7 @@ obj = pastestruct(objectiveZero, obj);
 %% Likelihood function
     function val = p(sol)
         nk = numel(sol.k);
+        nTk = nnz(sol.UseParams);
         Tk = sol.k(sol.UseParams);
         Tbark = kbar(sol.UseParams);
         VTbark = Vkbar(sol.UseParams,sol.UseParams);
@@ -86,6 +87,7 @@ obj = pastestruct(objectiveZero, obj);
 %% Log likelihood
     function val = logp(sol)
         nk = numel(sol.k);
+        nTk = nnz(sol.UseParams);
         Tk = sol.k(sol.UseParams);
         Tbark = kbar(sol.UseParams);
         VTbark = Vkbar(sol.UseParams,sol.UseParams);
@@ -96,19 +98,20 @@ obj = pastestruct(objectiveZero, obj);
     end
 
 %% Fisher information
-    function val = F(dxdTSol)
-        VTbark = Vkbar(sol.UseParams,sol.UseParams);
+    function val = F(int)
+        nTk = nnz(int.UseParams);
+        VTbark = Vkbar(int.UseParams,int.UseParams);
 
         if int.Normalized
-            Tbark = kbar(sol.UseParams);
+            Tbark = kbar(int.UseParams);
             VTbark = spdiags(Tbark.^(-1),0,nTk,nTk) * VTbark * spdiags(Tbark.^(-1),0,nTk,nTk);
         end
-        
+
         % This objective only provides information on the first nTk parameters
-        T = [sol.k(sol.UseParams); sol.s(sol.UseSeeds); sol.q(sol.UseInputControls); sol.h(sol.UseDoseControls)];
+        T = [int.k(int.UseParams); int.s(int.UseSeeds); int.q(int.UseInputControls); int.h(int.UseDoseControls)];
         nT = numel(T);
         val = zeros(nT,nT);
-        
+
         val(1:nTk,1:nTk) = infoinv(VTbark);
     end
 end
