@@ -13,7 +13,7 @@ function [Jconstant,Jfcn,Jargs,Joptions] = ...
 %   Copyright 1984-2003 The MathWorks, Inc. 
 %   $Revision: 1.7.4.2 $  $Date: 2003/05/19 11:16:25 $
 
-Jconstant = strcmp(odeget(options,'JConstant','off','fast'),'on');
+Jconstant = strcmp(odeget(options,'JConstant','off'),'on');
 Jfcn = [];
 Jargs = {};
 Joptions = [];   
@@ -21,7 +21,7 @@ Joptions = [];
 Janalytic = false;
 
 if fcnHandlesUsed
-  Jfcn = odeget(options,'Jacobian',[],'fast');
+  Jfcn = odeget(options,'Jacobian',[]);
   if ~isempty(Jfcn)
     if isnumeric(Jfcn)
       Jconstant = true;
@@ -31,7 +31,7 @@ if fcnHandlesUsed
     end
   end  
 else  % ode-file used  
-  joption = odeget(options,'Jacobian','off','fast');  
+  joption = odeget(options,'Jacobian','off');  
   switch lower(joption)
     case 'on'    % ode(t,y,'jacobian',p1,p2...)
       Janalytic = true;
@@ -47,19 +47,19 @@ end
 if ~Janalytic   % odenumjac will be used
   Joptions.diffvar  = 2;       % df(t,y)/dy
   Joptions.vectvars = [];  
-  vectorized = strcmp(odeget(options,'Vectorized','off','fast'),'on');  
+  vectorized = strcmp(odeget(options,'Vectorized','off'),'on');  
   if vectorized
     Joptions.vectvars = 2;     % f(t,[y1,y2]) = [f(t,y1), f(t,y2)] 
   end
   
-  atol = odeget(options,'AbsTol',1e-6,'fast');
+  atol = odeget(options,'AbsTol',1e-6);
   Joptions.thresh = zeros(size(y0))+ atol(:);  
   Joptions.fac  = [];
   
   if fcnHandlesUsed  
-    jpattern = odeget(options,'JPattern',[],'fast'); 
+    jpattern = odeget(options,'JPattern',[]); 
   else  % ode-file used
-    jp_option = odeget(options,'JPattern','off','fast'); 
+    jp_option = odeget(options,'JPattern','off'); 
     switch lower(jp_option)
       case 'on'
         jpattern = feval(ode,[],[],'jpattern',extras{:}); 

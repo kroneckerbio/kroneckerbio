@@ -233,22 +233,22 @@ one2neq = (1:neq);
 
 % Handle the output
 if nargout > 0
-  outputFcn = odeget(options,'OutputFcn',[],'fast');
+  outputFcn = odeget(options,'OutputFcn',[]);
 else
-  outputFcn = odeget(options,'OutputFcn',@odeplot,'fast');
+  outputFcn = odeget(options,'OutputFcn',@odeplot);
 end
 outputArgs = {};      
 if isempty(outputFcn)
   haveOutputFcn = false;
 else
   haveOutputFcn = true;
-  outputs = odeget(options,'OutputSel',1:neq,'fast');
+  outputs = odeget(options,'OutputSel',1:neq);
   if isa(outputFcn,'function_handle')  
     % With MATLAB 6 syntax pass additional input arguments to outputFcn.
     outputArgs = varargin;
   end  
 end
-refine = max(1,odeget(options,'Refine',1,'fast'));
+refine = max(1,odeget(options,'Refine',1));
 if ntspan > 2
   outputAt = 'RequestedPoints';         % output only at tspan points
 elseif refine <= 1
@@ -257,7 +257,7 @@ else
   outputAt = 'RefinedSteps';            % computed points, with refinement
   S = (1:refine-1) / refine;
 end
-printstats = strcmp(odeget(options,'Stats','off','fast'),'on');
+printstats = strcmp(odeget(options,'Stats','off'),'on');
 
 % Handle the event function 
 [haveEventFcn,eventFcn,eventArgs,valt,teout,yeout,ieout] = ...
@@ -268,7 +268,7 @@ printstats = strcmp(odeget(options,'Stats','off','fast'),'on');
                                               options,varargin);
 
 % Non-negative solution components
-idxNonNegative = odeget(options,'NonNegative',[],'fast');
+idxNonNegative = odeget(options,'NonNegative',[]);
 nonNegative = ~isempty(idxNonNegative);
 if nonNegative  
   if Mtype == 0
@@ -305,7 +305,7 @@ if Mtype > 0
           'The mass matrix must have some non-zero entries.')
   end
    
-  Msingular = odeget(options,'MassSingular','maybe','fast');
+  Msingular = odeget(options,'MassSingular','maybe');
   switch Msingular
     case 'no',     DAE = false;
     case 'yes',    DAE = true;
@@ -313,7 +313,7 @@ if Mtype > 0
   end
    
   if DAE
-    yp0 = odeget(options,'InitialSlope',[],'fast');
+    yp0 = odeget(options,'InitialSlope',[]);
     if isempty(yp0)
       yp0_OK = false;
       yp0 = zeros(neq,1);  
@@ -358,8 +358,8 @@ if Jconstant
   end
 end
 
-maxk = odeget(options,'MaxOrder',5,'fast');
-bdf = strcmp(odeget(options,'BDF','off','fast'),'on');
+maxk = odeget(options,'MaxOrder',5);
+bdf = strcmp(odeget(options,'BDF','off'),'on');
 
 % Initialize method parameters.
 G = [1; 3/2; 11/6; 25/12; 137/60];

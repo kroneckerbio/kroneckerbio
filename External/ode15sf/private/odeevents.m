@@ -18,7 +18,7 @@ teout = [];
 yeout = [];
 ieout = [];
 
-eventFcn = odeget(options,'Events',[],'fast');
+eventFcn = odeget(options,'Events',[]);
 if isempty(eventFcn)
   return
 end

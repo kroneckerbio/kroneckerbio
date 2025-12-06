@@ -144,7 +144,7 @@ else
 end
 
 % Get the error control options, and set defaults.
-rtol = odeget(options,'RelTol',1e-3,'fast');
+rtol = odeget(options,'RelTol',1e-3);
 if (length(rtol) ~= 1) || (rtol <= 0)
   error('MATLAB:odearguments:RelTolNotPosScalar', 'RelTol must be a positive scalar.');
 end
@@ -153,11 +153,11 @@ if rtol < 100 * eps(dataType)
   warning('MATLAB:odearguments:RelTolIncrease', ...
           'RelTol has been increased to %g.',rtol)
 end
-atol = odeget(options,'AbsTol',1e-6,'fast');
+atol = odeget(options,'AbsTol',1e-6);
 if any(atol <= 0)
   error('MATLAB:odearguments:AbsTolNotPos', 'AbsTol must be positive.');
 end
-normcontrol = strcmp(odeget(options,'NormControl','off','fast'),'on');
+normcontrol = strcmp(odeget(options,'NormControl','off'),'on');
 if normcontrol
   if length(atol) ~= 1
     error('MATLAB:odearguments:NonScalarAbsTol',...
@@ -176,11 +176,11 @@ end
 threshold = atol / rtol;
 
 % By default, hmax is 1/10 of the interval.
-hmax = min(abs(tfinal-t0), abs(odeget(options,'MaxStep',0.1*(tfinal-t0),'fast')));
+hmax = min(abs(tfinal-t0), abs(odeget(options,'MaxStep',0.1*(tfinal-t0))));
 if hmax <= 0
   error('MATLAB:odearguments:MaxStepLEzero', 'Option ''MaxStep'' must be greater than zero.');
 end
-htry = abs(odeget(options,'InitialStep',[],'fast'));
+htry = abs(odeget(options,'InitialStep',[]));
 if ~isempty(htry) && (htry <= 0)
   error('MATLAB:odearguments:InitialStepLEzero',...
         'Option ''InitialStep'' must be greater than zero.');

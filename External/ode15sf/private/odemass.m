@@ -18,7 +18,7 @@ massM = speye(length(y0));
 dMoptions = [];    % options for odenumjac computing d(M(t,y)*v)/dy
 
 if FcnHandlesUsed     % function handles used    
-  Moption = odeget(options,'Mass',[],'fast');
+  Moption = odeget(options,'Mass',[]);
   if isempty(Moption)
     return    % massType = 0
   elseif isnumeric(Moption)
@@ -27,7 +27,7 @@ if FcnHandlesUsed     % function handles used
   else % try feval
     massFcn = Moption;
     massArgs = extras;  
-    Mstdep = odeget(options,'MStateDependence','weak','fast');
+    Mstdep = odeget(options,'MStateDependence','weak');
     switch lower(Mstdep)
       case 'none'
         massType = 2;
@@ -39,12 +39,12 @@ if FcnHandlesUsed     % function handles used
         dMoptions.diffvar  = 3;       % d(odeMxV(Mfun,t,y)/dy
         dMoptions.vectvars = [];  
         
-        atol = odeget(options,'AbsTol',1e-6,'fast');
+        atol = odeget(options,'AbsTol',1e-6);
         dMoptions.thresh = zeros(size(y0))+ atol(:);  
         
         dMoptions.fac  = [];
         
-        Mvs = odeget(options,'MvPattern',[],'fast'); 
+        Mvs = odeget(options,'MvPattern',[]); 
         if ~isempty(Mvs)
           dMoptions.pattern = Mvs;          
           dMoptions.g = colgroup(Mvs);
@@ -63,9 +63,9 @@ if FcnHandlesUsed     % function handles used
   end  
   
 else % ode-file
-  mass = lower(odeget(options,'Mass','none','fast'));
+  mass = lower(odeget(options,'Mass','none'));
   % Obsolete code -- should be removed in a subsequent release.
-  Mconstant = odeget(options,'MassConstant',[],'fast');
+  Mconstant = odeget(options,'MassConstant',[]);
   if strcmp(mass,'on') || strcmp(mass,'off') || ...
       strcmp(Mconstant,'on') || strcmp(Mconstant,'off')
     if strcmp(mass,'on') || strcmp(mass,'off')
