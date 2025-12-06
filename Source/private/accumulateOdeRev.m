@@ -78,7 +78,7 @@ for k = 1:(N-1)
     % Note: t_event_start <= t_event_end if boost goes past the end time
     while t_event_start > t_event_end && ne < n_events && n_false_events < max_false_events
         % Start or restart integration after an event
-        sim_sol = ode15sf(der, t_event_int, ic, sim_opts);
+        sim_sol = ode15s(der, t_event_int, ic, sim_opts);
         
         % Check if integration failed when it shouldn't have
         if ~isempty(events) && isempty(events) && sim_sol.x(end) ~= t_int(2)
