@@ -136,8 +136,16 @@ m1 = FinalizeModel(m1);
 verifyDerivatives(a, m1);
 
 m2 = LoadModelSimBioAnalytic(file);
+
 % TODO: hack simbio to get the correct compartments out
 m2.Compartments(3).Dimension = 2;
+
+% Simbiology auto-generates names like "Reaction_1" for unnamed reactions
+% but libSBML does not. Wipe the auto-generated names.
+for i = 1:length(m2.Reactions)
+        m2.Reactions(i).Name = '';
+end
+
 m2 = FinalizeModel(m2);
 verifyDerivatives(a, m2);
 
