@@ -104,13 +104,19 @@ end
 if N == 1
     % If no integration was performed:
     % t0 == tF == discontinuities
+    % Create a two-point solution to ensure deval works in newer MATLAB versions
+    % The second point is at t0 + epsilon to avoid degenerate single-point solution
+    epsilon = eps(t0) * 100;
+    if t0 == 0
+        epsilon = 1e-15; % Use fixed epsilon for t=0 case
+    end
     cum_sol.solver = 'ode15s';
     cum_sol.extdata = [];
-    cum_sol.x = t0;
-    cum_sol.y = ic;
+    cum_sol.x = [t0, t0 + epsilon];
+    cum_sol.y = [ic, ic];
     cum_sol.stats = [];
-    cum_sol.idata.kvec = 0;
-    cum_sol.idata.dif3d = zeros(N,1,1);
+    cum_sol.idata.kvec = [0, 0];
+    cum_sol.idata.dif3d = zeros(size(ic,1), 1, 2);
     cum_sol.idata.idxNonNegative = sim_opts.NonNegative;
 else
     % Handle final point (mainly because of delta at last point)
