@@ -324,7 +324,7 @@ Gbest = inf;
 Tbest = T0;
 
 % Check for parallel toolbox if parallel optimization is specified
-if opts.ParallelizeExperiments && isempty(ver('distcomp'))
+if opts.ParallelizeExperiments && isempty(ver('parallel'))
     warning('KroneckerBio:FitObjective:ParallelToolboxMissing', ...
         ['opts.ParallelizeExperiments requires the Parallel '...
         'Computing toolbox. Reverting to serial evaluation.'])

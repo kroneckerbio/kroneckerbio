@@ -75,7 +75,7 @@ end
 function testfun = generateTestParallel(model, fitopts, nExperiments, nTotalTimePoints)
 
 % Check for parallel toolbox. If missing, just skip this test
-noParallelToolbox = isempty(ver('distcomp'));
+noParallelToolbox = isempty(ver('parallel'));
 if noParallelToolbox
     testfun = @(a)disp('');
     return
