@@ -1328,14 +1328,16 @@ if ~isempty(rIn)
     %   Necessary for "power" and other MathML function translation
     % Initialize symbolic variables
     syms(ids{:});
-    
+
     % Evaluate the expressions to remove function calls
-    rOut = eval(rIn);
-    
+    % Note: In newer MATLAB, we use formula() instead of eval() to avoid deprecation warnings
+    % formula() extracts the symbolic formula and evaluates it in the current workspace
+    rOut = formula(rIn);
+
     % Clear the symbolic variables
     clear(ids{:})
 else
-    % eval does not preserve size if rIn is empty
+    % formula does not preserve size if rIn is empty
     rOut = rIn;
 end
 end

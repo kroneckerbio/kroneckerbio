@@ -1,10 +1,7 @@
 function fstr = fastchar(f)
+% Convert symbolic array to cell array of strings
+%
+% For older versions of Matlab, this was a fast conversion function, but now it
+% is a simple wrapper.
 
-origsize = size(f);
-
-filename = which('fastchar.mu');
-read(symengine, filename);
-fstr = feval(symengine,'fastchar',f(:));
-fstr = reshape(eval(fstr),origsize);
-
-end
+fstr = cellstr(string(f));

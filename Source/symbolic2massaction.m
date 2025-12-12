@@ -478,7 +478,9 @@ function rOut = evaluateExternalFunctions(rIn, ids)
 syms(ids{:});
 
 % Evaluate the expressions to remove function calls
-rOut = eval(rIn);
+% Note: In newer MATLAB, we use formula() instead of eval() to avoid deprecation warnings
+% formula() extracts the symbolic formula and evaluates it in the current workspace
+rOut = formula(rIn);
 
 % Clear the symbolic variables
 clear(ids{:})
