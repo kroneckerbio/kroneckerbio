@@ -189,15 +189,15 @@ int.sol = sol;
     end
 
     function val = evaluate_state(sol, t)
-        val = devals(sol, t, 1:nx);
+        val = deval(sol, t, 1:nx);
     end
 
     function val = evaluate_output(sol, t)
-        val = y(t, devals(sol, t, 1:nx), u(t));
+        val = y(t, deval(sol, t, 1:nx), u(t));
     end
 
     function val = evaluate_state_sensitivity(sol, t)
-        val = devals(sol, t, dxdTStart:dxdTEnd); % xT_t
+        val = deval(sol, t, dxdTStart:dxdTEnd); % xT_t
         
         if normalized
             val = normalizeDerivatives(T, val);

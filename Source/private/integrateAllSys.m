@@ -20,9 +20,16 @@ if any([obs.Complex])
         else
             % Evaluate all requested time points
             ints(i_obs).t = obs(i_obs).DiscreteTimes;
-            ints(i_obs).x = ints(i_obs).x(ints(i_obs).t);
-            ints(i_obs).u = ints(i_obs).u(ints(i_obs).t);
-            ints(i_obs).y = ints(i_obs).y(ints(i_obs).t);
+            if ~isempty(ints(i_obs).t)
+                ints(i_obs).x = ints(i_obs).x(ints(i_obs).t);
+                ints(i_obs).u = ints(i_obs).u(ints(i_obs).t);
+                ints(i_obs).y = ints(i_obs).y(ints(i_obs).t);
+            else
+                % Empty DiscreteTimes - return empty arrays with correct dimensions
+                ints(i_obs).x = zeros(m.nx, 0);
+                ints(i_obs).u = zeros(m.nu, 0);
+                ints(i_obs).y = zeros(m.ny, 0);
+            end
         end
     end
 else

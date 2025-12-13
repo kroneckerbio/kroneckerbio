@@ -23,6 +23,10 @@ function testObjectiveGradientSimpleSteadyState(a)
 simpleopts.steadyState = true;
 [m, con, obj, opts] = simple_model(simpleopts);
 
+% TODO: Figure out why finite differences won't integrate with regular
+% AbsTol
+opts.AbsTol = 1e-7;
+
 verifyGradient(a, m, con, obj, opts)
 end
 

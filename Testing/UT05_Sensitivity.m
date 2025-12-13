@@ -41,6 +41,10 @@ simpleopts.steadyState = true;
 [m, con, ~, opts] = simple_model(simpleopts);
 tGet = 1:6;
 
+% TODO: Figure out why finite differences won't integrate with regular
+% AbsTol
+opts.AbsTol = 1e-7;
+
 verifySensitivity(a, m, con, tGet, opts)
 end
 

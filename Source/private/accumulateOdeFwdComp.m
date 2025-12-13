@@ -59,7 +59,7 @@ for k = 1:(N-1)
     % Integrate until interval is complete or terminal event fires
     while true %dowhile
         % Start or restart integration after an event
-        sim_sol = ode15sf(der, t_event_int, ic, sim_opts);
+        sim_sol = ode15s(der, t_event_int, ic, sim_opts);
         
         % Check if integration failed when it shouldn't have
         if ~isempty(events) && isempty(sim_sol.ie) && sim_sol.x(end) ~= t_int(2)
@@ -104,13 +104,16 @@ end
 if N == 1
     % If no integration was performed:
     % t0 == tF == discontinuities
+    % Create a two-point solution to ensure deval works in newer MATLAB versions
+    % The second point is at t0 + epsilon to avoid degenerate single-point solution
+    epsilon = eps(t0) * 100;
     cum_sol.solver = 'ode15s';
     cum_sol.extdata = [];
-    cum_sol.x = t0;
-    cum_sol.y = ic;
+    cum_sol.x = [t0, t0 + epsilon];
+    cum_sol.y = [ic, ic];
     cum_sol.stats = [];
-    cum_sol.idata.kvec = 0;
-    cum_sol.idata.dif3d = zeros(N,1,1);
+    cum_sol.idata.kvec = [0, 0];
+    cum_sol.idata.dif3d = zeros(size(ic,1), 5, 2);
     cum_sol.idata.idxNonNegative = sim_opts.NonNegative;
 else
     % Handle final point (mainly because of delta at last point)

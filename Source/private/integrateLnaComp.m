@@ -58,9 +58,9 @@ int.dydx = m.dydx;
 int.dydu = m.dydu;
 
 int.t = sol.x;
-int.x = @(t)devals(sol, t);
+int.x = @(t)deval(sol, t);
 int.u = con.u;
-int.y = @(t)y(t, devals(sol, t), u(t));
+int.y = @(t)y(t, deval(sol, t), u(t));
 
 int.Vx = @(t)evaluate_state_variance(sol,t);
 int.Vy = @(t)evaluate_output_variance(sol,t);
@@ -149,7 +149,7 @@ int.sol = sol;
     function val = evaluate_state_variance(sol, t)
         nt = numel(t);
         
-        extract = devals(sol, t,nx+1:nx+nVx);
+        extract = deval(sol, t,nx+1:nx+nVx);
         val = zeros(nx*nx,nt);
         val(upperVInd,:) = extract;
         val(lowerVInd,:) = extract; % xx_t
@@ -158,7 +158,7 @@ int.sol = sol;
     function val = evaluate_output_variance(sol, t)
         nt = numel(t);
         
-        xs = devals(sol, t,1:nx);
+        xs = deval(sol, t,1:nx);
         Vxs = evaluate_state_variance(sol, t);
         
         val = zeros(ny*ny,nt);

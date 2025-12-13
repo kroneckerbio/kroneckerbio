@@ -320,15 +320,15 @@ int.sol = sol;
     end
 
     function val = evaluate_state(sol, t)
-        val = devals(sol, t, 1:nx);
+        val = deval(sol, t, 1:nx);
     end
 
     function val = evaluate_output(sol, t)
-        val = y(t, devals(sol, t, 1:nx), u(t));
+        val = y(t, deval(sol, t, 1:nx), u(t));
     end
 
     function val = evaluate_state_sensitivity(sol, t)
-        val = devals(sol, t, dxdTStart:dxdTEnd); % xT_t
+        val = deval(sol, t, dxdTStart:dxdTEnd); % xT_t
         if normalized
             val = normalizeDerivatives(T, val);
         end
@@ -370,9 +370,9 @@ int.sol = sol;
     end
 
     function val = evaluate_state_curvature(sol, t)
-        val = devals(sol, t, d2xdT2Start:d2xdT2End);
+        val = deval(sol, t, d2xdT2Start:d2xdT2End);
         if normalized
-            dxdT = devals(sol, t, dxdTStart:dxdTEnd);
+            dxdT = deval(sol, t, dxdTStart:dxdTEnd);
             [unused,val] = normalizeDerivatives(T, dxdT, val);
         end
     end
