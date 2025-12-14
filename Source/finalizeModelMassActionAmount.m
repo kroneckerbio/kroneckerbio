@@ -907,7 +907,8 @@ D5UsedColumns = vec(unique(D5UsedColumns));
 i_reaction_name = sparse(i_reaction_name - 1);
 
 % Assemble reactions into one big matrix
-reaction_matrix = [sparse(m.krInd), m.S.', Su.', i_reaction_name];
+reaction_matrix = [sparse(m.krInd), m.S.', Su.', i_reaction_name, ...
+    [m.D1 m.D2 m.D3 m.D4 m.D5 m.D6]~=0];
 
 % All rows that already appeared elsewhere
 [~, i_unique_reactions] = unique(reaction_matrix, 'rows');
