@@ -24,10 +24,11 @@ function con = experimentSteadyState(m, s, basal_input, inp, dos, time_scale, na
 %       Default = doseZero(m)
 %       The definition of the dose amounts and schedule
 %   time_scale: [ nonnegative scalar ]
-%       Default = 10
+%       Default = 100*24*60*60
 %       The typical time scale for an observation. The steady state is
-%       determined to be reached when the states are expected to change
-%       less than the tolerance over this time scale.
+%       determined to be reached when the states are observed to change
+%       less than the tolerance over this time scale. The default is 
+%       100*24*60*60, which is 100 days if the model time unit is seconds.
 %   name: [ string ]
 %       Default = ''
 %       An arbitrary name for the experiment
@@ -61,7 +62,7 @@ if nargin < 7
 end
 
 if isempty(time_scale)
-    time_scale = 10;
+    time_scale = 100*24*60*60; % 100 days, if units are seconds
 end
 if isempty(s)
     s = m.s;
